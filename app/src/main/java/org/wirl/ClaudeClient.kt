@@ -32,7 +32,12 @@ object ClaudeClient {
     /** Returns the cleaned text, or throws [CleanupException] with a short user-facing message. */
     suspend fun clean(context: Context, text: String): String = withContext(Dispatchers.IO) {
         val prefs = Prefs(context)
-        val apiKey = prefs.apiKey
+        val apiKey = try {
+            prefs.apiKey
+        } catch (e: Exception) {
+            // Encrypted storage can fail on some devices; say so instead of failing silently.
+            throw CleanupException("Can't read your saved key. Paste it again in Wirl.")
+        }
         if (apiKey.isBlank()) throw CleanupException("Add your API key in Wirl")
 
         val body = JSONObject()

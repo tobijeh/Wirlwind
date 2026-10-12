@@ -1,6 +1,7 @@
 package org.wirl
 
 import android.accessibilityservice.AccessibilityService
+import android.util.Log
 import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.graphics.PixelFormat
@@ -34,6 +35,9 @@ import kotlin.math.hypot
  * editable field is focused. Tap: clean up the field's text with Claude. Long-press: undo.
  */
 class BubbleService : AccessibilityService() {
+    private companion object {
+        const val TAG = "Wirl"
+    }
 
     private enum class State { IDLE, BUSY, DONE }
 
@@ -178,6 +182,10 @@ class BubbleService : AccessibilityService() {
                 }
             } catch (e: CleanupException) {
                 fail(e.message ?: "Error")
+            } catch (e: Exception) {
+                // Anything else would leave the bubble stuck on "Cleaning up…" and ignoring taps.
+                Log.e(TAG, "Cleanup failed unexpectedly", e)
+                fail("Cleanup failed: ${e.javaClass.simpleName}")
             }
         }
     }
