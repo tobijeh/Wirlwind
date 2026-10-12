@@ -48,15 +48,16 @@ echo "sdk.dir=$HOME/Android/Sdk" > local.properties          # Linux
 The APK is at `app/build/outputs/apk/release/app-release.apk`. It's signed with the
 debug key, which is fine for sideloading. (`assembleDebug` also works.)
 
-### Option C: GitHub Actions (no setup)
+### Option C: GitHub Releases (no computer needed)
 
-Every push to `main` builds a debug APK on GitHub. No computer needed. Open the repo's **Actions** tab, click the latest
-**Build APK** run, and download **Wirl-apk** under **Artifacts** (it's a zip containing `app-debug.apk`).
-You can also start a build by hand with **Run workflow**.
+Every push to `main` builds a signed release APK and publishes it as a GitHub Release
+tagged `v1.0.<run number>`. On your phone, open the repo's **Releases** page
+(<https://github.com/tobijeh/Wirlwind/releases/latest>) and tap `wirl-1.0.N.apk`.
+You can also start a build from the **Actions** tab with **Run workflow**.
 
-Builds are signed with the key stored in the `DEBUG_KEYSTORE_BASE64` repo secret
-(**Settings → Secrets and variables → Actions**), so each new APK installs over the last one.
-If that secret is missing, the run shows a warning and the APK can't update an existing install.
+Releases are signed with the key in the `DEBUG_KEYSTORE_BASE64` repo secret
+(**Settings → Secrets and variables → Actions**), so each one installs over the last.
+If that secret is missing, the build fails instead of publishing an APK that can't update.
 
 > **Keep building on the same computer.** Android only installs an update over an existing
 > app if it's signed with the same key. A different machine has a different debug key, so you'd

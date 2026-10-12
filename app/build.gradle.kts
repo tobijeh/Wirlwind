@@ -11,14 +11,16 @@ android {
         applicationId = "org.wirl"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        // CI passes -PversionCode / -PversionName (from the run number); local builds use 1 / "1.0".
+        versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
+        versionName = (findProperty("versionName") as String?) ?: "1.0"
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Personal sideloaded build: sign release with the debug key so the APK installs as-is.
+            // Personal sideloaded build: sign release with the debug keystore. In CI that keystore is
+            // the fixed key restored from the DEBUG_KEYSTORE_BASE64 secret.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
