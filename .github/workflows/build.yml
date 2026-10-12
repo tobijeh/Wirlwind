@@ -19,8 +19,6 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
-
       - uses: gradle/actions/setup-gradle@v4
 
       # Optional: sign with a fixed key so each build installs as an update over the last.
