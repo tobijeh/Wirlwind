@@ -48,6 +48,22 @@ echo "sdk.dir=$HOME/Android/Sdk" > local.properties          # Linux
 The APK is at `app/build/outputs/apk/release/app-release.apk`. It's signed with the
 debug key, which is fine for sideloading. (`assembleDebug` also works.)
 
+### Option C: GitHub Actions (no setup)
+
+Every push to `main` builds the APK on GitHub. Open the repo's **Actions** tab, click the latest
+**Build APK** run, and download **Wirl-apk** under **Artifacts** (it's a zip with the APK inside).
+You can also start a build by hand with **Run workflow**.
+
+Each run signs with a fresh debug key, so you'd have to uninstall before installing a newer build.
+To make updates install in place, add your own key as a repo secret once:
+
+```bash
+base64 -w0 ~/.android/debug.keystore   # macOS: base64 -i ~/.android/debug.keystore
+```
+
+Copy the output into **Settings → Secrets and variables → Actions → New repository secret**,
+named `DEBUG_KEYSTORE_BASE64`. (The file exists after you've built once locally or in Android Studio.)
+
 > **Keep building on the same computer.** Android only installs an update over an existing
 > app if it's signed with the same key. A different machine has a different debug key, so you'd
 > need to uninstall first (and re-enter your API key).
