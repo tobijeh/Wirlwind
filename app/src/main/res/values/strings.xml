@@ -13,6 +13,8 @@
     <string name="accessibility_off">Not enabled. Open settings, find Wirl, and turn it on.</string>
     <string name="open_settings">Open settings</string>
     <string name="bubble_toggle">Show floating bubble</string>
+    <string name="done_check_toggle">Show green check when done</string>
+    <string name="done_message_toggle">Show \"Cleaned up\" message</string>
     <string name="bubble_toggle_summary">Appears while a text field is focused</string>
     <string name="bubble_size">Bubble size</string>
     <string name="bubble_size_value">Bubble size · %1$d dp</string>

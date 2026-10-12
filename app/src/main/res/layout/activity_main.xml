@@ -109,6 +109,25 @@
             android:text="@string/bubble_toggle_summary"
             android:textAppearance="?attr/textAppearanceBodySmall" />
 
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/doneCheckToggle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="56dp"
+            android:paddingStart="4dp"
+            android:text="@string/done_check_toggle"
+            android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/doneMessageToggle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="56dp"
+            android:paddingStart="4dp"
+            android:text="@string/done_message_toggle"
+            android:textAppearance="?attr/textAppearanceBodyLarge" />
+
         <!-- Bubble appearance -->
         <com.google.android.material.card.MaterialCardView
             style="@style/Widget.Material3.CardView.Outlined"

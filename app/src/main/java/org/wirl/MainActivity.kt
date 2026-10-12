@@ -25,6 +25,10 @@ class MainActivity : AppCompatActivity() {
         binding.prompt.setText(prefs.systemPrompt)
         binding.bubbleToggle.isChecked = prefs.bubbleEnabled
         binding.bubbleToggle.setOnCheckedChangeListener { _, checked -> prefs.bubbleEnabled = checked }
+        binding.doneCheckToggle.isChecked = prefs.showDoneCheck
+        binding.doneCheckToggle.setOnCheckedChangeListener { _, checked -> prefs.showDoneCheck = checked }
+        binding.doneMessageToggle.isChecked = prefs.showDoneMessage
+        binding.doneMessageToggle.setOnCheckedChangeListener { _, checked -> prefs.showDoneMessage = checked }
 
         setUpBubbleAppearance()
 

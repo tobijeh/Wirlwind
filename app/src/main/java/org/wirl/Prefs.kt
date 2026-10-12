@@ -32,6 +32,16 @@ class Prefs(context: Context) {
         get() = plain.getBoolean(KEY_BUBBLE_ENABLED, true)
         set(value) = plain.edit().putBoolean(KEY_BUBBLE_ENABLED, value).apply()
 
+    /** Briefly turn the bubble green with a check when a cleanup finishes. */
+    var showDoneCheck: Boolean
+        get() = plain.getBoolean(KEY_SHOW_DONE_CHECK, true)
+        set(value) = plain.edit().putBoolean(KEY_SHOW_DONE_CHECK, value).apply()
+
+    /** Show the "Cleaned up · Hold bubble to undo." message when a cleanup finishes. */
+    var showDoneMessage: Boolean
+        get() = plain.getBoolean(KEY_SHOW_DONE_MESSAGE, false)
+        set(value) = plain.edit().putBoolean(KEY_SHOW_DONE_MESSAGE, value).apply()
+
     var systemPrompt: String
         get() = plain.getString(KEY_PROMPT, null)?.takeIf { it.isNotBlank() } ?: DEFAULT_PROMPT
         set(value) = plain.edit().putString(KEY_PROMPT, value.trim()).apply()
@@ -70,6 +80,8 @@ class Prefs(context: Context) {
         const val KEY_BUBBLE_SIZE = "bubble_size_dp"
         const val KEY_BUBBLE_OPACITY = "bubble_opacity"
         const val KEY_LAST_RESULT = "last_result"
+        const val KEY_SHOW_DONE_CHECK = "show_done_check"
+        const val KEY_SHOW_DONE_MESSAGE = "show_done_message"
 
         const val MIN_BUBBLE_SIZE_DP = 40
         const val MAX_BUBBLE_SIZE_DP = 80

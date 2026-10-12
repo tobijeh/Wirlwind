@@ -211,9 +211,14 @@ class BubbleService : AccessibilityService() {
     }
 
     private fun succeed() {
-        setState(State.DONE)
+        if (prefs.showDoneCheck) {
+            setState(State.DONE)
+            handler.postDelayed(resetDoneRunnable, 1500)
+        } else {
+            setState(State.IDLE)
+        }
+        if (prefs.showDoneMessage) showLabel(getString(R.string.cleaned_banner), 2500)
         prefs.lastResult = "Cleaned up at ${java.text.DateFormat.getTimeInstance().format(java.util.Date())}"
-        handler.postDelayed(resetDoneRunnable, 1500)
         scheduleCheck(0)
     }
 
