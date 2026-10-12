@@ -50,8 +50,8 @@ debug key, which is fine for sideloading. (`assembleDebug` also works.)
 
 ### Option C: GitHub Actions (no setup)
 
-Every push to `main` builds the APK on GitHub. Open the repo's **Actions** tab, click the latest
-**Build APK** run, and download **Wirl-apk** under **Artifacts** (it's a zip with the APK inside).
+Every push to `main` builds a debug APK on GitHub. No computer needed. Open the repo's **Actions** tab, click the latest
+**Build APK** run, and download **Wirl-apk** under **Artifacts** (it's a zip containing `app-debug.apk`).
 You can also start a build by hand with **Run workflow**.
 
 Each run signs with a fresh debug key, so you'd have to uninstall before installing a newer build.
