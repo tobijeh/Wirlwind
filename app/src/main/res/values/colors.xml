@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bubble_blue">#2F5BD3</color>
+    <color name="bubble_green">#1F7A4D</color>
+    <color name="label_bg">#E6202124</color>
+    <color name="white">#FFFFFF</color>
+</resources>

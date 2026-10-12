@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Wirlwind</string>
+    <string name="process_text_label">Clean up</string>
+    <string name="accessibility_description">Shows a floating bubble while you type. Tap it to clean up the text in the focused field with Claude. Long-press to undo. Wirlwind only reads the focused text field, and only when you tap the bubble.</string>
+
+    <string name="api_key_label">Anthropic API key</string>
+    <string name="api_key_hint">sk-ant-…</string>
+    <string name="api_key_saved">Key saved (stored encrypted)</string>
+    <string name="api_key_missing">No key saved yet</string>
+    <string name="accessibility_title">Bubble service</string>
+    <string name="accessibility_on">Enabled</string>
+    <string name="accessibility_off">Not enabled. Open settings, find Wirlwind, and turn it on.</string>
+    <string name="open_settings">Open settings</string>
+    <string name="bubble_toggle">Show floating bubble</string>
+    <string name="bubble_toggle_summary">Appears while a text field is focused</string>
+    <string name="prompt_label">Cleanup instructions</string>
+    <string name="reset_prompt">Reset to default</string>
+    <string name="save">Save</string>
+    <string name="saved">Saved</string>
+
+    <string name="cleaning">Cleaning up…</string>
+    <string name="cleaned_banner">Cleaned up · Hold bubble to undo.</string>
+    <string name="restored">Original restored</string>
+    <string name="nothing_to_undo">Nothing to undo</string>
+    <string name="no_text">Nothing to clean up</string>
+    <string name="no_field">No text field focused</string>
+    <string name="text_changed">Text changed while cleaning, left as is</string>
+    <string name="replace_failed">Couldn\'t replace text in this field</string>
+    <string name="copied">Cleaned text copied</string>
+    <string name="bubble_desc">Clean up text</string>
+</resources>
