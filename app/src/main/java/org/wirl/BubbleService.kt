@@ -1,4 +1,4 @@
-package org.wirlwind
+package org.wirl
 
 import android.accessibilityservice.AccessibilityService
 import android.content.SharedPreferences

@@ -1,4 +1,4 @@
-package org.wirlwind
+package org.wirl
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -9,7 +9,7 @@ import androidx.security.crypto.MasterKey
 class Prefs(context: Context) {
     private val app = context.applicationContext
 
-    val plain: SharedPreferences = app.getSharedPreferences("wirlwind", Context.MODE_PRIVATE)
+    val plain: SharedPreferences = app.getSharedPreferences("wirl", Context.MODE_PRIVATE)
 
     private val secure: SharedPreferences by lazy {
         val masterKey = MasterKey.Builder(app)
@@ -17,7 +17,7 @@ class Prefs(context: Context) {
             .build()
         EncryptedSharedPreferences.create(
             app,
-            "wirlwind_secure",
+            "wirl_secure",
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,

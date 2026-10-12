@@ -1,4 +1,4 @@
-package org.wirlwind
+package org.wirl
 
 import android.content.ClipData
 import android.content.ClipboardManager

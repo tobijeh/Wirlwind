@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "Wirlwind"
+rootProject.name = "Wirl"
 include(":app")

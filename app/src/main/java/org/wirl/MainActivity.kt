@@ -1,4 +1,4 @@
-package org.wirlwind
+package org.wirl
 
 import android.content.ComponentName
 import android.content.Intent
@@ -7,7 +7,7 @@ import android.provider.Settings
 import android.text.TextUtils
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import org.wirlwind.databinding.ActivityMainBinding
+import org.wirl.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding

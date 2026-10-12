@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "org.wirlwind"
+    namespace = "org.wirl"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "org.wirlwind"
+        applicationId = "org.wirl"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

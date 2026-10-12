@@ -6,4 +6,4 @@
     android:canRetrieveWindowContent="true"
     android:description="@string/accessibility_description"
     android:notificationTimeout="100"
-    android:settingsActivity="org.wirlwind.MainActivity" />
+    android:settingsActivity="org.wirl.MainActivity" />

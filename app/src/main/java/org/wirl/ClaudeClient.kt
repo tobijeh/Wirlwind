@@ -1,4 +1,4 @@
-package org.wirlwind
+package org.wirl
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
@@ -33,7 +33,7 @@ object ClaudeClient {
     suspend fun clean(context: Context, text: String): String = withContext(Dispatchers.IO) {
         val prefs = Prefs(context)
         val apiKey = prefs.apiKey
-        if (apiKey.isBlank()) throw CleanupException("Add your API key in Wirlwind")
+        if (apiKey.isBlank()) throw CleanupException("Add your API key in Wirl")
 
         val body = JSONObject()
             .put("model", MODEL)

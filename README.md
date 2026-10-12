@@ -1,4 +1,4 @@
-# Wirlwind
+# Wirl
 
 A floating bubble that cleans up dictated text with one tap, in any app (WhatsApp included).
 It also adds a **Clean up** button to the text-selection menu.
@@ -11,7 +11,7 @@ Personal, sideloaded app. Min Android 8.0 (API 26).
   - **Tap:** sends the field's text to Claude and replaces it with the cleaned version.
   - **Long-press:** restores the original text (undo).
   - **Drag:** move it anywhere. The position is remembered.
-  - Password fields are ignored, and the bubble never shows inside Wirlwind itself.
+  - Password fields are ignored, and the bubble never shows inside Wirl itself.
   - If the text changes while it's cleaning, or the request fails, your text is left untouched.
 - **Selection menu.** Select text, then pick **Clean up** from the menu (it may be under ⋮).
   In read-only text, the result is copied to the clipboard instead.
@@ -74,12 +74,12 @@ debug key, which is fine for sideloading. (`assembleDebug` also works.)
 
 ## 4. Set it up
 
-1. Open **Wirlwind**.
+1. Open **Wirl**.
 2. Paste your API key and tap **Save**.
-3. Tap **Open settings**, find **Wirlwind** (sometimes under **Downloaded apps** or
+3. Tap **Open settings**, find **Wirl** (sometimes under **Downloaded apps** or
    **Installed apps**), and turn it on.
    - **Android 13+:** if the switch is greyed out with "Restricted setting", go to
-     **Settings → Apps → Wirlwind**, tap **⋮** (top right) → **Allow restricted settings**, then try again.
+     **Settings → Apps → Wirl**, tap **⋮** (top right) → **Allow restricted settings**, then try again.
      This happens to every sideloaded accessibility app.
 4. Open WhatsApp, tap the message box, dictate, and tap the bubble.
 
@@ -93,7 +93,7 @@ debug key, which is fine for sideloading. (`assembleDebug` also works.)
 ## Troubleshooting
 
 - **Bubble doesn't appear:** check the accessibility service is still on. Some phones (Xiaomi,
-  Samsung, Huawei) turn it off to save battery; set Wirlwind's battery usage to **Unrestricted**.
+  Samsung, Huawei) turn it off to save battery; set Wirl's battery usage to **Unrestricted**.
 - **"Invalid API key":** re-paste the key and tap **Save**. The screen shows its last 4 characters.
 - **"Couldn't replace text in this field":** a few apps don't allow text to be set by accessibility
   services. Use the selection menu's **Clean up** instead.
