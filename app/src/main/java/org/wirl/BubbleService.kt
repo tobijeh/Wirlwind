@@ -213,7 +213,6 @@ class BubbleService : AccessibilityService() {
     private fun succeed() {
         setState(State.DONE)
         prefs.lastResult = "Cleaned up at ${java.text.DateFormat.getTimeInstance().format(java.util.Date())}"
-        showLabel(getString(R.string.cleaned_banner), 2500)
         handler.postDelayed(resetDoneRunnable, 1500)
         scheduleCheck(0)
     }
@@ -235,10 +234,7 @@ class BubbleService : AccessibilityService() {
         handler.removeCallbacks(resetDoneRunnable)
         when (newState) {
             State.IDLE -> circle.setState(BubbleView.State.IDLE)
-            State.BUSY -> {
-                circle.setState(BubbleView.State.BUSY)
-                showLabel(getString(R.string.cleaning), null)
-            }
+            State.BUSY -> circle.setState(BubbleView.State.BUSY)
             State.DONE -> circle.setState(BubbleView.State.DONE)
         }
     }
