@@ -16,12 +16,25 @@ android {
         versionName = (findProperty("versionName") as String?) ?: "1.0"
     }
 
+    // CI points WIRL_KEYSTORE at the fixed key (from the DEBUG_KEYSTORE_BASE64 secret) so every
+    // release installs over the last. Local builds fall back to the machine's debug key.
+    val wirlKeystore = System.getenv("WIRL_KEYSTORE")?.let { file(it) }
+    signingConfigs {
+        if (wirlKeystore != null) {
+            create("wirl") {
+                storeFile = wirlKeystore
+                storeType = "pkcs12"
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Personal sideloaded build: sign release with the debug keystore. In CI that keystore is
-            // the fixed key restored from the DEBUG_KEYSTORE_BASE64 secret.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("wirl") ?: signingConfigs.getByName("debug")
         }
     }
 

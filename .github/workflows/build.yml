@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERSION: 1.0.${{ github.run_number }}
+      # SHA-256 of the signing certificate. Not secret; it's how we check the right key was used.
+      EXPECTED_CERT: 312e6a4c8dcee748713b473130defaa67af68fba9e1ae35a67ac116631d8ae57
     steps:
       - uses: actions/checkout@v4
 
@@ -32,14 +34,25 @@ jobs:
             echo "::error::DEBUG_KEYSTORE_BASE64 secret is missing. Add it under Settings > Secrets and variables > Actions."
             exit 1
           fi
-          mkdir -p ~/.android
-          echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+          WIRL_KEYSTORE="$RUNNER_TEMP/wirl.p12"
+          echo "$DEBUG_KEYSTORE_BASE64" | tr -d ' \r\n' | base64 -d > "$WIRL_KEYSTORE"
+          echo "WIRL_KEYSTORE=$WIRL_KEYSTORE" >> "$GITHUB_ENV"
 
       - name: Build release APK
         run: >
           ./gradlew assembleRelease --no-daemon
           -PversionCode=${{ github.run_number }}
           -PversionName=$VERSION
+
+      - name: Check signing key
+        run: |
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          CERT=$("$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk | sed -n 's/.*SHA-256 digest: //p' | head -1)
+          echo "Signed with $CERT"
+          if [ "$CERT" != "$EXPECTED_CERT" ]; then
+            echo "::error::APK is signed with the wrong key ($CERT). Check the DEBUG_KEYSTORE_BASE64 secret."
+            exit 1
+          fi
 
       - name: Rename APK
         run: cp app/build/outputs/apk/release/app-release.apk "wirl-$VERSION.apk"
