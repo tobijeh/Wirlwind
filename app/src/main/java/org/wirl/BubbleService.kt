@@ -212,15 +212,17 @@ class BubbleService : AccessibilityService() {
 
     private fun succeed() {
         setState(State.DONE)
+        prefs.lastResult = "Cleaned up at ${java.text.DateFormat.getTimeInstance().format(java.util.Date())}"
         showLabel(getString(R.string.cleaned_banner), 2500)
         handler.postDelayed(resetDoneRunnable, 1500)
         scheduleCheck(0)
     }
 
+    /** Shows the reason in the bubble's label (it stays visible), and records it for the settings screen. */
     private fun fail(message: String) {
         setState(State.IDLE)
-        hideLabel()
-        toast(message)
+        Prefs(this).lastResult = "Failed: $message"
+        showLabel(message, 4000)
         scheduleCheck(0)
     }
 

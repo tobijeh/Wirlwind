@@ -46,6 +46,11 @@ class Prefs(context: Context) {
         get() = plain.getInt(KEY_BUBBLE_OPACITY, DEFAULT_BUBBLE_OPACITY).coerceIn(MIN_BUBBLE_OPACITY, MAX_BUBBLE_OPACITY)
         set(value) = plain.edit().putInt(KEY_BUBBLE_OPACITY, value).apply()
 
+    /** What the last cleanup did, shown on the settings screen so failures can be read later. */
+    var lastResult: String
+        get() = plain.getString(KEY_LAST_RESULT, "No cleanups yet").orEmpty()
+        set(value) = plain.edit().putString(KEY_LAST_RESULT, value).apply()
+
     /** Saved bubble position, or null if the bubble has never been moved. */
     var bubblePosition: Pair<Int, Int>?
         get() = if (plain.contains(KEY_BUBBLE_X)) {
@@ -64,6 +69,7 @@ class Prefs(context: Context) {
         const val KEY_BUBBLE_Y = "bubble_y"
         const val KEY_BUBBLE_SIZE = "bubble_size_dp"
         const val KEY_BUBBLE_OPACITY = "bubble_opacity"
+        const val KEY_LAST_RESULT = "last_result"
 
         const val MIN_BUBBLE_SIZE_DP = 40
         const val MAX_BUBBLE_SIZE_DP = 80

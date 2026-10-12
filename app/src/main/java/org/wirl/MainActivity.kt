@@ -87,6 +87,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             "${getString(R.string.api_key_saved)}: …${key.takeLast(4)}"
         }
+        binding.lastResult.text = "Last cleanup: ${prefs.lastResult}"
         val enabled = isServiceEnabled()
         binding.accessibilityStatus.setText(
             if (enabled) R.string.accessibility_on else R.string.accessibility_off,
