@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bubble_blue">#2F5BD3</color>
+    <!-- Brand teal, sampled from wirl.jpg. Used for the icon and the bubble. -->
+    <color name="wirl_teal">#02A8AB</color>
+    <!-- Darker teal for buttons and switches, so white text on it stays readable. -->
+    <color name="wirl_teal_dark">#007A7C</color>
     <color name="bubble_green">#1F7A4D</color>
     <color name="label_bg">#E6202124</color>
     <color name="white">#FFFFFF</color>

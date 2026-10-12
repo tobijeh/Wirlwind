@@ -7,7 +7,7 @@ Personal, sideloaded app. Min Android 8.0 (API 26).
 
 ## How it works
 
-- **Bubble.** An accessibility service draws a small blue bubble while a text field is focused.
+- **Bubble.** An accessibility service draws the round teal Wirl bubble while a text field is focused.
   - **Tap:** sends the field's text to Claude and replaces it with the cleaned version.
   - **Long-press:** restores the original text (undo).
   - **Drag:** move it anywhere. The position is remembered.
@@ -54,15 +54,9 @@ Every push to `main` builds a debug APK on GitHub. No computer needed. Open the 
 **Build APK** run, and download **Wirl-apk** under **Artifacts** (it's a zip containing `app-debug.apk`).
 You can also start a build by hand with **Run workflow**.
 
-Each run signs with a fresh debug key, so you'd have to uninstall before installing a newer build.
-To make updates install in place, add your own key as a repo secret once:
-
-```bash
-base64 -w0 ~/.android/debug.keystore   # macOS: base64 -i ~/.android/debug.keystore
-```
-
-Copy the output into **Settings → Secrets and variables → Actions → New repository secret**,
-named `DEBUG_KEYSTORE_BASE64`. (The file exists after you've built once locally or in Android Studio.)
+Builds are signed with the key stored in the `DEBUG_KEYSTORE_BASE64` repo secret
+(**Settings → Secrets and variables → Actions**), so each new APK installs over the last one.
+If that secret is missing, the run shows a warning and the APK can't update an existing install.
 
 > **Keep building on the same computer.** Android only installs an update over an existing
 > app if it's signed with the same key. A different machine has a different debug key, so you'd
@@ -103,6 +97,8 @@ named `DEBUG_KEYSTORE_BASE64`. (The file exists after you've built once locally 
 
 - **Cleanup instructions** on the settings screen are the system prompt. Edit and **Save**.
   **Reset to default** restores the original.
+- **Bubble size** (40–80 dp) and **opacity** (30–100%) sliders change the floating bubble
+  instantly, with a live preview beside them.
 - **Show floating bubble** turns the bubble off without disabling the service. The selection menu
   button keeps working either way.
 

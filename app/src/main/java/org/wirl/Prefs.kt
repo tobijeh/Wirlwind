@@ -36,6 +36,16 @@ class Prefs(context: Context) {
         get() = plain.getString(KEY_PROMPT, null)?.takeIf { it.isNotBlank() } ?: DEFAULT_PROMPT
         set(value) = plain.edit().putString(KEY_PROMPT, value.trim()).apply()
 
+    /** Bubble diameter in dp, 40 to 80. */
+    var bubbleSizeDp: Int
+        get() = plain.getInt(KEY_BUBBLE_SIZE, DEFAULT_BUBBLE_SIZE_DP).coerceIn(MIN_BUBBLE_SIZE_DP, MAX_BUBBLE_SIZE_DP)
+        set(value) = plain.edit().putInt(KEY_BUBBLE_SIZE, value).apply()
+
+    /** Bubble opacity in percent, 30 to 100. */
+    var bubbleOpacity: Int
+        get() = plain.getInt(KEY_BUBBLE_OPACITY, DEFAULT_BUBBLE_OPACITY).coerceIn(MIN_BUBBLE_OPACITY, MAX_BUBBLE_OPACITY)
+        set(value) = plain.edit().putInt(KEY_BUBBLE_OPACITY, value).apply()
+
     /** Saved bubble position, or null if the bubble has never been moved. */
     var bubblePosition: Pair<Int, Int>?
         get() = if (plain.contains(KEY_BUBBLE_X)) {
@@ -52,6 +62,15 @@ class Prefs(context: Context) {
         const val KEY_PROMPT = "system_prompt"
         const val KEY_BUBBLE_X = "bubble_x"
         const val KEY_BUBBLE_Y = "bubble_y"
+        const val KEY_BUBBLE_SIZE = "bubble_size_dp"
+        const val KEY_BUBBLE_OPACITY = "bubble_opacity"
+
+        const val MIN_BUBBLE_SIZE_DP = 40
+        const val MAX_BUBBLE_SIZE_DP = 80
+        const val DEFAULT_BUBBLE_SIZE_DP = 56
+        const val MIN_BUBBLE_OPACITY = 30
+        const val MAX_BUBBLE_OPACITY = 100
+        const val DEFAULT_BUBBLE_OPACITY = 100
 
         const val DEFAULT_PROMPT =
             "You clean up dictated text. Fix punctuation, capitalization, and grammar. " +

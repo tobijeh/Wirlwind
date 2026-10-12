@@ -21,14 +21,16 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      # Optional: sign with a fixed key so each build installs as an update over the last.
-      # Add a repo secret DEBUG_KEYSTORE_BASE64 (base64 of your ~/.android/debug.keystore).
-      # Without it, every run uses a fresh debug key and you must uninstall before updating.
+      # Sign every build with the same key so new APKs install over old ones.
+      # The key lives in the DEBUG_KEYSTORE_BASE64 repo secret (base64 of a debug keystore).
       - name: Restore signing key
         env:
           DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
-        if: env.DEBUG_KEYSTORE_BASE64 != ''
         run: |
+          if [ -z "$DEBUG_KEYSTORE_BASE64" ]; then
+            echo "::warning::DEBUG_KEYSTORE_BASE64 secret is missing. This APK uses a one-off key and won't install over an existing Wirl."
+            exit 0
+          fi
           mkdir -p ~/.android
           echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
 

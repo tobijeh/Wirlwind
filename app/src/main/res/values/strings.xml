@@ -14,6 +14,10 @@
     <string name="open_settings">Open settings</string>
     <string name="bubble_toggle">Show floating bubble</string>
     <string name="bubble_toggle_summary">Appears while a text field is focused</string>
+    <string name="bubble_size">Bubble size</string>
+    <string name="bubble_size_value">Bubble size · %1$d dp</string>
+    <string name="bubble_opacity">Bubble opacity</string>
+    <string name="bubble_opacity_value">Opacity · %1$d%%</string>
     <string name="prompt_label">Cleanup instructions</string>
     <string name="reset_prompt">Reset to default</string>
     <string name="save">Save</string>

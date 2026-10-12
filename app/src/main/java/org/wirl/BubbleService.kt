@@ -2,10 +2,8 @@ package org.wirl
 
 import android.accessibilityservice.AccessibilityService
 import android.content.SharedPreferences
-import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.PixelFormat
-import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -16,13 +14,10 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.ViewGroup
-import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.FrameLayout
-import android.widget.ImageView
-import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -49,10 +44,7 @@ class BubbleService : AccessibilityService() {
     private lateinit var wm: WindowManager
 
     private lateinit var bubbleRoot: FrameLayout
-    private lateinit var circle: FrameLayout
-    private lateinit var circleBg: GradientDrawable
-    private lateinit var icon: ImageView
-    private lateinit var spinner: ProgressBar
+    private lateinit var circle: BubbleView
     private lateinit var bubbleParams: WindowManager.LayoutParams
     private var bubbleShown = false
 
@@ -67,7 +59,7 @@ class BubbleService : AccessibilityService() {
     private var undoOriginal: String? = null
     private var undoCleaned: String? = null
 
-    private val bubbleSizePx by lazy { dp(56) }
+    private val bubbleSizePx get() = circle.diameterPx
     private val shadowPadPx by lazy { dp(8) }
 
     private val checkRunnable = Runnable { updateVisibility() }
@@ -75,7 +67,10 @@ class BubbleService : AccessibilityService() {
     private val resetDoneRunnable = Runnable { if (state == State.DONE) setState(State.IDLE) }
 
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == Prefs.KEY_BUBBLE_ENABLED) scheduleCheck(0)
+        when (key) {
+            Prefs.KEY_BUBBLE_ENABLED -> scheduleCheck(0)
+            Prefs.KEY_BUBBLE_SIZE, Prefs.KEY_BUBBLE_OPACITY -> applyAppearance()
+        }
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -229,24 +224,12 @@ class BubbleService : AccessibilityService() {
         state = newState
         handler.removeCallbacks(resetDoneRunnable)
         when (newState) {
-            State.IDLE -> {
-                circleBg.setColor(ContextCompat.getColor(this, R.color.bubble_blue))
-                icon.setImageResource(R.drawable.ic_wand)
-                icon.visibility = View.VISIBLE
-                spinner.visibility = View.GONE
-            }
+            State.IDLE -> circle.setState(BubbleView.State.IDLE)
             State.BUSY -> {
-                circleBg.setColor(ContextCompat.getColor(this, R.color.bubble_blue))
-                icon.visibility = View.GONE
-                spinner.visibility = View.VISIBLE
+                circle.setState(BubbleView.State.BUSY)
                 showLabel(getString(R.string.cleaning), null)
             }
-            State.DONE -> {
-                circleBg.setColor(ContextCompat.getColor(this, R.color.bubble_green))
-                icon.setImageResource(R.drawable.ic_check)
-                icon.visibility = View.VISIBLE
-                spinner.visibility = View.GONE
-            }
+            State.DONE -> circle.setState(BubbleView.State.DONE)
         }
     }
 
@@ -264,33 +247,15 @@ class BubbleService : AccessibilityService() {
     ).apply { gravity = Gravity.TOP or Gravity.LEFT }
 
     private fun buildBubble() {
-        circleBg = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(ContextCompat.getColor(this@BubbleService, R.color.bubble_blue))
-        }
-        icon = ImageView(this).apply {
-            setImageResource(R.drawable.ic_wand)
-            contentDescription = getString(R.string.bubble_desc)
-        }
-        spinner = ProgressBar(this).apply {
-            isIndeterminate = true
-            indeterminateTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.white))
-            visibility = View.GONE
-        }
-        circle = FrameLayout(this).apply {
-            background = circleBg
-            elevation = dp(6).toFloat()
-            outlineProvider = ViewOutlineProvider.BACKGROUND
-            addView(icon, FrameLayout.LayoutParams(dp(28), dp(28), Gravity.CENTER))
-            addView(spinner, FrameLayout.LayoutParams(dp(30), dp(30), Gravity.CENTER))
-        }
+        circle = BubbleView(this)
         bubbleRoot = FrameLayout(this).apply {
             // Padding leaves room for the soft shadow to render inside the window.
             setPadding(shadowPadPx, shadowPadPx, shadowPadPx, shadowPadPx)
             clipToPadding = false
             clipChildren = false
-            addView(circle, FrameLayout.LayoutParams(bubbleSizePx, bubbleSizePx))
+            addView(circle)
         }
+        applyAppearance(update = false)
         bubbleParams = overlayParams(touchable = true)
         val saved = prefs.bubblePosition
         if (saved != null) {
@@ -302,6 +267,16 @@ class BubbleService : AccessibilityService() {
         }
         clampBubble()
         circle.setOnTouchListener(BubbleTouchListener())
+    }
+
+    /** Applies the size and opacity from settings. Called again whenever they change. */
+    private fun applyAppearance(update: Boolean = true) {
+        hideLabel()
+        circle.setDiameter(dp(prefs.bubbleSizeDp))
+        bubbleRoot.alpha = prefs.bubbleOpacity / 100f
+        if (!update) return
+        clampBubble()
+        if (bubbleShown) wm.updateViewLayout(bubbleRoot, bubbleParams)
     }
 
     private fun windowSize() = bubbleSizePx + 2 * shadowPadPx

@@ -6,7 +6,7 @@
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Wirl">
@@ -26,6 +26,8 @@
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|uiMode"
             android:excludeFromRecents="true"
             android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:label="@string/process_text_label"
             android:taskAffinity=""
             android:theme="@style/Theme.Wirl.Translucent">

@@ -5,9 +5,12 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
+import android.view.Gravity
+import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import org.wirl.databinding.ActivityMainBinding
+import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -23,6 +26,8 @@ class MainActivity : AppCompatActivity() {
         binding.bubbleToggle.isChecked = prefs.bubbleEnabled
         binding.bubbleToggle.setOnCheckedChangeListener { _, checked -> prefs.bubbleEnabled = checked }
 
+        setUpBubbleAppearance()
+
         binding.openAccessibility.setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
@@ -33,6 +38,34 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshStatus()
+    }
+
+    /** Size and opacity sliders. Values save as you drag, so the floating bubble updates live. */
+    private fun setUpBubbleAppearance() {
+        val preview = BubbleView(this)
+        binding.bubblePreview.addView(preview)
+        preview.layoutParams = FrameLayout.LayoutParams(0, 0, Gravity.CENTER)
+
+        fun render() {
+            val size = prefs.bubbleSizeDp
+            val opacity = prefs.bubbleOpacity
+            binding.bubbleSizeLabel.text = getString(R.string.bubble_size_value, size)
+            binding.bubbleOpacityLabel.text = getString(R.string.bubble_opacity_value, opacity)
+            preview.setDiameter((size * resources.displayMetrics.density).roundToInt())
+            preview.alpha = opacity / 100f
+        }
+
+        binding.bubbleSize.value = prefs.bubbleSizeDp.toFloat()
+        binding.bubbleOpacity.value = prefs.bubbleOpacity.toFloat()
+        binding.bubbleSize.addOnChangeListener { _, value, _ ->
+            prefs.bubbleSizeDp = value.roundToInt()
+            render()
+        }
+        binding.bubbleOpacity.addOnChangeListener { _, value, _ ->
+            prefs.bubbleOpacity = value.roundToInt()
+            render()
+        }
+        render()
     }
 
     private fun save() {
