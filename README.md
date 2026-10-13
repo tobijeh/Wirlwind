@@ -18,6 +18,18 @@ Personal, sideloaded app. Min Android 8.0 (API 26).
 
 Uses `claude-haiku-5-5` via the Messages API, with a 15-second timeout.
 
+## Personal dictionary
+
+Teach Wirl the names and words it gets wrong. Open **Settings → Dictionary**, or select text in any app
+and choose **Add to Wirl dictionary**.
+
+- **Term:** the correct spelling, e.g. `Sela`.
+- **Sounds like:** comma-separated mishearings, e.g. `salad, Sella, Stella`.
+- **Context note:** when the change applies, e.g. `my web app; different from Selah, the biblical term`.
+
+Each cleanup sends only the entries that might match the text, so the model knows to spell them that way.
+Use **Import** and **Export** to move the dictionary to another phone, as JSON.
+
 ## 1. Get an API key
 
 Create a key at <https://console.anthropic.com/settings/keys>. You'll paste it into the app.
@@ -111,3 +123,21 @@ If that secret is missing, the build fails instead of publishing an APK that can
 - **"Couldn't replace text in this field":** a few apps don't allow text to be set by accessibility
   services. Use the selection menu's **Clean up** instead.
 - **"Text too long to clean up":** the reply would exceed 1024 tokens. Clean it up in parts.
+
+## Tests and CI
+
+- `./gradlew testDebugUnitTest` runs the unit tests: dictionary matching and editing, prompt building,
+  the API request and response handling (against a fake server), error messages, and settings storage.
+- `./gradlew lintDebug` runs Android lint.
+- **CI** (`.github/workflows/ci.yml`) runs lint, unit tests, and a debug build on every pull request.
+- **Releases** (`.github/workflows/build.yml`) are built only from `main`, after lint and tests pass.
+
+### Require checks before merging to main
+
+1. On GitHub, go to **Settings → Branches → Add branch ruleset** (or **Add classic branch protection rule**).
+2. Set the branch name pattern to `main`.
+3. Turn on **Require status checks to pass before merging** and add **build-and-test**.
+   The check only appears in the list after it has run at least once.
+4. Optional: turn on **Require a pull request before merging**.
+5. To allow auto-merge, go to **Settings → General** and tick **Allow auto-merge** under Pull Requests.
+

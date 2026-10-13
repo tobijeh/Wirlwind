@@ -61,6 +61,12 @@ class Prefs(context: Context) {
         get() = plain.getString(KEY_LAST_RESULT, "No cleanups yet").orEmpty()
         set(value) = plain.edit().putString(KEY_LAST_RESULT, value).apply()
 
+    /** Personal dictionary, stored as JSON. Unreadable data reads as an empty dictionary. */
+    var dictionary: List<DictionaryEntry>
+        get() = runCatching { DictionaryJson.decode(plain.getString(KEY_DICTIONARY, "[]").orEmpty()) }
+            .getOrDefault(emptyList())
+        set(value) = plain.edit().putString(KEY_DICTIONARY, DictionaryJson.encode(value)).apply()
+
     /** Saved bubble position, or null if the bubble has never been moved. */
     var bubblePosition: Pair<Int, Int>?
         get() = if (plain.contains(KEY_BUBBLE_X)) {
@@ -80,6 +86,7 @@ class Prefs(context: Context) {
         const val KEY_BUBBLE_SIZE = "bubble_size_dp"
         const val KEY_BUBBLE_OPACITY = "bubble_opacity"
         const val KEY_LAST_RESULT = "last_result"
+        const val KEY_DICTIONARY = "dictionary"
         const val KEY_SHOW_DONE_CHECK = "show_done_check"
         const val KEY_SHOW_DONE_MESSAGE = "show_done_message"
 

@@ -38,6 +38,27 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".DictionaryActivity"
+            android:exported="false"
+            android:label="@string/dictionary_title" />
+
+        <activity
+            android:name=".QuickAddActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/process_text_add_label"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:theme="@style/Theme.Wirl.Translucent">
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <service
             android:name=".BubbleService"
             android:exported="true"
