@@ -37,6 +37,7 @@ class MainActivity : AppCompatActivity() {
         }
         binding.resetPrompt.setOnClickListener { binding.prompt.setText(Prefs.DEFAULT_PROMPT) }
         binding.save.setOnClickListener { save() }
+        binding.openDictionary.setOnClickListener { startActivity(Intent(this, DictionaryActivity::class.java)) }
     }
 
     override fun onResume() {
@@ -92,6 +93,7 @@ class MainActivity : AppCompatActivity() {
             "${getString(R.string.api_key_saved)}: …${key.takeLast(4)}"
         }
         binding.lastResult.text = "Last cleanup: ${prefs.lastResult}"
+        binding.openDictionary.text = getString(R.string.dictionary_button, prefs.dictionary.size)
         val enabled = isServiceEnabled()
         binding.accessibilityStatus.setText(
             if (enabled) R.string.accessibility_on else R.string.accessibility_off,

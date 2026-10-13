@@ -1,5 +1,7 @@
 name: Build and release APK
 
+# Releases are only ever built from main. Pull requests are checked by ci.yml.
+
 on:
   push:
     branches: [main]
@@ -10,6 +12,8 @@ permissions:
 
 jobs:
   release:
+    # Never publish from a branch or a pull request, even when started by hand.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       VERSION: 1.0.${{ github.run_number }}
@@ -37,6 +41,9 @@ jobs:
           WIRL_KEYSTORE="$RUNNER_TEMP/wirl.p12"
           echo "$DEBUG_KEYSTORE_BASE64" | tr -d ' \r\n' | base64 -d > "$WIRL_KEYSTORE"
           echo "WIRL_KEYSTORE=$WIRL_KEYSTORE" >> "$GITHUB_ENV"
+
+      - name: Lint and unit tests
+        run: ./gradlew lintDebug testDebugUnitTest --no-daemon
 
       - name: Build release APK
         run: >
