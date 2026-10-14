@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
+import android.text.format.Formatter
 import android.view.Gravity
 import android.view.View
 import android.widget.ArrayAdapter
@@ -75,6 +76,7 @@ class MainActivity : AppCompatActivity() {
             prefs.dictationLanguage = DictationLanguages.options[position].first
             refreshStatus()
         }
+        setupWhisperSettings()
         binding.downloadPack.setOnClickListener {
             val language = DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag())
             val started = SpeechPacks.download(this, language)
@@ -91,9 +93,80 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    private fun engineLabel(engine: DictationEngine): String = getString(
+        if (engine == DictationEngine.WHISPER) R.string.whisper_engine_whisper else R.string.whisper_engine_google,
+    )
+
+    private fun modelLabel(model: WhisperModel): String = getString(
+        when (model) {
+            WhisperModel.FAST -> R.string.whisper_model_fast
+            WhisperModel.ACCURATE -> R.string.whisper_model_accurate
+            WhisperModel.MULTILINGUAL -> R.string.whisper_model_multilingual
+        },
+    )
+
+    private fun setupWhisperSettings() {
+        val engines = DictationEngine.entries
+        binding.engineChoice.setAdapter(ArrayAdapter(this, android.R.layout.simple_list_item_1, engines.map(::engineLabel)))
+        binding.engineChoice.setText(engineLabel(prefs.dictationEngine), false)
+        binding.engineChoice.setOnItemClickListener { _, _, position, _ ->
+            prefs.dictationEngine = engines[position]
+            refreshWhisper()
+        }
+        val models = WhisperModel.entries
+        binding.modelChoice.setAdapter(ArrayAdapter(this, android.R.layout.simple_list_item_1, models.map(::modelLabel)))
+        binding.modelChoice.setText(modelLabel(prefs.whisperModel), false)
+        binding.modelChoice.setOnItemClickListener { _, _, position, _ ->
+            prefs.whisperModel = models[position]
+            refreshWhisper()
+        }
+        binding.downloadWhisper.setOnClickListener { downloadModel() }
+        refreshWhisper()
+    }
+
+    private var downloading = false
+
+    private fun refreshWhisper() {
+        val model = prefs.whisperModel
+        val size = Formatter.formatShortFileSize(this, model.sizeBytes)
+        val ready = WhisperApp.store(this).isReady(model.spec)
+        binding.whisperStatus.text = if (ready) {
+            getString(R.string.whisper_status_ready, size)
+        } else {
+            getString(R.string.whisper_status_missing, size)
+        }
+        binding.downloadWhisper.text = getString(R.string.whisper_download, size)
+        binding.downloadWhisper.visibility = if (ready) View.GONE else View.VISIBLE
+        binding.downloadWhisper.isEnabled = !downloading
+        binding.whisperProgress.visibility = if (downloading) View.VISIBLE else View.GONE
+    }
+
+    /** Downloads the chosen model on a background thread, showing progress. Resumes a partial download if there is one. */
+    private fun downloadModel() {
+        val model = prefs.whisperModel
+        downloading = true
+        binding.whisperProgress.progress = 0
+        refreshWhisper()
+        Thread({
+            val result = runCatching {
+                WhisperApp.downloader(this).download(model.spec) { done, total ->
+                    runOnUiThread { binding.whisperProgress.progress = (done * 100 / total).toInt() }
+                }
+            }
+            runOnUiThread {
+                downloading = false
+                result.exceptionOrNull()?.let {
+                    Toast.makeText(this, getString(R.string.whisper_download_failed, it.message ?: "unknown error"), Toast.LENGTH_LONG).show()
+                }
+                refreshWhisper()
+            }
+        }, "wirl-model-download").start()
+    }
+
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        refreshWhisper()
         // The Setup button goes away once every checklist item is done.
         binding.openSetup.visibility = if (SetupChecklist.allDone(SetupActivity.status(this))) View.GONE else View.VISIBLE
     }

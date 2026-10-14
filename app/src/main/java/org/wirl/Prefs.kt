@@ -53,6 +53,16 @@ class Prefs(context: Context) {
         get() = plain.getBoolean(KEY_SILENCE_BEEPS, true)
         set(value) = plain.edit().putBoolean(KEY_SILENCE_BEEPS, value).apply()
 
+    /** Which engine turns speech into text. Whisper by default, with Google's recognizer as the fallback. */
+    var dictationEngine: DictationEngine
+        get() = DictationEngine.fromKey(plain.getString(KEY_DICTATION_ENGINE, null))
+        set(value) = plain.edit().putString(KEY_DICTATION_ENGINE, value.key).apply()
+
+    /** The Whisper model. Fast (base.en) by default. */
+    var whisperModel: WhisperModel
+        get() = WhisperModel.fromKey(plain.getString(KEY_WHISPER_MODEL, null))
+        set(value) = plain.edit().putString(KEY_WHISPER_MODEL, value.name).apply()
+
     /** The streams muted for a restart, kept so they can be restored if the service is killed while they're muted. */
     val mutedStreams: MutedStreamStore = object : MutedStreamStore {
         override fun load(): Set<Int> =
@@ -153,6 +163,8 @@ class Prefs(context: Context) {
         const val KEY_DICTIONARY = "dictionary"
         const val KEY_DICTATION_CLEANUP = "dictation_cleanup"
         const val KEY_SILENCE_BEEPS = "silence_beeps"
+        const val KEY_DICTATION_ENGINE = "dictation_engine"
+        const val KEY_WHISPER_MODEL = "whisper_model"
         const val KEY_MUTED_STREAMS = "muted_streams"
         const val KEY_DIAGNOSTICS = "diagnostics"
         const val KEY_SETTINGS_VERSION = "settings_version"
@@ -164,7 +176,7 @@ class Prefs(context: Context) {
         val RESETTABLE_KEYS = listOf(
             KEY_BUBBLE_ENABLED, KEY_BUBBLE_X, KEY_BUBBLE_Y, KEY_BUBBLE_SIZE, KEY_BUBBLE_OPACITY,
             KEY_SHOW_DONE_CHECK, KEY_SHOW_DONE_MESSAGE, KEY_STYLE_NOTES, KEY_DICTATION_CLEANUP,
-            KEY_DICTATION_LANGUAGE, KEY_PROMPT, KEY_SILENCE_BEEPS,
+            KEY_DICTATION_LANGUAGE, KEY_PROMPT, KEY_SILENCE_BEEPS, KEY_DICTATION_ENGINE, KEY_WHISPER_MODEL,
         )
         const val KEY_PACK_PREFIX = "onDevicePack_"
         const val KEY_DICTATION_LANGUAGE = "dictation_language"

@@ -275,6 +275,57 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
+            android:hint="@string/whisper_engine_title">
+
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                android:id="@+id/engineChoice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:hint="@string/whisper_model_title">
+
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                android:id="@+id/modelChoice"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:id="@+id/whisperStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textAppearance="?attr/textAppearanceBodySmall" />
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/whisperProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:max="100"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/downloadWhisper"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:visibility="gone" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:hint="@string/dictation_language">
 
             <com.google.android.material.textfield.MaterialAutoCompleteTextView

@@ -19,6 +19,19 @@ Wirl is a personal Android app (Kotlin, min SDK 26) that cleans up dictated text
 - **Dictation waits for Claude.** The text is inserted only after the reply. Raw text is inserted only when the call fails or cleanup is off, and it says "Raw: cleanup failed" with the reason.
 - **Default on:** "Clean up dictation with AI" is on by default. Settings migrations must never leave it off for users who didn't turn it off.
 
+## Dictation engines
+
+- **Whisper is the default engine.** It runs on the phone through whisper.cpp (`app/src/main/cpp/`, built by CMake with the NDK for arm64-v8a only). The version is pinned to one commit in `CMakeLists.txt`. Change the pin on purpose, and test it on a phone.
+- **Models are downloaded, never bundled.** `WhisperModel` lists three: Fast (`base.en` q5_1, default), Accurate (`small.en` q5_1), and Multilingual (`base` q5_1). They come from the official `ggerganov/whisper.cpp` repository on Hugging Face. Each has a pinned size and SHA-256, and a download must match both (`ModelDownloader`). A download resumes from its `.part` file with a Range request. A file that fails the check is deleted, and so is a file that won't load.
+- **Google's SpeechRecognizer is the fallback**, chosen in Settings. Dictation uses it automatically when the Whisper model isn't downloaded or the native library won't load (`EngineChoice`). If Whisper can't open the microphone at start, the same fallback applies.
+- **Recording and chunks.** `WhisperSession` records 16 kHz mono PCM continuously until the user taps stop. A pause of about 600 ms ends a chunk (`PauseDetector`), and a chunk is never longer than about 20 s. Each chunk is transcribed on one background thread, in order (`ChunkPipeline`), while recording goes on. The live preview grows as chunks finish. Chunk text is joined in spoken order, and a repeated chunk is ignored (`ChunkAssembler`).
+- **Audio is never stored.** Chunk samples live only in memory, and are dropped once transcribed. Nothing is written to disk or uploaded.
+- **Accuracy.** Dictionary terms go to Whisper as the initial prompt (`WhisperPrompt.build`). On stop, the full transcript goes through the same `ClaudeClient.clean` as every other dictation. Whisper doesn't send recognizer alternatives.
+- **Memory.** The model is freed after five minutes without dictation and reloaded when needed (`ModelHolder`). Threads are chosen from the core count, leaving two cores free.
+- **Sounds.** Whisper dictation makes one start tone and one end tone (`DictationTones`). It makes no other sounds, and doesn't mute streams. The mute logic is for the Google fallback only.
+- **Diagnostics** show the engine, model, threads, chunk count, each chunk's transcription time and any error, the stop-to-text time, and the stop-to-insert time.
+- **Tests** cover everything that doesn't need the phone: chunk assembly, pause detection, the pipeline, the model holder, downloads (resume, corrupt files), prompts, and the engine fallback. The native bridge and the microphone can't run in unit tests. Check those on a phone.
+
 ## Insertion and field text
 
 - Dictated text is pasted at the cursor via the clipboard, and the user's clipboard is restored. Setting the whole field is only a fallback.
