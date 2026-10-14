@@ -28,12 +28,18 @@ class DictionaryRepository(private val prefs: Prefs) {
     }
 
     companion object {
-        @Volatile private var instance: DictionaryRepository? = null
+        private var instance: DictionaryRepository? = null
+        private var instanceContext: Context? = null
 
-        fun get(context: Context): DictionaryRepository =
-            instance ?: synchronized(this) {
-                instance ?: DictionaryRepository(Prefs(context.applicationContext)).also { instance = it }
+        /** The shared repository for this app. Rebuilt if the application context changes (only happens in tests). */
+        fun get(context: Context): DictionaryRepository = synchronized(this) {
+            val app = context.applicationContext
+            if (instance == null || instanceContext !== app) {
+                instance = DictionaryRepository(Prefs(app))
+                instanceContext = app
             }
+            instance!!
+        }
     }
 }
 
