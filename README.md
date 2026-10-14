@@ -126,8 +126,11 @@ If that secret is missing, the build fails instead of publishing an APK that can
 
 ## Tweaking
 
-- **Cleanup instructions** on the settings screen are the system prompt. Edit and **Save**.
-  **Reset to default** restores the original.
+- **Cleanup instructions** are built in and tuned for speech-recognition mistakes. Add optional
+  **Personal style notes** on the settings screen (for example, "I write casually, no em-dashes").
+  **Reset to defaults** restores every setting except your API key and dictionary.
+- **Setup checklist:** the first launch opens it, and it stays available from Settings until everything is done.
+  It covers the API key, the accessibility service, the microphone, background activity, and a dictation test.
 - **Bubble size** (40–80 dp) and **opacity** (30–100%) sliders change the floating bubble
   instantly, with a live preview beside them.
 - **Show floating bubble** turns the bubble off without disabling the service. The selection menu

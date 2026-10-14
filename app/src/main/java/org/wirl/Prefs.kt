@@ -37,6 +37,10 @@ class Prefs(context: Context) {
         if (plain.getInt(KEY_SETTINGS_VERSION, 1) < 2) {
             plain.edit().putBoolean(KEY_DICTATION_CLEANUP, true).putInt(KEY_SETTINGS_VERSION, 2).apply()
         }
+        if (plain.getInt(KEY_SETTINGS_VERSION, 1) < 3) {
+            // Version 3: the cleanup prompt is built in. Earlier custom prompts are discarded, not kept as style notes.
+            plain.edit().remove(KEY_PROMPT).putInt(KEY_SETTINGS_VERSION, 3).apply()
+        }
     }
 
     /** Run the dictated text through the cleanup instructions. Off inserts exactly what was said. */
@@ -71,9 +75,20 @@ class Prefs(context: Context) {
         get() = plain.getBoolean(KEY_SHOW_DONE_MESSAGE, false)
         set(value) = plain.edit().putBoolean(KEY_SHOW_DONE_MESSAGE, value).apply()
 
-    var systemPrompt: String
-        get() = plain.getString(KEY_PROMPT, null)?.takeIf { it.isNotBlank() } ?: DEFAULT_PROMPT
-        set(value) = plain.edit().putString(KEY_PROMPT, value.trim()).apply()
+    /** Optional notes about how the user writes, appended to the built-in cleanup prompt. Empty by default. */
+    var styleNotes: String
+        get() = plain.getString(KEY_STYLE_NOTES, "").orEmpty()
+        set(value) = plain.edit().putString(KEY_STYLE_NOTES, value.trim()).apply()
+
+    /** Set once the first-run checklist has been shown, so it opens once automatically. */
+    var setupShown: Boolean
+        get() = plain.getBoolean(KEY_SETUP_SHOWN, false)
+        set(value) = plain.edit().putBoolean(KEY_SETUP_SHOWN, value).apply()
+
+    /** Whether the last dictation test found a working recognizer. Read by the setup checklist. */
+    var engineTestPassed: Boolean
+        get() = plain.getBoolean(KEY_ENGINE_TEST_PASSED, false)
+        set(value) = plain.edit().putBoolean(KEY_ENGINE_TEST_PASSED, value).apply()
 
     /** Bubble diameter in dp, 40 to 80. */
     var bubbleSizeDp: Int
@@ -106,6 +121,11 @@ class Prefs(context: Context) {
             plain.edit().putInt(KEY_BUBBLE_X, value.first).putInt(KEY_BUBBLE_Y, value.second).apply()
         }
 
+    /** Puts every setting back to its default. Keeps the API key and the dictionary. */
+    fun resetToDefaults() {
+        plain.edit().apply { RESETTABLE_KEYS.forEach { remove(it) } }.apply()
+    }
+
     companion object {
         const val KEY_API_KEY = "api_key"
         const val KEY_BUBBLE_ENABLED = "bubble_enabled"
@@ -119,6 +139,16 @@ class Prefs(context: Context) {
         const val KEY_DICTATION_CLEANUP = "dictation_cleanup"
         const val KEY_DIAGNOSTICS = "diagnostics"
         const val KEY_SETTINGS_VERSION = "settings_version"
+        const val KEY_STYLE_NOTES = "style_notes"
+        const val KEY_ENGINE_TEST_PASSED = "engine_test_passed"
+        const val KEY_SETUP_SHOWN = "setup_shown"
+
+        /** Settings reset by "Reset to defaults". The API key and the dictionary are kept. */
+        val RESETTABLE_KEYS = listOf(
+            KEY_BUBBLE_ENABLED, KEY_BUBBLE_X, KEY_BUBBLE_Y, KEY_BUBBLE_SIZE, KEY_BUBBLE_OPACITY,
+            KEY_SHOW_DONE_CHECK, KEY_SHOW_DONE_MESSAGE, KEY_STYLE_NOTES, KEY_DICTATION_CLEANUP,
+            KEY_DICTATION_LANGUAGE, KEY_PROMPT,
+        )
         const val KEY_PACK_PREFIX = "onDevicePack_"
         const val KEY_DICTATION_LANGUAGE = "dictation_language"
         const val KEY_SHOW_DONE_CHECK = "show_done_check"
@@ -131,10 +161,5 @@ class Prefs(context: Context) {
         const val MAX_BUBBLE_OPACITY = 100
         const val DEFAULT_BUBBLE_OPACITY = 100
 
-        const val DEFAULT_PROMPT =
-            "You clean up dictated text. Fix punctuation, capitalization, and grammar. " +
-                "Remove filler words (um, uh, like, you know) and false starts. " +
-                "Keep the speaker's meaning, tone, and casual voice. Do not add content. " +
-                "Return only the cleaned text, with no preamble or quotes."
     }
 }
