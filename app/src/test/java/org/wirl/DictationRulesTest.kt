@@ -32,7 +32,7 @@ class DictationRulesTest {
 
     @Test fun messagesAreShortAndClear() {
         assertEquals("Microphone permission needed. Open Wirl settings to allow it.", DictationError.NO_PERMISSION.message)
-        assertEquals("Speech recognition isn't available on this phone.", DictationError.RECOGNIZER_UNAVAILABLE.message)
+        assertEquals("Speech recognition isn't available. Open Wirl settings to see what's missing.", DictationError.RECOGNIZER_UNAVAILABLE.message)
         assertEquals("No speech heard.", DictationError.NO_SPEECH.message)
     }
 

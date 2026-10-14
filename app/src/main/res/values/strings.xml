@@ -76,4 +76,6 @@
     <string name="mic_tap_to_allow">Tap to allow</string>
     <string name="dictation_cleanup_toggle">Clean up dictation with AI</string>
     <string name="dictation_language">Dictation language</string>
+    <string name="speech_engine_title">Speech engine</string>
+    <string name="open_voice_settings">Open voice settings</string>
 </resources>

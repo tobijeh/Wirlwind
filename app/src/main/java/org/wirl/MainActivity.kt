@@ -1,6 +1,7 @@
 package org.wirl
 
 import android.Manifest
+import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -8,6 +9,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
 import android.view.Gravity
+import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.FrameLayout
 import android.widget.Toast
@@ -44,6 +46,7 @@ class MainActivity : AppCompatActivity() {
         binding.save.setOnClickListener { save() }
         binding.openDictionary.setOnClickListener { startActivity(Intent(this, DictionaryActivity::class.java)) }
         binding.micButton.setOnClickListener { micPermission.launch(Manifest.permission.RECORD_AUDIO) }
+        binding.openVoiceSettings.setOnClickListener { openVoiceSettings() }
 
         binding.dictationCleanup.isChecked = prefs.dictationCleanup
         binding.dictationCleanup.setOnCheckedChangeListener { _, checked -> prefs.dictationCleanup = checked }
@@ -89,6 +92,14 @@ class MainActivity : AppCompatActivity() {
         render()
     }
 
+    private fun openVoiceSettings() {
+        try {
+            startActivity(Intent(Settings.ACTION_VOICE_INPUT_SETTINGS))
+        } catch (e: ActivityNotFoundException) {
+            startActivity(Intent(Settings.ACTION_SETTINGS))
+        }
+    }
+
     private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         refreshStatus()
     }
@@ -119,6 +130,10 @@ class MainActivity : AppCompatActivity() {
         binding.micButton.text = "${getString(R.string.mic_title)}: " +
             getString(if (micAllowed) R.string.mic_allowed else R.string.mic_tap_to_allow)
         binding.micButton.isEnabled = !micAllowed
+
+        val engine = SpeechEngineAndroid.detect(this)
+        binding.speechEngine.text = "${getString(R.string.speech_engine_title)}: ${SpeechEngine.describe(engine)}"
+        binding.openVoiceSettings.visibility = if (engine.choice == SpeechEngine.Choice.NONE) View.VISIBLE else View.GONE
         val enabled = isServiceEnabled()
         binding.accessibilityStatus.setText(
             if (enabled) R.string.accessibility_on else R.string.accessibility_off,
