@@ -411,31 +411,30 @@ class BubbleService : AccessibilityService() {
         setState(State.BUSY)
         hideLabel()
         job = scope.launch {
+            // Same pipeline as hold-to-clean. The text is inserted only after Claude has answered.
             val aiEnabled = prefs.dictationCleanup
-            val cleaned = if (aiEnabled) {
-                try {
-                    ClaudeClient.clean(this@BubbleService, raw)
-                } catch (e: Exception) {
-                    null
-                }
-            } else {
-                null
-            }
-            val text = DictationResult.choose(raw, aiEnabled, cleaned)
-            val insertion = insertDictation(field, text, raw, cleaned)
+            val cleaned = if (aiEnabled) runCatching { ClaudeClient.clean(this@BubbleService, raw) } else null
+            val outcome = DictationDecision.decide(raw, aiEnabled, cleaned)
+            val insertion = insertDictation(field, outcome.text, raw, (outcome as? DictationOutcome.Cleaned)?.text)
             val inserted = insertion.method != InsertMethod.FAILED
             gestures.finish()
             val note = when {
                 !inserted -> getString(R.string.copied_paste)
                 finish.error != null -> DictationError.messageFor(finish.error, finish.errorCode)
-                aiEnabled && cleaned == null -> getString(R.string.cleanup_failed_raw)
+                outcome is DictationOutcome.Raw && outcome.reason != null ->
+                    getString(R.string.raw_cleanup_failed, outcome.reason)
                 else -> null
+            }
+            val cleanupLine = when {
+                !aiEnabled -> "cleanup: off"
+                outcome is DictationOutcome.Cleaned -> "cleanup: ok"
+                else -> "cleanup: failed (${(outcome as DictationOutcome.Raw).reason})"
             }
             recordAttempt(
                 note ?: "Inserted by ${insertion.method.name}",
                 finish.errorCode,
-                null,
-                insertion.details,
+                cleaned?.exceptionOrNull(),
+                "$cleanupLine\n${insertion.details}",
             )
             if (note != null) showLabel(note, 3000)
             if (inserted) {

@@ -71,6 +71,7 @@
     <string name="undone">Undone</string>
     <string name="copied_paste">Copied, paste it in</string>
     <string name="cleanup_failed_raw">Cleanup failed, inserted what you said</string>
+    <string name="raw_cleanup_failed">Raw: cleanup failed — %1$s</string>
     <string name="mic_title">Microphone</string>
     <string name="mic_allowed">Allowed</string>
     <string name="mic_tap_to_allow">Tap to allow</string>

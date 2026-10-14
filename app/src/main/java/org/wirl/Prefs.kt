@@ -32,6 +32,13 @@ class Prefs(context: Context) {
         get() = plain.getBoolean(KEY_BUBBLE_ENABLED, true)
         set(value) = plain.edit().putBoolean(KEY_BUBBLE_ENABLED, value).apply()
 
+    init {
+        // Settings version 2 turns dictation cleanup on for everyone once. Earlier versions could have saved it as off.
+        if (plain.getInt(KEY_SETTINGS_VERSION, 1) < 2) {
+            plain.edit().putBoolean(KEY_DICTATION_CLEANUP, true).putInt(KEY_SETTINGS_VERSION, 2).apply()
+        }
+    }
+
     /** Run the dictated text through the cleanup instructions. Off inserts exactly what was said. */
     var dictationCleanup: Boolean
         get() = plain.getBoolean(KEY_DICTATION_CLEANUP, true)
@@ -111,6 +118,7 @@ class Prefs(context: Context) {
         const val KEY_DICTIONARY = "dictionary"
         const val KEY_DICTATION_CLEANUP = "dictation_cleanup"
         const val KEY_DIAGNOSTICS = "diagnostics"
+        const val KEY_SETTINGS_VERSION = "settings_version"
         const val KEY_PACK_PREFIX = "onDevicePack_"
         const val KEY_DICTATION_LANGUAGE = "dictation_language"
         const val KEY_SHOW_DONE_CHECK = "show_done_check"

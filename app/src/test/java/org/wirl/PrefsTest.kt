@@ -84,4 +84,24 @@ class PrefsTest {
         assertFalse(Prefs(context).dictationCleanup)
         assertEquals("fr-FR", Prefs(context).dictationLanguage)
     }
+
+    @Test fun dictationCleanupIsOnByDefault() {
+        context.getSharedPreferences("wirl", Context.MODE_PRIVATE).edit().clear().commit()
+        assertTrue(Prefs(context).dictationCleanup)
+    }
+
+    @Test fun olderSavedOffIsReplacedBySettingsVersionTwo() {
+        // An earlier version saved "off" without a settings version. It must not stick.
+        context.getSharedPreferences("wirl", Context.MODE_PRIVATE).edit()
+            .clear()
+            .putBoolean(Prefs.KEY_DICTATION_CLEANUP, false)
+            .commit()
+        assertTrue(Prefs(context).dictationCleanup)
+    }
+
+    @Test fun userTurningCleanupOffSticksAfterMigration() {
+        context.getSharedPreferences("wirl", Context.MODE_PRIVATE).edit().clear().commit()
+        Prefs(context).dictationCleanup = false
+        assertFalse(Prefs(context).dictationCleanup)
+    }
 }
