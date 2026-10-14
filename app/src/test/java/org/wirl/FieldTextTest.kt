@@ -49,4 +49,16 @@ class FieldTextTest {
         val plan = TextInsertion.plan(existing, 7, 7, "there")
         assertEquals("Message there", plan.text)
     }
+
+    @Test fun contentDescriptionAtStartIsPlaceholder() {
+        assertEquals("", FieldText.visible("Message", hint = null, showingHint = false, selectionStart = 0, selectionEnd = 0, contentDescription = "Message"))
+        assertEquals("", FieldText.visible("Message", hint = null, showingHint = false, selectionStart = -1, selectionEnd = -1, contentDescription = "Message"))
+    }
+
+    @Test fun placeholderCheckMatchesHintOrDescription() {
+        assertEquals(true, FieldText.isPlaceholder("Message", hint = "Message", contentDescription = null))
+        assertEquals(true, FieldText.isPlaceholder("Message", hint = null, contentDescription = "Message"))
+        assertEquals(false, FieldText.isPlaceholder("Hello", hint = "Message", contentDescription = "Message"))
+        assertEquals(false, FieldText.isPlaceholder("", hint = "", contentDescription = ""))
+    }
 }

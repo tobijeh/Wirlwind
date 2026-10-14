@@ -186,6 +186,24 @@ data class Insertion(val text: String, val cursor: Int)
 
 object TextInsertion {
     /**
+     * The exact text to paste at the cursor (replacing any selection): [inserted], with a space before or after where
+     * the words would otherwise run together. Pasting this keeps the rest of the field untouched.
+     */
+    fun pieceFor(existing: String, selectionStart: Int, selectionEnd: Int, inserted: String): String {
+        val len = existing.length
+        val (lo, hi) = if (selectionStart <= selectionEnd) selectionStart to selectionEnd else selectionEnd to selectionStart
+        val start = if (lo in 0..len) lo else len
+        val end = if (hi in start..len) hi else start
+        val text = inserted.trim()
+        if (text.isEmpty()) return ""
+        val before = existing.substring(0, start)
+        val after = existing.substring(end)
+        val spaceBefore = before.isNotEmpty() && !before.last().isWhitespace()
+        val spaceAfter = after.isNotEmpty() && after.first().isLetterOrDigit()
+        return (if (spaceBefore) " " else "") + text + (if (spaceAfter) " " else "")
+    }
+
+    /**
      * Puts [inserted] at the selection (or the cursor when nothing is selected), keeping the rest of the field.
      * Adds a space before or after when the words would otherwise run together. The cursor ends after the new text.
      */
