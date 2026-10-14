@@ -70,7 +70,9 @@ object RecoveryPlanner {
     )
 
     /**
-     * [available] is in preference order. Once anything has been heard, no recovery is attempted: the text so far is kept.
+     * [available] is in preference order. Any engine failure moves on to the next engine that hasn't been tried,
+     * including a language error from the on-device recognizer, so dictation never depends on it alone.
+     * Once anything has been heard, no recovery is attempted: the text so far is kept.
      */
     fun plan(
         code: Int,
@@ -85,17 +87,8 @@ object RecoveryPlanner {
         return when {
             error == DictationError.BUSY ->
                 if (busyRetries < MAX_BUSY_RETRIES) Recovery.RecreateSame(current) else Recovery.None
-            error in engineFailures -> {
-                // A language the on-device pack doesn't have goes to the standard recognizer first.
-                val preferred = if (current == SpeechEngine.Choice.ON_DEVICE && error == DictationError.LANGUAGE) {
-                    listOf(SpeechEngine.Choice.SYSTEM, SpeechEngine.Choice.GOOGLE)
-                } else {
-                    emptyList()
-                }
-                (preferred.filter { it in available } + available)
-                    .firstOrNull { it !in tried }
-                    ?.let { Recovery.Fallback(it) } ?: Recovery.None
-            }
+            error in engineFailures || error == DictationError.LANGUAGE ->
+                available.firstOrNull { it !in tried }?.let { Recovery.Fallback(it) } ?: Recovery.None
             else -> Recovery.None
         }
     }

@@ -229,6 +229,11 @@ class BubbleService : AccessibilityService() {
     private var availableEngines: List<SpeechEngine.Choice> = emptyList()
     private var engine: SpeechEngine.Choice = SpeechEngine.Choice.NONE
     private val enginesTried = mutableSetOf<SpeechEngine.Choice>()
+    private var dictationLanguageTag = ""
+
+    /** The language tag for recognizers: BCP-47 with a hyphen, e.g. "en-US". */
+    private fun dictationLanguage(): String =
+        LanguageTag.format(DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag()))
     private var busyRetries = 0
     private var attemptStart = 0L
     private val attemptTrail = mutableListOf<String>()
@@ -237,7 +242,8 @@ class BubbleService : AccessibilityService() {
         val node = focusedEditable()
         val key = node?.let { fieldKey(it) }
         val found = SpeechEngineAndroid.detect(this)
-        val available = SpeechEngine.available(found)
+        dictationLanguageTag = dictationLanguage()
+        val available = SpeechEngine.order(found, prefs.onDevicePackInstalled(dictationLanguageTag))
         when {
             key == null -> return fail(getString(R.string.no_field))
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ->
@@ -285,8 +291,10 @@ class BubbleService : AccessibilityService() {
         releaseRecognizer()
         engine = choice
         enginesTried += choice
+        attemptTrail += "${choice.name} [$dictationLanguageTag]: started"
+        val found = detection ?: return failWith(DictationError.RECOGNIZER_UNAVAILABLE, null)
         val created = try {
-            SpeechEngineAndroid.create(this, choice, detection?.googleComponent)
+            SpeechEngineAndroid.create(this, choice, found)
         } catch (e: Exception) {
             return failWith(DictationError.from(e), null, e)
         }
@@ -304,12 +312,12 @@ class BubbleService : AccessibilityService() {
     }
 
     private fun listen() {
-        val language = DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag())
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, dictationLanguageTag)
             .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            .putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            // Only the on-device recognizer works from the offline pack. Online recognizers must not insist on it.
+            .putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, SpeechEngine.preferOffline(engine))
         if (Build.VERSION.SDK_INT >= 33) {
             // Biasing: nudge the recognizer toward the dictionary's correct spellings.
             val terms = DictionaryRepository.get(this).entries.value.map { it.term }.distinct()

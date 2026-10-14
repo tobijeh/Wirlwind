@@ -1,48 +1,60 @@
 package org.wirl
 
 /**
- * Which speech recognizer dictation uses. Checked in this order, first available wins:
- * 1. the on-device recognizer (Android 12+),
- * 2. Google's speech service, by its component name (Android 12+),
- * 3. the system default recognizer.
+ * The speech recognizers dictation can use. Dictation tries them in [order]: the on-device recognizer only when its
+ * language pack is known to be installed, then the Google app, then Speech Services by Google, then the system default.
  */
 object SpeechEngine {
-    enum class Choice { ON_DEVICE, GOOGLE, SYSTEM, NONE }
-
-    fun choose(onDeviceAvailable: Boolean, googleAvailable: Boolean, systemAvailable: Boolean): Choice = when {
-        onDeviceAvailable -> Choice.ON_DEVICE
-        googleAvailable -> Choice.GOOGLE
-        systemAvailable -> Choice.SYSTEM
-        else -> Choice.NONE
+    enum class Choice(val label: String) {
+        ON_DEVICE("On-device recognizer"),
+        GOOGLE_APP("Google app"),
+        GOOGLE_TTS("Speech Services by Google"),
+        SYSTEM("Phone's default speech service"),
+        NONE("None"),
     }
 
-    /** The engines the phone has, in the order they're tried. */
-    fun available(detection: Detection): List<Choice> = listOfNotNull(
-        Choice.ON_DEVICE.takeIf { detection.onDeviceAvailable },
-        Choice.GOOGLE.takeIf { detection.googleComponent != null },
+    const val GOOGLE_APP_PACKAGE = "com.google.android.googlequicksearchbox"
+    const val GOOGLE_TTS_PACKAGE = "com.google.android.tts"
+
+    /** What the phone offers. The component fields are "package/class", or null if that service isn't installed. */
+    data class Detection(
+        val onDeviceAvailable: Boolean,
+        val googleAppComponent: String?,
+        val googleTtsComponent: String?,
+        val systemAvailable: Boolean,
+    )
+
+    /**
+     * Engines to try, in order. The on-device recognizer comes first only when [onDevicePackInstalled] is true,
+     * because without its language pack it fails with a language error.
+     */
+    fun order(detection: Detection, onDevicePackInstalled: Boolean): List<Choice> = listOfNotNull(
+        Choice.ON_DEVICE.takeIf { detection.onDeviceAvailable && onDevicePackInstalled },
+        Choice.GOOGLE_APP.takeIf { detection.googleAppComponent != null },
+        Choice.GOOGLE_TTS.takeIf { detection.googleTtsComponent != null },
         Choice.SYSTEM.takeIf { detection.systemAvailable },
     )
 
-    /** What the phone offers. [googleComponent] is "package/class" for Google's service, or null if it isn't installed. */
-    data class Detection(val onDeviceAvailable: Boolean, val googleComponent: String?, val systemAvailable: Boolean) {
-        val choice: Choice get() = choose(onDeviceAvailable, googleComponent != null, systemAvailable)
-    }
+    /** Only the on-device recognizer works from its offline pack. Online recognizers must not insist on it. */
+    fun preferOffline(choice: Choice): Boolean = choice == Choice.ON_DEVICE
+
+    /** Every engine the phone has, including on-device even without its pack. Used by the test. */
+    fun installed(detection: Detection): List<Choice> = order(detection, onDevicePackInstalled = detection.onDeviceAvailable)
 
     /** One line for the settings screen. Lists what's missing when nothing is available. */
-    fun describe(detection: Detection): String = when (detection.choice) {
-        Choice.ON_DEVICE -> "On-device recognizer (works offline)"
-        Choice.GOOGLE -> "Google speech service"
-        Choice.SYSTEM -> "Phone's default speech service"
-        Choice.NONE -> buildString {
-            append("Not found. Missing: ")
-            val missing = buildList {
-                if (!detection.onDeviceAvailable) add("on-device recognizer")
-                if (detection.googleComponent == null) add("Google speech service")
-                if (!detection.systemAvailable) add("default speech service")
+    fun describe(detection: Detection, onDevicePackInstalled: Boolean): String {
+        val first = order(detection, onDevicePackInstalled).firstOrNull()
+            ?: return buildString {
+                append("Not found. Missing: ")
+                append(
+                    buildList {
+                        if (!detection.onDeviceAvailable) add("on-device recognizer")
+                        if (detection.googleAppComponent == null) add("Google app")
+                        if (detection.googleTtsComponent == null) add("Speech Services by Google")
+                        if (!detection.systemAvailable) add("default speech service")
+                    }.joinToString(", "),
+                )
             }
-            append(missing.joinToString(", "))
-        }
+        return first.label
     }
-
-    const val GOOGLE_PACKAGE = "com.google.android.googlequicksearchbox"
 }
