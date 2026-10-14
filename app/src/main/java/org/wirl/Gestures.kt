@@ -127,6 +127,9 @@ class DictationSession(segmented: Boolean = false, ownAudio: Boolean = false) {
     /** Text so far, including any partial result still being spoken. */
     val transcript: String get() = assembler.text()
 
+    /** True once the user has tapped to stop, so the next pause ends the dictation rather than restarting it. */
+    val stopping: Boolean get() = stopRequested
+
     fun onEvent(event: RecognizerEvent): SessionAction? = when (event) {
         is RecognizerEvent.Partial -> {
             assembler.partial(event.text)

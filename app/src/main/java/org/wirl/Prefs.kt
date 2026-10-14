@@ -48,6 +48,21 @@ class Prefs(context: Context) {
         get() = plain.getBoolean(KEY_DICTATION_CLEANUP, true)
         set(value) = plain.edit().putBoolean(KEY_DICTATION_CLEANUP, value).apply()
 
+    /** Pauses other audio during dictation and mutes the recognizer's beep during automatic restarts. On by default. */
+    var silenceBeeps: Boolean
+        get() = plain.getBoolean(KEY_SILENCE_BEEPS, true)
+        set(value) = plain.edit().putBoolean(KEY_SILENCE_BEEPS, value).apply()
+
+    /** The streams muted for a restart, kept so they can be restored if the service is killed while they're muted. */
+    val mutedStreams: MutedStreamStore = object : MutedStreamStore {
+        override fun load(): Set<Int> =
+            plain.getString(KEY_MUTED_STREAMS, "").orEmpty().split(",").mapNotNull { it.toIntOrNull() }.toSet()
+
+        override fun save(streams: Set<Int>) {
+            plain.edit().putString(KEY_MUTED_STREAMS, streams.joinToString(",")).apply()
+        }
+    }
+
     /** Recognition language tag, or blank for the phone's language. */
     var dictationLanguage: String
         get() = plain.getString(KEY_DICTATION_LANGUAGE, "").orEmpty()
@@ -137,6 +152,8 @@ class Prefs(context: Context) {
         const val KEY_LAST_RESULT = "last_result"
         const val KEY_DICTIONARY = "dictionary"
         const val KEY_DICTATION_CLEANUP = "dictation_cleanup"
+        const val KEY_SILENCE_BEEPS = "silence_beeps"
+        const val KEY_MUTED_STREAMS = "muted_streams"
         const val KEY_DIAGNOSTICS = "diagnostics"
         const val KEY_SETTINGS_VERSION = "settings_version"
         const val KEY_STYLE_NOTES = "style_notes"
@@ -147,7 +164,7 @@ class Prefs(context: Context) {
         val RESETTABLE_KEYS = listOf(
             KEY_BUBBLE_ENABLED, KEY_BUBBLE_X, KEY_BUBBLE_Y, KEY_BUBBLE_SIZE, KEY_BUBBLE_OPACITY,
             KEY_SHOW_DONE_CHECK, KEY_SHOW_DONE_MESSAGE, KEY_STYLE_NOTES, KEY_DICTATION_CLEANUP,
-            KEY_DICTATION_LANGUAGE, KEY_PROMPT,
+            KEY_DICTATION_LANGUAGE, KEY_PROMPT, KEY_SILENCE_BEEPS,
         )
         const val KEY_PACK_PREFIX = "onDevicePack_"
         const val KEY_DICTATION_LANGUAGE = "dictation_language"

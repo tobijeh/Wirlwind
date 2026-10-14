@@ -260,6 +260,16 @@
             android:text="@string/dictation_cleanup_toggle"
             android:textAppearance="?attr/textAppearanceBodyLarge" />
 
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/silenceBeeps"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="56dp"
+            android:paddingStart="4dp"
+            android:text="@string/silence_beeps_toggle"
+            android:textAppearance="?attr/textAppearanceBodyLarge" />
+
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
             android:layout_width="match_parent"
