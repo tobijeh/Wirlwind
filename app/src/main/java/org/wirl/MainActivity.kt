@@ -17,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import org.wirl.databinding.ActivityMainBinding
+import java.util.Locale
 import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity() {
@@ -57,6 +58,16 @@ class MainActivity : AppCompatActivity() {
         binding.dictationLanguage.setText(DictationLanguages.labelFor(prefs.dictationLanguage), false)
         binding.dictationLanguage.setOnItemClickListener { _, _, position, _ ->
             prefs.dictationLanguage = DictationLanguages.options[position].first
+            refreshStatus()
+        }
+        binding.downloadPack.setOnClickListener {
+            val language = DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag())
+            val started = SpeechPacks.download(this, language)
+            Toast.makeText(
+                this,
+                if (started) R.string.download_started else R.string.download_unavailable,
+                Toast.LENGTH_LONG,
+            ).show()
         }
     }
 
@@ -131,6 +142,18 @@ class MainActivity : AppCompatActivity() {
         binding.micButton.text = "${getString(R.string.mic_title)}: " +
             getString(if (micAllowed) R.string.mic_allowed else R.string.mic_tap_to_allow)
         binding.micButton.isEnabled = !micAllowed
+
+        val language = DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag())
+        binding.packStatus.text = getString(R.string.dictation_language_now, DictationLanguages.labelFor(language))
+        SpeechPacks.check(this, language) { status ->
+            binding.packStatus.text = listOf(
+                getString(R.string.dictation_language_now, DictationLanguages.labelFor(language)),
+                getString(R.string.pack_status, DictationLanguage.describePack(status)),
+            ).joinToString("\n")
+            // Offer the download unless the pack is confirmed installed.
+            binding.downloadPack.visibility =
+                if (status == DictationLanguage.PackStatus.INSTALLED) View.GONE else View.VISIBLE
+        }
 
         val engine = SpeechEngineAndroid.detect(this)
         binding.speechEngine.text = "${getString(R.string.speech_engine_title)}: ${SpeechEngine.describe(engine)}"

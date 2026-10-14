@@ -85,8 +85,17 @@ object RecoveryPlanner {
         return when {
             error == DictationError.BUSY ->
                 if (busyRetries < MAX_BUSY_RETRIES) Recovery.RecreateSame(current) else Recovery.None
-            error in engineFailures ->
-                available.firstOrNull { it !in tried }?.let { Recovery.Fallback(it) } ?: Recovery.None
+            error in engineFailures -> {
+                // A language the on-device pack doesn't have goes to the standard recognizer first.
+                val preferred = if (current == SpeechEngine.Choice.ON_DEVICE && error == DictationError.LANGUAGE) {
+                    listOf(SpeechEngine.Choice.SYSTEM, SpeechEngine.Choice.GOOGLE)
+                } else {
+                    emptyList()
+                }
+                (preferred.filter { it in available } + available)
+                    .firstOrNull { it !in tried }
+                    ?.let { Recovery.Fallback(it) } ?: Recovery.None
+            }
             else -> Recovery.None
         }
     }

@@ -82,4 +82,9 @@
     <string name="diagnostics_empty">No dictation attempts yet. Dictate once, then come back here.</string>
     <string name="open_diagnostics">Diagnostics</string>
     <string name="copy">Copy</string>
+    <string name="dictation_language_now">Dictation language: %1$s</string>
+    <string name="pack_status">Offline speech pack: %1$s</string>
+    <string name="download_speech_pack">Download speech pack</string>
+    <string name="download_started">Download started. It can take a few minutes; check back here.</string>
+    <string name="download_unavailable">Speech pack downloads need Android 13 or later.</string>
 </resources>
