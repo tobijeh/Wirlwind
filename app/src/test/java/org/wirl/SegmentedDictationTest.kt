@@ -21,7 +21,7 @@ class SegmentedDictationTest {
             SessionAction.Finish("one two three", null),
             session.onEvent(RecognizerEvent.EndOfSegments),
         )
-        assertEquals("mode: segmented, segments: 3, restarts: 0", session.summary())
+        assertEquals("mode: segmented, segments: 3, restarts: 0, audio gaps: none", session.summary())
     }
 
     @Test fun aSegmentRepeatedBackToBackIsNotDuplicated() {
@@ -31,7 +31,7 @@ class SegmentedDictationTest {
         session.onEvent(RecognizerEvent.Segment("two"))
         session.onEvent(RecognizerEvent.Segment("three"))
         assertEquals("one two three", session.transcript)
-        assertEquals("mode: segmented, segments: 3, restarts: 0", session.summary())
+        assertEquals("mode: segmented, segments: 3, restarts: 0, audio gaps: none", session.summary())
     }
 
     @Test fun repeatedWordsThatAreNotBackToBackAreKept() {
@@ -68,7 +68,7 @@ class SegmentedDictationTest {
     @Test fun segmentedSessionThatFailsBeforeAnyTextFallsBackToRestarts() {
         val session = segmented()
         assertEquals(SessionAction.Restart, session.onEvent(RecognizerEvent.Error(someError)))
-        assertEquals(DictationSession.Mode.RESTART, session.mode)
+        assertEquals(DictationSession.Mode.RESTART_MIC, session.mode)
         session.onListening()
         assertEquals(SessionAction.Restart, session.onEvent(RecognizerEvent.Results("hello there")))
         session.onListening()
@@ -85,7 +85,7 @@ class SegmentedDictationTest {
         session.onListening()
         session.onEvent(RecognizerEvent.Results("hello"))
         assertEquals(
-            "mode: restart (segmented unsupported, fell back), segments: 1, restarts: 1",
+            "mode: restart with mic (segmented unsupported, fell back), segments: 1, restarts: 1, audio gaps: none",
             session.summary(),
         )
     }
@@ -93,7 +93,7 @@ class SegmentedDictationTest {
     @Test fun segmentedRecognizerThatSendsOnlyResultsFallsBackAndKeepsTheText() {
         val session = segmented()
         assertEquals(SessionAction.Restart, session.onEvent(RecognizerEvent.Results("hello")))
-        assertEquals(DictationSession.Mode.RESTART, session.mode)
+        assertEquals(DictationSession.Mode.RESTART_MIC, session.mode)
         assertEquals("hello", session.transcript)
     }
 
@@ -102,7 +102,7 @@ class SegmentedDictationTest {
         assertEquals(SessionAction.Restart, session.onEvent(RecognizerEvent.Results("hello there")))
         session.onListening()
         assertEquals(SessionAction.Restart, session.onEvent(RecognizerEvent.Results("how are you")))
-        assertEquals("mode: restart, segments: 2, restarts: 2", session.summary())
+        assertEquals("mode: restart with mic, segments: 2, restarts: 2, audio gaps: none", session.summary())
     }
 
     @Test fun fallbackPathKeepsTheTextAcrossRestartsAndStops() {

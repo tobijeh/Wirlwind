@@ -42,6 +42,16 @@ jobs:
           echo "$DEBUG_KEYSTORE_BASE64" | tr -d ' \r\n' | base64 -d > "$WIRL_KEYSTORE"
           echo "WIRL_KEYSTORE=$WIRL_KEYSTORE" >> "$GITHUB_ENV"
 
+      # whisper.cpp is compiled with the NDK and CMake. Install the pinned versions if the runner doesn't have them.
+      - name: Install NDK and CMake
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ -x "$SDKMANAGER" ]; then
+            yes | "$SDKMANAGER" --install "ndk;26.1.10909125" "cmake;3.22.1" > /dev/null
+          else
+            echo "::notice::sdkmanager not found; letting Android Gradle Plugin install the NDK and CMake"
+          fi
+
       - name: Lint and unit tests
         run: ./gradlew lintDebug testDebugUnitTest --no-daemon
 

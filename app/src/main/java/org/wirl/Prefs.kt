@@ -11,18 +11,7 @@ class Prefs(context: Context) {
 
     val plain: SharedPreferences = app.getSharedPreferences("wirl", Context.MODE_PRIVATE)
 
-    private val secure: SharedPreferences by lazy {
-        val masterKey = MasterKey.Builder(app)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            app,
-            "wirl_secure",
-            masterKey,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
-    }
+    private val secure: SharedPreferences by lazy { secureFactory(app) }
 
     var apiKey: String
         get() = secure.getString(KEY_API_KEY, "").orEmpty()
@@ -47,6 +36,41 @@ class Prefs(context: Context) {
     var dictationCleanup: Boolean
         get() = plain.getBoolean(KEY_DICTATION_CLEANUP, true)
         set(value) = plain.edit().putBoolean(KEY_DICTATION_CLEANUP, value).apply()
+
+    /** Pauses other audio during dictation and mutes the recognizer's beep during automatic restarts. On by default. */
+    var silenceBeeps: Boolean
+        get() = plain.getBoolean(KEY_SILENCE_BEEPS, true)
+        set(value) = plain.edit().putBoolean(KEY_SILENCE_BEEPS, value).apply()
+
+    /** Which engine turns speech into text. Whisper by default, with Google's recognizer as the fallback. */
+    var dictationEngine: DictationEngine
+        get() = DictationEngine.fromKey(plain.getString(KEY_DICTATION_ENGINE, null))
+        set(value) = plain.edit().putString(KEY_DICTATION_ENGINE, value.key).apply()
+
+    /** The Whisper model. Fast (base.en) by default. */
+    var whisperModel: WhisperModel
+        get() = WhisperModel.fromKey(plain.getString(KEY_WHISPER_MODEL, null))
+        set(value) = plain.edit().putString(KEY_WHISPER_MODEL, value.name).apply()
+
+    /** Whether model downloads may use mobile data. Off by default: downloads wait for Wi-Fi. */
+    var allowMobileData: Boolean
+        get() = plain.getBoolean(KEY_ALLOW_MOBILE_DATA, false)
+        set(value) = plain.edit().putBoolean(KEY_ALLOW_MOBILE_DATA, value).apply()
+
+    /** Whether the one-time "download the speech model" offer has been shown. */
+    var modelOfferShown: Boolean
+        get() = plain.getBoolean(KEY_MODEL_OFFER_SHOWN, false)
+        set(value) = plain.edit().putBoolean(KEY_MODEL_OFFER_SHOWN, value).apply()
+
+    /** The streams muted for a restart, kept so they can be restored if the service is killed while they're muted. */
+    val mutedStreams: MutedStreamStore = object : MutedStreamStore {
+        override fun load(): Set<Int> =
+            plain.getString(KEY_MUTED_STREAMS, "").orEmpty().split(",").mapNotNull { it.toIntOrNull() }.toSet()
+
+        override fun save(streams: Set<Int>) {
+            plain.edit().putString(KEY_MUTED_STREAMS, streams.joinToString(",")).apply()
+        }
+    }
 
     /** Recognition language tag, or blank for the phone's language. */
     var dictationLanguage: String
@@ -127,6 +151,22 @@ class Prefs(context: Context) {
     }
 
     companion object {
+        /**
+         * Opens the encrypted store. Tests replace it with an in-memory store, because Robolectric has no Android keystore.
+         */
+        var secureFactory: (Context) -> SharedPreferences = { app ->
+            val masterKey = MasterKey.Builder(app)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            EncryptedSharedPreferences.create(
+                app,
+                "wirl_secure",
+                masterKey,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+            )
+        }
+
         const val KEY_API_KEY = "api_key"
         const val KEY_BUBBLE_ENABLED = "bubble_enabled"
         const val KEY_PROMPT = "system_prompt"
@@ -137,6 +177,12 @@ class Prefs(context: Context) {
         const val KEY_LAST_RESULT = "last_result"
         const val KEY_DICTIONARY = "dictionary"
         const val KEY_DICTATION_CLEANUP = "dictation_cleanup"
+        const val KEY_SILENCE_BEEPS = "silence_beeps"
+        const val KEY_DICTATION_ENGINE = "dictation_engine"
+        const val KEY_WHISPER_MODEL = "whisper_model"
+        const val KEY_ALLOW_MOBILE_DATA = "allow_mobile_data"
+        const val KEY_MODEL_OFFER_SHOWN = "model_offer_shown"
+        const val KEY_MUTED_STREAMS = "muted_streams"
         const val KEY_DIAGNOSTICS = "diagnostics"
         const val KEY_SETTINGS_VERSION = "settings_version"
         const val KEY_STYLE_NOTES = "style_notes"
@@ -147,7 +193,7 @@ class Prefs(context: Context) {
         val RESETTABLE_KEYS = listOf(
             KEY_BUBBLE_ENABLED, KEY_BUBBLE_X, KEY_BUBBLE_Y, KEY_BUBBLE_SIZE, KEY_BUBBLE_OPACITY,
             KEY_SHOW_DONE_CHECK, KEY_SHOW_DONE_MESSAGE, KEY_STYLE_NOTES, KEY_DICTATION_CLEANUP,
-            KEY_DICTATION_LANGUAGE, KEY_PROMPT,
+            KEY_DICTATION_LANGUAGE, KEY_PROMPT, KEY_SILENCE_BEEPS, KEY_DICTATION_ENGINE, KEY_WHISPER_MODEL, KEY_ALLOW_MOBILE_DATA,
         )
         const val KEY_PACK_PREFIX = "onDevicePack_"
         const val KEY_DICTATION_LANGUAGE = "dictation_language"
