@@ -48,6 +48,8 @@ import kotlin.math.hypot
  */
 class BubbleService : AccessibilityService() {
     private companion object {
+        /** How long a pause may last before the recognizer decides the speaker has finished. */
+        const val SILENCE_HINT_MS = 10_000L
         const val TAG = "Wirl"
     }
 
@@ -277,7 +279,8 @@ class BubbleService : AccessibilityService() {
         }
 
         dictationField = key
-        session = DictationSession()
+        // Android 13+ keeps one segmented session open until the user stops. Older versions restart after pauses.
+        session = DictationSession(segmented = Build.VERSION.SDK_INT >= 33)
         detection = found
         availableEngines = available
         enginesTried.clear()
@@ -349,10 +352,17 @@ class BubbleService : AccessibilityService() {
             .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             // Only the on-device recognizer works from the offline pack. Online recognizers must not insist on it.
             .putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, SpeechEngine.preferOffline(engine))
+            // Hints: wait a long time in silence before deciding the speaker has finished. Pauses between sentences
+            // then don't end the recognizer.
+            .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, SILENCE_HINT_MS)
+            .putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, SILENCE_HINT_MS)
         if (Build.VERSION.SDK_INT >= 33) {
             // Biasing: nudge the recognizer toward the dictionary's correct spellings.
             val terms = DictionaryRepository.get(this).entries.value.map { it.term }.distinct()
             if (terms.isNotEmpty()) intent.putStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS, ArrayList(terms))
+            if (session?.mode == DictationSession.Mode.SEGMENTED) {
+                intent.putExtra(RecognizerIntent.EXTRA_SEGMENTED_SESSION, true)
+            }
         }
         try {
             recognizer?.startListening(intent)
@@ -373,6 +383,15 @@ class BubbleService : AccessibilityService() {
             onRecognizerEvent(RecognizerEvent.Results(kept.firstOrNull().orEmpty(), kept.drop(1)))
         }
         override fun onError(error: Int) = onRecognizerEvent(RecognizerEvent.Error(error))
+
+        // Segmented sessions (Android 13+): each finished segment arrives here, then the session ends.
+        override fun onSegmentResults(segmentResults: Bundle) {
+            val list = segmentResults.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
+            val scores = segmentResults.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES)
+            val kept = Alternatives.filter(list, scores)
+            onRecognizerEvent(RecognizerEvent.Segment(kept.firstOrNull().orEmpty(), kept.drop(1)))
+        }
+        override fun onEndOfSegmentedSession() = onRecognizerEvent(RecognizerEvent.EndOfSegments)
         override fun onReadyForSpeech(params: Bundle?) = Unit
         override fun onBeginningOfSpeech() = Unit
         override fun onRmsChanged(rmsdB: Float) = Unit
@@ -421,6 +440,8 @@ class BubbleService : AccessibilityService() {
 
     private fun endDictation(finish: SessionAction.Finish) {
         val field = dictationField
+        // Read before the session is cleared: which mode ran, and how many segments and restarts happened.
+        val summary = session?.summary().orEmpty()
         releaseRecognizer()
         session = null
         dictationField = null
@@ -430,7 +451,7 @@ class BubbleService : AccessibilityService() {
         if (raw.isBlank()) {
             val error = finish.error ?: DictationError.NO_SPEECH
             val message = DictationError.messageFor(error, finish.errorCode)
-            recordAttempt(message, finish.errorCode, null, "transcript: (empty)")
+            recordAttempt(message, finish.errorCode, null, "transcript: (empty)\n$summary")
             return fail(message)
         }
 
@@ -465,7 +486,7 @@ class BubbleService : AccessibilityService() {
                 note ?: "Inserted by ${insertion.method.name}",
                 finish.errorCode,
                 cleaned?.exceptionOrNull(),
-                "$cleanupLine\n${insertion.details}",
+                "$cleanupLine\n$summary\n${insertion.details}",
             )
             if (note != null) showLabel(note, 3000)
             if (inserted) {
