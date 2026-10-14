@@ -19,7 +19,7 @@ class QuickAddActivity : AppCompatActivity() {
             return
         }
 
-        val prefs = Prefs(this)
+        val repository = DictionaryRepository.get(this)
         val form = DialogQuickAddBinding.inflate(layoutInflater)
         form.selected.text = selected
 
@@ -40,9 +40,9 @@ class QuickAddActivity : AppCompatActivity() {
                     form.quickTerm.error = getString(R.string.term_required)
                     return@setOnClickListener
                 }
-                prefs.dictionary = DictionaryEditor.addMishearing(
-                    prefs.dictionary, term, selected, form.quickNote.text.toString(),
-                )
+                repository.update {
+                    DictionaryEditor.addMishearing(it, term, selected, form.quickNote.text.toString())
+                }
                 if (readOnly) {
                     say(getString(R.string.quick_added))
                 } else {
@@ -52,7 +52,7 @@ class QuickAddActivity : AppCompatActivity() {
                 dialog.dismiss()
             }
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
-                prefs.dictionary = DictionaryEditor.addTerm(prefs.dictionary, selected, form.quickNote.text.toString())
+                repository.update { DictionaryEditor.addTerm(it, selected, form.quickNote.text.toString()) }
                 say(getString(R.string.quick_added))
                 dialog.dismiss()
             }
