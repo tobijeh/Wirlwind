@@ -16,6 +16,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.wirl.databinding.ActivityMainBinding
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -30,7 +31,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
         prefs = Prefs(this)
 
-        binding.prompt.setText(prefs.systemPrompt)
+        binding.styleNotes.setText(prefs.styleNotes)
         binding.bubbleToggle.isChecked = prefs.bubbleEnabled
         binding.bubbleToggle.setOnCheckedChangeListener { _, checked -> prefs.bubbleEnabled = checked }
         binding.doneCheckToggle.isChecked = prefs.showDoneCheck
@@ -43,7 +44,18 @@ class MainActivity : AppCompatActivity() {
         binding.openAccessibility.setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
-        binding.resetPrompt.setOnClickListener { binding.prompt.setText(Prefs.DEFAULT_PROMPT) }
+        binding.resetDefaults.setOnClickListener {
+            MaterialAlertDialogBuilder(this)
+                .setMessage(R.string.reset_defaults_confirm)
+                .setPositiveButton(R.string.reset_defaults) { _, _ ->
+                    prefs.resetToDefaults()
+                    recreate()
+                }
+                .setNegativeButton(android.R.string.cancel, null)
+                .show()
+        }
+        binding.openSetup.setOnClickListener { startActivity(Intent(this, SetupActivity::class.java)) }
+        if (!prefs.setupShown) startActivity(Intent(this, SetupActivity::class.java))
         binding.save.setOnClickListener { save() }
         binding.openDictionary.setOnClickListener { startActivity(Intent(this, DictionaryActivity::class.java)) }
         binding.micButton.setOnClickListener { micPermission.launch(Manifest.permission.RECORD_AUDIO) }
@@ -80,6 +92,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        // The Setup button goes away once every checklist item is done.
+        binding.openSetup.visibility = if (SetupChecklist.allDone(SetupActivity.status(this))) View.GONE else View.VISIBLE
     }
 
     /** Size and opacity sliders. Values save as you drag, so the floating bubble updates live. */
@@ -151,8 +165,8 @@ class MainActivity : AppCompatActivity() {
             prefs.apiKey = key
             binding.apiKey.setText("")
         }
-        prefs.systemPrompt = binding.prompt.text?.toString().orEmpty()
-        binding.prompt.setText(prefs.systemPrompt)
+        prefs.styleNotes = binding.styleNotes.text?.toString().orEmpty()
+        binding.styleNotes.setText(prefs.styleNotes)
         refreshStatus()
         Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show()
     }

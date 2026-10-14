@@ -97,6 +97,7 @@ class EngineTester(private val context: Context, private val report: (List<Strin
     private fun finishWith(choice: SpeechEngine.Choice, language: String, outcome: String, code: Int?, throwable: Throwable?) {
         results += "${choice.label} [$language]: $outcome"
         val prefs = Prefs(context)
+        if (outcome == "works") prefs.engineTestPassed = true
         prefs.diagnostics = DiagnosticsLog.add(
             prefs.diagnostics,
             DiagnosticEntry(

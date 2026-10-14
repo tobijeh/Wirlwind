@@ -70,14 +70,21 @@ class GestureMachine {
 
 sealed interface RecognizerEvent {
     data class Partial(val text: String) : RecognizerEvent
-    data class Results(val text: String) : RecognizerEvent
+    /** [alternatives] are the other transcriptions for this result, most likely first. */
+    data class Results(val text: String, val alternatives: List<String> = emptyList()) : RecognizerEvent
     data class Error(val code: Int) : RecognizerEvent
 }
 
 sealed interface SessionAction {
     /** Listen again: the recognizer stopped on a pause while dictation is still on. */
     data object Restart : SessionAction
-    data class Finish(val transcript: String, val error: DictationError?, val errorCode: Int? = null) : SessionAction
+    data class Finish(
+        val transcript: String,
+        val error: DictationError?,
+        val errorCode: Int? = null,
+        /** Whole-dictation alternatives to offer the cleanup, most likely first. */
+        val alternatives: List<String> = emptyList(),
+    ) : SessionAction
 }
 
 /**
@@ -98,7 +105,7 @@ class DictationSession {
             null
         }
         is RecognizerEvent.Results -> {
-            assembler.commit(event.text)
+            assembler.commit(event.text, event.alternatives)
             listening = false
             if (stopRequested) finish(null) else restart()
         }
@@ -130,7 +137,7 @@ class DictationSession {
     private fun finish(error: DictationError?, code: Int? = null): SessionAction.Finish {
         listening = false
         // Keep whatever was heard, including a partial result that never became final.
-        return SessionAction.Finish(assembler.text(), error, code)
+        return SessionAction.Finish(assembler.text(), error, code, assembler.alternatives())
     }
 
     /** The recognizer has started listening (first start, or after a restart). */
@@ -141,22 +148,43 @@ class DictationSession {
 
 /** Joins recognized text across recognizer restarts without repeating or dropping words. */
 class TranscriptAssembler {
-    private val committed = mutableListOf<String>()
+    /** One committed result: its top transcript and the alternatives the recognizer offered for it. */
+    private data class Segment(val top: String, val alternatives: List<String>)
+
+    private val committed = mutableListOf<Segment>()
     private var partial = ""
 
     fun partial(text: String) {
         partial = text.trim()
     }
 
-    fun commit(text: String) {
+    fun commit(text: String, alternatives: List<String> = emptyList()) {
         val clean = text.trim()
-        if (clean.isNotEmpty()) committed += clean
+        if (clean.isNotEmpty()) committed += Segment(clean, alternatives.map { it.trim() }.filter { it.isNotEmpty() })
         partial = ""
     }
 
     fun text(): String {
-        val parts = if (partial.isEmpty()) committed else committed + partial
+        val parts = committed.map { it.top } + listOfNotNull(partial.takeIf { it.isNotEmpty() })
         return parts.joinToString(" ").replace(Regex("\\s+"), " ").trim()
+    }
+
+    /**
+     * Whole-dictation alternatives: the k-th alternative of each result, joined in order. Results without a k-th
+     * alternative use their top transcript. Distinct, different from [text], and at most [max] of them.
+     */
+    fun alternatives(max: Int = Alternatives.MAX - 1): List<String> {
+        val top = text()
+        val partialTail = partial.takeIf { it.isNotEmpty() }
+        return (0 until max)
+            .map { k ->
+                val joined = committed.map { it.alternatives.getOrNull(k) ?: it.top }.toMutableList()
+                partialTail?.let { joined += it }
+                joined.joinToString(" ").replace(Regex("\\s+"), " ").trim()
+            }
+            .filter { it.isNotEmpty() && it != top }
+            .distinct()
+            .take(max)
     }
 }
 

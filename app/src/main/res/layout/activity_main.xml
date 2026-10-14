@@ -211,6 +211,14 @@
             android:layout_marginTop="16dp" />
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/openSetup"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/open_setup" />
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/openDiagnostics"
             style="@style/Widget.Material3.Button.TextButton"
             android:layout_width="match_parent"
@@ -298,30 +306,31 @@
             android:fontFamily="monospace"
             android:textAppearance="?attr/textAppearanceBodySmall" />
 
-        <!-- Cleanup instructions -->
+        <!-- Personal style notes, added to the built-in cleanup prompt -->
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:hint="@string/prompt_label">
+            android:hint="@string/style_notes_label"
+            app:helperText="@string/style_notes_helper">
 
             <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/prompt"
+                android:id="@+id/styleNotes"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="top|start"
                 android:inputType="textMultiLine|textCapSentences"
-                android:minLines="5" />
+                android:minLines="2" />
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/resetPrompt"
+            android:id="@+id/resetDefaults"
             style="@style/Widget.Material3.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"
-            android:text="@string/reset_prompt" />
+            android:text="@string/reset_defaults" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/save"

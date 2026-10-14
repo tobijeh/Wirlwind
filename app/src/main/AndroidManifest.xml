@@ -49,6 +49,11 @@
         </activity>
 
         <activity
+            android:name=".SetupActivity"
+            android:exported="false"
+            android:label="@string/setup_title" />
+
+        <activity
             android:name=".DiagnosticsActivity"
             android:exported="false"
             android:label="@string/diagnostics_title" />

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -22,7 +23,7 @@ class PrefsTest {
         assertTrue(prefs.bubbleEnabled)
         assertTrue(prefs.showDoneCheck)
         assertFalse(prefs.showDoneMessage)
-        assertEquals(Prefs.DEFAULT_PROMPT, prefs.systemPrompt)
+        assertEquals("", prefs.styleNotes)
         assertTrue(prefs.dictionary.isEmpty())
     }
 
@@ -42,11 +43,42 @@ class PrefsTest {
         assertEquals(30, Prefs(context).bubbleOpacity)
     }
 
-    @Test fun promptIsTrimmedAndBlankFallsBackToDefault() {
-        Prefs(context).systemPrompt = "  Be brief.  "
-        assertEquals("Be brief.", Prefs(context).systemPrompt)
-        Prefs(context).systemPrompt = "   "
-        assertEquals(Prefs.DEFAULT_PROMPT, Prefs(context).systemPrompt)
+    @Test fun styleNotesArePersistedTrimmed() {
+        Prefs(context).styleNotes = "  I write casually.  "
+        assertEquals("I write casually.", Prefs(context).styleNotes)
+    }
+
+    @Test fun styleNotesCanBeCleared() {
+        Prefs(context).styleNotes = "Casual."
+        Prefs(context).styleNotes = "   "
+        assertEquals("", Prefs(context).styleNotes)
+    }
+
+    @Test fun settingsVersionThreeDiscardsAnOldCustomPrompt() {
+        // Version 2 saved an editable prompt. It's dropped, not moved into style notes.
+        context.getSharedPreferences("wirl", Context.MODE_PRIVATE).edit()
+            .clear()
+            .putInt(Prefs.KEY_SETTINGS_VERSION, 2)
+            .putString(Prefs.KEY_PROMPT, "Old custom prompt the user wrote.")
+            .commit()
+        val prefs = Prefs(context)
+        assertEquals("", prefs.styleNotes)
+        assertNull(context.getSharedPreferences("wirl", Context.MODE_PRIVATE).getString(Prefs.KEY_PROMPT, null))
+    }
+
+    @Test fun resetToDefaultsKeepsTheApiKeyAndDictionary() {
+        Prefs(context).apply {
+            bubbleSizeDp = 72
+            styleNotes = "Casual."
+            dictationLanguage = "fr-FR"
+            dictionary = listOf(DictionaryEntry("Sela"))
+        }
+        Prefs(context).resetToDefaults()
+        val prefs = Prefs(context)
+        assertEquals(56, prefs.bubbleSizeDp)
+        assertEquals("", prefs.styleNotes)
+        assertEquals("", prefs.dictationLanguage)
+        assertEquals(listOf("Sela"), prefs.dictionary.map { it.term })
     }
 
     @Test fun dictionaryPersists() {

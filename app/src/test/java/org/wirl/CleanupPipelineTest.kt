@@ -7,6 +7,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -20,7 +21,7 @@ import org.robolectric.annotation.Config
 class CleanupPipelineTest {
     private lateinit var server: MockWebServer
     private val dictionary = listOf(DictionaryEntry("Sela", listOf("salad"), "my web app"))
-    private val instructions = "You clean up dictated text."
+    private val styleNotes = ""
 
     @Before fun start() {
         server = MockWebServer().also { it.start() }
@@ -33,7 +34,7 @@ class CleanupPipelineTest {
     private fun pipeline() = CleanupPipeline(
         api = ClaudeApi(server.url("/v1/messages").toString(), OkHttpClient()),
         apiKey = { "sk-test" },
-        instructions = { instructions },
+        styleNotes = { styleNotes },
         dictionary = { dictionary },
     )
 
@@ -60,8 +61,32 @@ class CleanupPipelineTest {
         pipeline().clean("I'm meeting salad at noon")
         val system = JSONObject(server.takeRequest().body.readUtf8()).getString("system")
 
-        assertTrue(system.startsWith(instructions))
+        assertTrue(system.startsWith(CleanupPrompt.CORE))
         assertTrue(system.contains("\"Sela\" (mishearings: salad)"))
+    }
+
+    @Test fun bothPathsUseTheSameModel() = runBlocking<Unit> {
+        reply("ok")
+        pipeline().clean("hold this text")
+        assertEquals("claude-haiku-5-5", JSONObject(server.takeRequest().body.readUtf8()).getString("model"))
+        reply("ok")
+        pipeline().clean("dictated text", alternatives = listOf("dictated text two"))
+        assertEquals("claude-haiku-5-5", JSONObject(server.takeRequest().body.readUtf8()).getString("model"))
+    }
+
+    @Test fun holdToCleanSendsNoAlternatives() = runBlocking<Unit> {
+        reply("ok")
+        pipeline().clean("hold this text")
+        val system = JSONObject(server.takeRequest().body.readUtf8()).getString("system")
+        assertFalse(system.contains("alternative transcriptions"))
+    }
+
+    @Test fun dictationSendsAlternativesWithTheInstruction() = runBlocking<Unit> {
+        reply("ok")
+        pipeline().clean("I'm meeting Sella", alternatives = listOf("I'm meeting Stella"))
+        val system = JSONObject(server.takeRequest().body.readUtf8()).getString("system")
+        assertTrue(system.contains(CleanupPrompt.ALTERNATIVES_INSTRUCTION))
+        assertTrue(system.contains("Alternative 1: I'm meeting Stella"))
     }
 
     @Test fun unrelatedDictionaryEntriesAreNotSent() = runBlocking<Unit> {
@@ -69,6 +94,6 @@ class CleanupPipelineTest {
         pipeline().clean("let's get lunch")
         val system = JSONObject(server.takeRequest().body.readUtf8()).getString("system")
 
-        assertEquals(instructions, system)
+        assertEquals(CleanupPrompt.CORE, system)
     }
 }

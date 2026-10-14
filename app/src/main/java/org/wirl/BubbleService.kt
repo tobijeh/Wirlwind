@@ -346,7 +346,12 @@ class BubbleService : AccessibilityService() {
 
     private val recognitionListener = object : RecognitionListener {
         override fun onPartialResults(partial: Bundle?) = onRecognizerEvent(RecognizerEvent.Partial(bestResult(partial)))
-        override fun onResults(results: Bundle?) = onRecognizerEvent(RecognizerEvent.Results(bestResult(results)))
+        override fun onResults(results: Bundle?) {
+            val list = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
+            val scores = results?.getFloatArray(SpeechRecognizer.CONFIDENCE_SCORES)
+            val kept = Alternatives.filter(list, scores)
+            onRecognizerEvent(RecognizerEvent.Results(kept.firstOrNull().orEmpty(), kept.drop(1)))
+        }
         override fun onError(error: Int) = onRecognizerEvent(RecognizerEvent.Error(error))
         override fun onReadyForSpeech(params: Bundle?) = Unit
         override fun onBeginningOfSpeech() = Unit
@@ -413,7 +418,12 @@ class BubbleService : AccessibilityService() {
         job = scope.launch {
             // Same pipeline as hold-to-clean. The text is inserted only after Claude has answered.
             val aiEnabled = prefs.dictationCleanup
-            val cleaned = if (aiEnabled) runCatching { ClaudeClient.clean(this@BubbleService, raw) } else null
+            // Same cleanup as hold-to-clean, plus the recognizer's alternatives to resolve unclear words.
+            val cleaned = if (aiEnabled) {
+                runCatching { ClaudeClient.clean(this@BubbleService, raw, finish.alternatives) }
+            } else {
+                null
+            }
             val outcome = DictationDecision.decide(raw, aiEnabled, cleaned)
             val insertion = insertDictation(field, outcome.text, raw, (outcome as? DictationOutcome.Cleaned)?.text)
             val inserted = insertion.method != InsertMethod.FAILED
