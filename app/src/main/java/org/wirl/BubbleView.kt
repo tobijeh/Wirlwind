@@ -1,5 +1,6 @@
 package org.wirl
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.drawable.GradientDrawable
@@ -14,9 +15,17 @@ import androidx.core.content.ContextCompat
 /** The round Wirl bubble: teal circle with the white glyph. Used by the overlay and the settings preview. */
 class BubbleView(context: Context) : FrameLayout(context) {
 
-    enum class State { IDLE, BUSY, DONE }
+    enum class State { IDLE, RECORDING, BUSY, DONE }
 
     private val background = GradientDrawable().apply { shape = GradientDrawable.OVAL }
+    // A pulsing ring behind the bubble, shown while dictating.
+    private val ring = View(context).apply {
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setStroke((3 * resources.displayMetrics.density).toInt(), ContextCompat.getColor(context, R.color.bubble_record))
+        }
+        visibility = View.GONE
+    }
     private val glyph = ImageView(context).apply {
         setImageResource(R.drawable.ic_wirl_glyph)
         scaleType = ImageView.ScaleType.FIT_CENTER
@@ -35,10 +44,14 @@ class BubbleView(context: Context) : FrameLayout(context) {
     var diameterPx: Int = 0
         private set
 
+    private var pulse: ValueAnimator? = null
+
     init {
         setBackground(background)
         outlineProvider = ViewOutlineProvider.BACKGROUND
+        clipChildren = false
         elevation = 6 * resources.displayMetrics.density
+        addView(ring)
         addView(glyph)
         addView(check)
         addView(spinner)
@@ -52,6 +65,7 @@ class BubbleView(context: Context) : FrameLayout(context) {
             width = px
             height = px
         }
+        ring.layoutParams = LayoutParams(px, px)
         glyph.layoutParams = LayoutParams((px * 0.56f).toInt(), (px * 0.56f).toInt(), Gravity.CENTER)
         check.layoutParams = LayoutParams((px * 0.5f).toInt(), (px * 0.5f).toInt(), Gravity.CENTER)
         spinner.layoutParams = LayoutParams((px * 0.54f).toInt(), (px * 0.54f).toInt(), Gravity.CENTER)
@@ -59,10 +73,40 @@ class BubbleView(context: Context) : FrameLayout(context) {
     }
 
     fun setState(state: State) {
-        val color = if (state == State.DONE) R.color.bubble_green else R.color.wirl_teal
+        val color = when (state) {
+            State.DONE -> R.color.bubble_green
+            State.RECORDING -> R.color.bubble_record
+            else -> R.color.wirl_teal
+        }
         background.setColor(ContextCompat.getColor(context, color))
-        glyph.visibility = if (state == State.IDLE) View.VISIBLE else View.GONE
+        glyph.visibility = if (state == State.BUSY || state == State.DONE) View.GONE else View.VISIBLE
         spinner.visibility = if (state == State.BUSY) View.VISIBLE else View.GONE
         check.visibility = if (state == State.DONE) View.VISIBLE else View.GONE
+        if (state == State.RECORDING) startPulse() else stopPulse()
+    }
+
+    private fun startPulse() {
+        if (pulse != null) return
+        ring.visibility = View.VISIBLE
+        pulse = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 1100
+            repeatCount = ValueAnimator.INFINITE
+            addUpdateListener { animator ->
+                val f = animator.animatedFraction
+                ring.scaleX = 1f + 0.4f * f
+                ring.scaleY = 1f + 0.4f * f
+                ring.alpha = 0.8f * (1f - f)
+            }
+            start()
+        }
+    }
+
+    private fun stopPulse() {
+        pulse?.cancel()
+        pulse = null
+        ring.visibility = View.GONE
+        ring.scaleX = 1f
+        ring.scaleY = 1f
+        ring.alpha = 1f
     }
 }

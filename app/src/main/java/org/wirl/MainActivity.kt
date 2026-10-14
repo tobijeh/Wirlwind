@@ -1,14 +1,19 @@
 package org.wirl
 
+import android.Manifest
 import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
 import android.view.Gravity
+import android.widget.ArrayAdapter
 import android.widget.FrameLayout
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import org.wirl.databinding.ActivityMainBinding
 import kotlin.math.roundToInt
 
@@ -38,6 +43,17 @@ class MainActivity : AppCompatActivity() {
         binding.resetPrompt.setOnClickListener { binding.prompt.setText(Prefs.DEFAULT_PROMPT) }
         binding.save.setOnClickListener { save() }
         binding.openDictionary.setOnClickListener { startActivity(Intent(this, DictionaryActivity::class.java)) }
+        binding.micButton.setOnClickListener { micPermission.launch(Manifest.permission.RECORD_AUDIO) }
+
+        binding.dictationCleanup.isChecked = prefs.dictationCleanup
+        binding.dictationCleanup.setOnCheckedChangeListener { _, checked -> prefs.dictationCleanup = checked }
+        binding.dictationLanguage.setAdapter(
+            ArrayAdapter(this, android.R.layout.simple_list_item_1, DictationLanguages.options.map { it.second }),
+        )
+        binding.dictationLanguage.setText(DictationLanguages.labelFor(prefs.dictationLanguage), false)
+        binding.dictationLanguage.setOnItemClickListener { _, _, position, _ ->
+            prefs.dictationLanguage = DictationLanguages.options[position].first
+        }
     }
 
     override fun onResume() {
@@ -73,6 +89,10 @@ class MainActivity : AppCompatActivity() {
         render()
     }
 
+    private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+        refreshStatus()
+    }
+
     private fun save() {
         val key = binding.apiKey.text?.toString().orEmpty().trim()
         if (key.isNotEmpty()) {
@@ -94,6 +114,11 @@ class MainActivity : AppCompatActivity() {
         }
         binding.lastResult.text = "Last cleanup: ${prefs.lastResult}"
         binding.openDictionary.text = getString(R.string.dictionary_button, prefs.dictionary.size)
+        val micAllowed = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        binding.micButton.text = "${getString(R.string.mic_title)}: " +
+            getString(if (micAllowed) R.string.mic_allowed else R.string.mic_tap_to_allow)
+        binding.micButton.isEnabled = !micAllowed
         val enabled = isServiceEnabled()
         binding.accessibilityStatus.setText(
             if (enabled) R.string.accessibility_on else R.string.accessibility_off,

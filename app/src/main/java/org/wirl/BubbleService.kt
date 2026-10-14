@@ -1,13 +1,23 @@
 package org.wirl
 
+import android.Manifest
 import android.accessibilityservice.AccessibilityService
-import android.util.Log
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Intent
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.PixelFormat
+import android.graphics.Rect
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
@@ -28,6 +38,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import java.util.Locale
 import kotlin.math.hypot
 
 /**
@@ -39,7 +50,7 @@ class BubbleService : AccessibilityService() {
         const val TAG = "Wirl"
     }
 
-    private enum class State { IDLE, BUSY, DONE }
+    private enum class State { IDLE, RECORDING, BUSY, DONE }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val handler = Handler(Looper.getMainLooper())
@@ -105,6 +116,8 @@ class BubbleService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        recognizer?.destroy()
+        recognizer = null
         scope.cancel()
         handler.removeCallbacksAndMessages(null)
         if (::prefs.isInitialized) prefs.plain.unregisterOnSharedPreferenceChangeListener(prefsListener)
@@ -124,7 +137,7 @@ class BubbleService : AccessibilityService() {
     }
 
     private fun updateVisibility() {
-        val show = prefs.bubbleEnabled && (state == State.BUSY || focusedEditable() != null)
+        val show = prefs.bubbleEnabled && (state != State.IDLE || focusedEditable() != null)
         if (show) showBubble() else {
             hideLabel()
             hideBubble()
@@ -141,28 +154,49 @@ class BubbleService : AccessibilityService() {
     private fun AccessibilityNodeInfo.realText(): String =
         if (isShowingHintText) "" else text?.toString().orEmpty()
 
-    private fun AccessibilityNodeInfo.replaceText(newText: String): Boolean {
-        val args = Bundle().apply {
-            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, newText)
-        }
-        if (!performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return false
-        // Put the cursor at the end so you can keep dictating.
-        val sel = Bundle().apply {
-            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, newText.length)
-            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, newText.length)
-        }
-        performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, sel)
-        return true
-    }
-
     // ---------------------------------------------------------------------------------------------
-    // Actions
+    // Actions: tap starts or stops dictation; hold cleans up the field, or undoes the last cleanup.
+
+    private val gestures = GestureMachine()
+    private var recognizer: SpeechRecognizer? = null
+    private var session: DictationSession? = null
+    private var dictationField: FieldKey? = null
 
     private fun onTap() {
-        if (state == State.BUSY) return
-        val node = focusedEditable() ?: return toast(getString(R.string.no_field))
+        when (gestures.onTap()) {
+            GestureAction.StartRecording -> startDictation()
+            GestureAction.StopRecording -> stopDictation()
+            else -> Unit
+        }
+    }
+
+    private fun onHold() {
+        circle.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        val node = focusedEditable()
+        if (node == null) {
+            if (gestures.mode == GestureMachine.Mode.IDLE) toast(getString(R.string.no_field))
+            return
+        }
+        val key = fieldKey(node)
+        when (val action = gestures.onHold(key, node.realText())) {
+            is GestureAction.Undo -> undo(node, action.original)
+            GestureAction.Clean -> cleanUp(node, key)
+            else -> Unit
+        }
+    }
+
+    private fun undo(node: AccessibilityNodeInfo, original: String) {
+        if (!node.setText(original, original.length)) return toast(getString(R.string.replace_failed))
+        if (prefs.showDoneMessage) showLabel(getString(R.string.undone), 1500)
+        scheduleCheck(0)
+    }
+
+    private fun cleanUp(node: AccessibilityNodeInfo, key: FieldKey) {
         val original = node.realText()
-        if (original.isBlank()) return toast(getString(R.string.no_text))
+        if (original.isBlank()) {
+            gestures.finish()
+            return toast(getString(R.string.no_text))
+        }
 
         setState(State.BUSY)
         job = scope.launch {
@@ -173,10 +207,9 @@ class BubbleService : AccessibilityService() {
                     target == null -> fail(getString(R.string.no_field))
                     target.realText() != original -> fail(getString(R.string.text_changed))
                     cleaned == original -> succeed()
-                    !target.replaceText(cleaned) -> fail(getString(R.string.replace_failed))
+                    !target.setText(cleaned, cleaned.length) -> fail(getString(R.string.replace_failed))
                     else -> {
-                        undoOriginal = original
-                        undoCleaned = cleaned
+                        gestures.onCleaned(key, original, cleaned)
                         succeed()
                     }
                 }
@@ -190,27 +223,182 @@ class BubbleService : AccessibilityService() {
         }
     }
 
-    private fun onLongPress() {
-        circle.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-        if (state == State.BUSY) return
-        val original = undoOriginal
+    // --- Dictation -----------------------------------------------------------------------------
+
+    private fun startDictation() {
         val node = focusedEditable()
-        // Only undo into the same text we produced, so we never overwrite a different message.
-        if (original == null || node == null || node.realText() != undoCleaned) {
-            showLabel(getString(R.string.nothing_to_undo), 1500)
-            return
+        val key = node?.let { fieldKey(it) }
+        when {
+            key == null -> return fail(getString(R.string.no_field))
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ->
+                return fail(DictationError.NO_PERMISSION.message)
+            !SpeechRecognizer.isRecognitionAvailable(this) -> return fail(DictationError.RECOGNIZER_UNAVAILABLE.message)
         }
-        if (node.replaceText(original)) {
-            undoOriginal = null
-            undoCleaned = null
-            setState(State.IDLE)
-            showLabel(getString(R.string.restored), 1500)
+
+        dictationField = key
+        session = DictationSession()
+        recognizer = createRecognizer().also { it.setRecognitionListener(recognitionListener) }
+        // Android stops background microphone use unless a microphone foreground service is running.
+        runCatching { ContextCompat.startForegroundService(this, Intent(this, DictationService::class.java)) }
+        setState(State.RECORDING)
+        showLabel(getString(R.string.listening), null)
+        listen()
+    }
+
+    private fun stopDictation() {
+        val current = session ?: return gestures.finish()
+        val action = current.stopByUser()
+        if (action is SessionAction.Finish) {
+            endDictation(action)
         } else {
-            toast(getString(R.string.replace_failed))
+            // Wait for the recognizer's last result, which arrives through recognitionListener.
+            setState(State.BUSY)
+            recognizer?.stopListening()
         }
     }
 
+    private fun createRecognizer(): SpeechRecognizer =
+        // On-device recognition when the phone has it; otherwise the standard recognizer.
+        if (Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
+            SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
+        } else {
+            SpeechRecognizer.createSpeechRecognizer(this)
+        }
+
+    private fun listen() {
+        val language = prefs.dictationLanguage.ifBlank { Locale.getDefault().toLanguageTag() }
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
+            .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            .putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+        if (Build.VERSION.SDK_INT >= 33) {
+            // Biasing: nudge the recognizer toward the dictionary's correct spellings.
+            val terms = DictionaryRepository.get(this).entries.value.map { it.term }.distinct()
+            if (terms.isNotEmpty()) intent.putStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS, ArrayList(terms))
+        }
+        recognizer?.startListening(intent)
+        session?.onListening()
+    }
+
+    private val recognitionListener = object : RecognitionListener {
+        override fun onPartialResults(partial: Bundle?) = onRecognizerEvent(RecognizerEvent.Partial(bestResult(partial)))
+        override fun onResults(results: Bundle?) = onRecognizerEvent(RecognizerEvent.Results(bestResult(results)))
+        override fun onError(error: Int) = onRecognizerEvent(RecognizerEvent.Error(error))
+        override fun onReadyForSpeech(params: Bundle?) = Unit
+        override fun onBeginningOfSpeech() = Unit
+        override fun onRmsChanged(rmsdB: Float) = Unit
+        override fun onBufferReceived(buffer: ByteArray?) = Unit
+        override fun onEndOfSpeech() = Unit
+        override fun onEvent(eventType: Int, params: Bundle?) = Unit
+    }
+
+    private fun bestResult(bundle: Bundle?): String =
+        bundle?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
+
+    private fun onRecognizerEvent(event: RecognizerEvent) {
+        val current = session ?: return
+        when (val action = current.onEvent(event)) {
+            null -> showLabel(current.transcript.ifBlank { getString(R.string.listening) }, null)
+            SessionAction.Restart -> {
+                showLabel(current.transcript.ifBlank { getString(R.string.listening) }, null)
+                handler.postDelayed({ if (session === current) listen() }, 100)
+            }
+            is SessionAction.Finish -> endDictation(action)
+        }
+    }
+
+    private fun endDictation(finish: SessionAction.Finish) {
+        val field = dictationField
+        recognizer?.destroy()
+        recognizer = null
+        session = null
+        dictationField = null
+        runCatching { stopService(Intent(this, DictationService::class.java)) }
+
+        val raw = finish.transcript
+        if (raw.isBlank()) return fail(finish.error?.message ?: DictationError.NO_SPEECH.message)
+
+        setState(State.BUSY)
+        hideLabel()
+        job = scope.launch {
+            val aiEnabled = prefs.dictationCleanup
+            val cleaned = if (aiEnabled) {
+                try {
+                    ClaudeClient.clean(this@BubbleService, raw)
+                } catch (e: Exception) {
+                    null
+                }
+            } else {
+                null
+            }
+            val inserted = insertDictation(field, DictationResult.choose(raw, aiEnabled, cleaned))
+            gestures.finish()
+            val note = when {
+                !inserted -> getString(R.string.copied_paste)
+                finish.error != null -> finish.error.message
+                aiEnabled && cleaned == null -> getString(R.string.cleanup_failed_raw)
+                else -> null
+            }
+            if (note != null) showLabel(note, 3000)
+            if (inserted) {
+                setState(State.DONE)
+                handler.postDelayed(resetDoneRunnable, 1500)
+            } else {
+                setState(State.IDLE)
+            }
+            scheduleCheck(0)
+        }
+    }
+
+    /**
+     * Puts the text into the field the dictation started in, at the cursor. If that field can't be
+     * edited any more, copies the text to the clipboard instead. Returns whether it went into the field.
+     */
+    private fun insertDictation(field: FieldKey?, text: String): Boolean {
+        val node = focusedEditable()
+        val sameField = node != null && field != null &&
+            node.packageName?.toString() == field.packageName &&
+            node.viewIdResourceName == field.viewId
+        val placement = DictationPlacement.decide(node != null, sameField, node?.isEditable == true)
+        if (placement == DictationPlacement.CLIPBOARD || node == null) {
+            copyToClipboard(text)
+            return false
+        }
+        val plan = TextInsertion.plan(node.realText(), node.textSelectionStart, node.textSelectionEnd, text)
+        if (node.setText(plan.text, plan.cursor)) return true
+        copyToClipboard(text)
+        return false
+    }
+
+    private fun copyToClipboard(text: String) {
+        getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Dictation", text))
+    }
+
+    // --- Results and state -----------------------------------------------------------------------
+
+    private fun fieldKey(node: AccessibilityNodeInfo): FieldKey {
+        val bounds = Rect()
+        node.getBoundsInScreen(bounds)
+        return FieldKey(node.packageName?.toString().orEmpty(), node.viewIdResourceName.orEmpty(), bounds.left, bounds.top)
+    }
+
+    /** Sets the field's whole text and puts the cursor at [cursor]. */
+    private fun AccessibilityNodeInfo.setText(text: String, cursor: Int): Boolean {
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+        }
+        if (!performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return false
+        val sel = Bundle().apply {
+            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, cursor)
+            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, cursor)
+        }
+        performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, sel)
+        return true
+    }
+
     private fun succeed() {
+        gestures.finish()
         if (prefs.showDoneCheck) {
             setState(State.DONE)
             handler.postDelayed(resetDoneRunnable, 1500)
@@ -224,6 +412,7 @@ class BubbleService : AccessibilityService() {
 
     /** Shows the reason in the bubble's label (it stays visible), and records it for the settings screen. */
     private fun fail(message: String) {
+        gestures.finish()
         setState(State.IDLE)
         Prefs(this).lastResult = "Failed: $message"
         showLabel(message, 4000)
@@ -237,11 +426,14 @@ class BubbleService : AccessibilityService() {
     private fun setState(newState: State) {
         state = newState
         handler.removeCallbacks(resetDoneRunnable)
-        when (newState) {
-            State.IDLE -> circle.setState(BubbleView.State.IDLE)
-            State.BUSY -> circle.setState(BubbleView.State.BUSY)
-            State.DONE -> circle.setState(BubbleView.State.DONE)
-        }
+        circle.setState(
+            when (newState) {
+                State.IDLE -> BubbleView.State.IDLE
+                State.RECORDING -> BubbleView.State.RECORDING
+                State.BUSY -> BubbleView.State.BUSY
+                State.DONE -> BubbleView.State.DONE
+            },
+        )
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -319,7 +511,7 @@ class BubbleService : AccessibilityService() {
         private var longFired = false
         private val longPress = Runnable {
             longFired = true
-            onLongPress()
+            onHold()
         }
 
         override fun onTouch(v: View, e: MotionEvent): Boolean {
@@ -372,7 +564,7 @@ class BubbleService : AccessibilityService() {
             setTextColor(ContextCompat.getColor(context, R.color.white))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             setPadding(dp(12), dp(6), dp(12), dp(6))
-            maxLines = 2
+            maxLines = 3
         }
         labelParams = overlayParams(touchable = false)
     }

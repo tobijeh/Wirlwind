@@ -18,6 +18,17 @@ Personal, sideloaded app. Min Android 8.0 (API 26).
 
 Uses `claude-haiku-5-5` via the Messages API, with a 15-second timeout.
 
+## Dictation
+
+Speak, and the cleaned-up text appears where the cursor is, in any app.
+
+- **Tap the bubble** to start. The bubble turns red and shows what you've said so far. Tap again to stop.
+- **Hold the bubble** to clean up the text already in the field. Hold again, with the text unchanged, to put the original back.
+- Dictation uses Android's speech recognition, on-device when the phone supports it. Long pauses don't stop it; it keeps going until you tap.
+- Your dictionary terms help the recognizer spell names correctly on Android 13 and later.
+- **Settings:** the microphone permission button, the language, and "Clean up dictation with AI". Turn the last one off to insert exactly what you said.
+- If cleanup fails, Wirl inserts what you said instead. If the field can't take text, it copies it to the clipboard.
+
 ## Personal dictionary
 
 Teach Wirl the names and words it gets wrong. Open **Settings → Dictionary**, or select text in any app

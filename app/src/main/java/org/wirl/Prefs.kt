@@ -32,6 +32,16 @@ class Prefs(context: Context) {
         get() = plain.getBoolean(KEY_BUBBLE_ENABLED, true)
         set(value) = plain.edit().putBoolean(KEY_BUBBLE_ENABLED, value).apply()
 
+    /** Run the dictated text through the cleanup instructions. Off inserts exactly what was said. */
+    var dictationCleanup: Boolean
+        get() = plain.getBoolean(KEY_DICTATION_CLEANUP, true)
+        set(value) = plain.edit().putBoolean(KEY_DICTATION_CLEANUP, value).apply()
+
+    /** Recognition language tag, or blank for the phone's language. */
+    var dictationLanguage: String
+        get() = plain.getString(KEY_DICTATION_LANGUAGE, "").orEmpty()
+        set(value) = plain.edit().putString(KEY_DICTATION_LANGUAGE, value).apply()
+
     /** Briefly turn the bubble green with a check when a cleanup finishes. */
     var showDoneCheck: Boolean
         get() = plain.getBoolean(KEY_SHOW_DONE_CHECK, true)
@@ -87,6 +97,8 @@ class Prefs(context: Context) {
         const val KEY_BUBBLE_OPACITY = "bubble_opacity"
         const val KEY_LAST_RESULT = "last_result"
         const val KEY_DICTIONARY = "dictionary"
+        const val KEY_DICTATION_CLEANUP = "dictation_cleanup"
+        const val KEY_DICTATION_LANGUAGE = "dictation_language"
         const val KEY_SHOW_DONE_CHECK = "show_done_check"
         const val KEY_SHOW_DONE_MESSAGE = "show_done_message"
 

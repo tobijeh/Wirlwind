@@ -69,4 +69,19 @@ class PrefsTest {
         assertFalse(Prefs(context).showDoneCheck)
         assertTrue(Prefs(context).showDoneMessage)
     }
+
+    @Test fun dictationDefaults() {
+        val prefs = Prefs(context)
+        assertTrue(prefs.dictationCleanup)
+        assertEquals("", prefs.dictationLanguage)
+    }
+
+    @Test fun dictationSettingsPersist() {
+        Prefs(context).apply {
+            dictationCleanup = false
+            dictationLanguage = "fr-FR"
+        }
+        assertFalse(Prefs(context).dictationCleanup)
+        assertEquals("fr-FR", Prefs(context).dictationLanguage)
+    }
 }
