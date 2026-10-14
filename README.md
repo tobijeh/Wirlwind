@@ -22,7 +22,7 @@ Uses `claude-haiku-5-5` via the Messages API, with a 15-second timeout.
 
 Speak, and the cleaned-up text appears where the cursor is, in any app.
 
-- **Tap the bubble** to start. The bubble turns red and shows what you've said so far. Tap again to stop.
+- **Tap the bubble** to start. The bubble turns red and a live transcript appears beside it. It stays three lines tall and scrolls to the newest words. Touch it to scroll back; auto-scroll resumes three seconds after your last touch. Tap the bubble again to stop.
 - **Hold the bubble** to clean up the text already in the field. Hold again, with the text unchanged, to put the original back.
 - Dictation uses Android's speech recognition, on-device when the phone supports it. Long pauses don't stop it; it keeps going until you tap.
 - Dictation tries the Google app recognizer, then Speech Services by Google, then the phone's default. The on-device recognizer is used first only when its offline pack is installed. Any language error moves on to the next recognizer.

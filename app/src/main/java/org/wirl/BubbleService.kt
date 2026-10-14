@@ -64,6 +64,8 @@ class BubbleService : AccessibilityService() {
     private var bubbleShown = false
 
     private lateinit var label: TextView
+    private lateinit var chip: TranscriptChip
+    private lateinit var labelRoot: FrameLayout
     private lateinit var labelParams: WindowManager.LayoutParams
     private var labelShown = false
 
@@ -279,7 +281,7 @@ class BubbleService : AccessibilityService() {
             return failWith(DictationError.from(e), null, e)
         }
         setState(State.RECORDING)
-        showLabel(getString(R.string.listening), null)
+        showChip(getString(R.string.listening))
         useEngine(available.first())
     }
 
@@ -382,9 +384,9 @@ class BubbleService : AccessibilityService() {
             }
         }
         when (val action = current.onEvent(event)) {
-            null -> showLabel(current.transcript.ifBlank { getString(R.string.listening) }, null)
+            null -> showChip(current.transcript.ifBlank { getString(R.string.listening) })
             SessionAction.Restart -> {
-                showLabel(current.transcript.ifBlank { getString(R.string.listening) }, null)
+                showChip(current.transcript.ifBlank { getString(R.string.listening) })
                 handler.postDelayed({ if (session === current) listen() }, 100)
             }
             is SessionAction.Finish -> endDictation(action)
@@ -713,42 +715,80 @@ class BubbleService : AccessibilityService() {
             setPadding(dp(12), dp(6), dp(12), dp(6))
             maxLines = 3
         }
+        chip = TranscriptChip(this)
+        chip.visibility = View.GONE
+        labelRoot = FrameLayout(this).apply {
+            addView(label)
+            addView(chip)
+        }
         labelParams = overlayParams(touchable = false)
     }
 
-    /** Shows [text] beside the bubble, on whichever side has room. Null duration = until hidden. */
+    /** Shows a message beside the bubble. Null duration = until hidden. Messages don't take touches. */
     private fun showLabel(text: String, durationMs: Long?) {
         handler.removeCallbacks(hideLabelRunnable)
         if (!bubbleShown) return
+        chip.visibility = View.GONE
+        label.visibility = View.VISIBLE
         label.text = text
         label.maxWidth = (screenWidth() * 0.6f).toInt()
         label.measure(
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
             View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
         )
-        val w = label.measuredWidth
-        val h = label.measuredHeight
+        labelParams.flags = overlayParams(touchable = false).flags
+        labelParams.width = ViewGroup.LayoutParams.WRAP_CONTENT
+        labelParams.height = ViewGroup.LayoutParams.WRAP_CONTENT
+        placeLabel(label.measuredWidth, label.measuredHeight)
+        if (durationMs != null) handler.postDelayed(hideLabelRunnable, durationMs)
+    }
+
+    /**
+     * The live transcript beside the bubble while dictating: three lines tall, width 60% of the screen, scrolled to the
+     * newest words. It takes touches so the user can scroll back while dictating.
+     */
+    private fun showChip(transcript: String) {
+        handler.removeCallbacks(hideLabelRunnable)
+        if (!bubbleShown) return
+        label.visibility = View.GONE
+        chip.visibility = View.VISIBLE
+        chip.show(transcript)
+        val width = (screenWidth() * 0.6f).toInt()
+        labelParams.flags = overlayParams(touchable = true).flags
+        labelParams.width = width
+        labelParams.height = chip.maxHeightPx
+        chip.layoutParams = FrameLayout.LayoutParams(width, chip.maxHeightPx)
+        placeLabel(width, chip.maxHeightPx)
+    }
+
+    /** Positions the label window beside the bubble, never over it. */
+    private fun placeLabel(w: Int, h: Int) {
         val circleLeft = bubbleParams.x + shadowPadPx
         val circleTop = bubbleParams.y + shadowPadPx
-        val gap = dp(8)
-        val onLeft = circleLeft + bubbleSizePx / 2 > screenWidth() / 2
-        labelParams.x = if (onLeft) circleLeft - gap - w else circleLeft + bubbleSizePx + gap
-        labelParams.x = labelParams.x.coerceIn(0, (screenWidth() - w).coerceAtLeast(0))
-        labelParams.y = circleTop + bubbleSizePx / 2 - h / 2
-        labelParams.width = ViewGroup.LayoutParams.WRAP_CONTENT
-
+        val spot = ChipPlacement.place(
+            bubbleLeft = circleLeft,
+            bubbleTop = circleTop,
+            bubbleSize = bubbleSizePx,
+            chipWidth = w,
+            chipHeight = h,
+            screenWidth = screenWidth(),
+            screenHeight = screenHeight(),
+            gap = dp(8),
+            preferLeft = circleLeft + bubbleSizePx / 2 > screenWidth() / 2,
+        )
+        labelParams.x = spot.x
+        labelParams.y = spot.y
         if (labelShown) {
-            wm.updateViewLayout(label, labelParams)
+            wm.updateViewLayout(labelRoot, labelParams)
         } else {
-            runCatching { wm.addView(label, labelParams) }.onSuccess { labelShown = true }
+            runCatching { wm.addView(labelRoot, labelParams) }.onSuccess { labelShown = true }
         }
-        if (durationMs != null) handler.postDelayed(hideLabelRunnable, durationMs)
     }
 
     private fun hideLabel() {
         handler.removeCallbacks(hideLabelRunnable)
         if (!labelShown) return
-        runCatching { wm.removeView(label) }
+        runCatching { wm.removeView(labelRoot) }
         labelShown = false
     }
 
