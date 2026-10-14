@@ -19,8 +19,9 @@ class RecoveryPlannerTest {
     ) = RecoveryPlanner.plan(code, transcriptEmpty, current, tried, available, busyRetries)
 
     @Test fun onDeviceFailureFallsBackToTheNextEngine() {
-        // Code 13: the on-device language pack isn't downloaded.
-        assertEquals(Recovery.Fallback(GOOGLE), plan(13))
+        // Code 13: the on-device language pack isn't downloaded. A non-language failure goes to Google first.
+        assertEquals(Recovery.Fallback(SYSTEM), plan(13))
+        assertEquals(Recovery.Fallback(GOOGLE), plan(5))
     }
 
     @Test fun fallbackSkipsEnginesAlreadyTried() {
@@ -36,8 +37,11 @@ class RecoveryPlannerTest {
     }
 
     @Test fun engineFailuresOfEveryKindFallBack() {
-        for (code in listOf(1, 2, 4, 5, 10, 11, 12, 13, 99)) {
+        for (code in listOf(1, 2, 4, 5, 10, 11, 99)) {
             assertEquals("code $code", Recovery.Fallback(GOOGLE), plan(code))
+        }
+        for (code in listOf(12, 13)) {
+            assertEquals("code $code", Recovery.Fallback(SYSTEM), plan(code))
         }
     }
 
@@ -69,5 +73,21 @@ class RecoveryPlannerTest {
         assertEquals(listOf(ON_DEVICE, GOOGLE, SYSTEM), SpeechEngine.available(SpeechEngine.Detection(true, "a/b", true)))
         assertEquals(listOf(GOOGLE), SpeechEngine.available(SpeechEngine.Detection(false, "a/b", false)))
         assertEquals(emptyList<SpeechEngine.Choice>(), SpeechEngine.available(SpeechEngine.Detection(false, null, false)))
+    }
+
+    @Test fun languageErrorOnDeviceGoesToTheStandardRecognizerFirst() {
+        assertEquals(Recovery.Fallback(SYSTEM), plan(13, current = ON_DEVICE, available = all))
+    }
+
+    @Test fun languageErrorUsesGoogleWhenThereIsNoStandardRecognizer() {
+        assertEquals(Recovery.Fallback(GOOGLE), plan(13, current = ON_DEVICE, available = listOf(ON_DEVICE, GOOGLE)))
+    }
+
+    @Test fun languageErrorWithNoOtherEngineFails() {
+        assertEquals(Recovery.None, plan(13, current = ON_DEVICE, available = listOf(ON_DEVICE)))
+    }
+
+    @Test fun languageErrorFromStandardRecognizerTriesTheNextOne() {
+        assertEquals(Recovery.Fallback(GOOGLE), plan(13, current = SYSTEM, tried = setOf(ON_DEVICE, SYSTEM)))
     }
 }

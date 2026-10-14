@@ -304,7 +304,7 @@ class BubbleService : AccessibilityService() {
     }
 
     private fun listen() {
-        val language = prefs.dictationLanguage.ifBlank { Locale.getDefault().toLanguageTag() }
+        val language = DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag())
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
