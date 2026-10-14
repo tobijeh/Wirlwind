@@ -92,26 +92,43 @@ sealed interface SessionAction {
 }
 
 /**
- * One dictation, from tap to tap. In a segmented session the recognizer stays open and reports each segment as it
- * finishes. Otherwise the recognizer stops on each pause, so this restarts it and keeps appending the text. Either way
- * the text is kept until the user stops.
+ * One dictation, from tap to tap. Three ways the recognizer hears the speech:
+ * - [Mode.SEGMENTED]: one open session that reports each segment (Android 13+).
+ * - [Mode.RESTART_OWN_AUDIO]: restarts, fed from our own microphone capture, so audio spoken between sessions is
+ *   replayed rather than lost (Android 13+, when segmented sessions aren't supported).
+ * - [Mode.RESTART_MIC]: restarts, with the recognizer using the microphone itself (older versions).
  */
-class DictationSession(segmented: Boolean = false) {
-    /** How results arrive: one continuous segmented session, or a recognizer restarted after each pause. */
-    enum class Mode { SEGMENTED, RESTART }
+class DictationSession(segmented: Boolean = false, ownAudio: Boolean = false) {
+    enum class Mode(val label: String) {
+        SEGMENTED("segmented"),
+        RESTART_OWN_AUDIO("restart with own audio"),
+        RESTART_MIC("restart with mic"),
+    }
 
     private val assembler = TranscriptAssembler()
+    private val ownAudioAllowed = ownAudio
     private var listening = false
     private var stopRequested = false
     private var fellBack = false
+    private var replaying = false
+    private var note = ""
     private var segments = 0
     private var restarts = 0
+    private var gaps = 0
+    private var gapMs = 0L
 
-    var mode: Mode = if (segmented) Mode.SEGMENTED else Mode.RESTART
+    var mode: Mode = when {
+        segmented -> Mode.SEGMENTED
+        ownAudio -> Mode.RESTART_OWN_AUDIO
+        else -> Mode.RESTART_MIC
+    }
         private set
 
     /** Text so far, including any partial result still being spoken. */
     val transcript: String get() = assembler.text()
+
+    /** True once the user has tapped to stop, so the next pause ends the dictation rather than restarting it. */
+    val stopping: Boolean get() = stopRequested
 
     fun onEvent(event: RecognizerEvent): SessionAction? = when (event) {
         is RecognizerEvent.Partial -> {
@@ -133,7 +150,8 @@ class DictationSession(segmented: Boolean = false) {
                 null
             } else {
                 if (mode == Mode.SEGMENTED) fallBackToRestarts()
-                assembler.commit(event.text, event.alternatives)
+                if (replaying) assembler.commitReplayed(event.text, event.alternatives) else assembler.commit(event.text, event.alternatives)
+                replaying = false
                 segments++
                 listening = false
                 if (stopRequested) finish(null) else restart()
@@ -171,8 +189,26 @@ class DictationSession(segmented: Boolean = false) {
     }
 
     private fun fallBackToRestarts() {
-        mode = Mode.RESTART
+        mode = if (ownAudioAllowed) Mode.RESTART_OWN_AUDIO else Mode.RESTART_MIC
         fellBack = true
+    }
+
+    /** Our own audio couldn't be opened, so the recognizer uses the microphone for the rest of this dictation. */
+    fun useMicrophone(reason: String) {
+        mode = Mode.RESTART_MIC
+        note = reason
+    }
+
+    /** The next session replays audio from before it started, so its first result may repeat the end of the text. */
+    fun beginReplay() {
+        replaying = true
+    }
+
+    /** Audio that was wanted for a replay but had already gone. */
+    fun noteGap(ms: Long) {
+        if (ms <= 0) return
+        gaps++
+        gapMs = maxOf(gapMs, ms)
     }
 
     private fun finish(error: DictationError?, code: Int? = null): SessionAction.Finish {
@@ -181,11 +217,12 @@ class DictationSession(segmented: Boolean = false) {
         return SessionAction.Finish(assembler.text(), error, code, assembler.alternatives())
     }
 
-    /** What Diagnostics shows: the mode that ran, and how many segments and restarts happened. */
+    /** What Diagnostics shows: the mode that ran, and how many segments, restarts, and audio gaps there were. */
     fun summary(): String {
-        val name = if (mode == Mode.SEGMENTED) "segmented" else "restart"
-        val note = if (fellBack) " (segmented unsupported, fell back)" else ""
-        return "mode: $name$note, segments: $segments, restarts: $restarts"
+        val fell = if (fellBack) " (segmented unsupported, fell back)" else ""
+        val why = if (note.isNotEmpty()) " ($note)" else ""
+        val gapText = if (gaps == 0) "none" else "$gaps (longest $gapMs ms)"
+        return "mode: ${mode.label}$fell$why, segments: $segments, restarts: $restarts, audio gaps: $gapText"
     }
 
     /** The recognizer has started listening (first start, or after a restart). */
@@ -200,6 +237,11 @@ class TranscriptAssembler {
     private data class Segment(val top: String, val alternatives: List<String>)
 
     private val committed = mutableListOf<Segment>()
+
+    private companion object {
+        /** How many words at the start of a replayed session can repeat the end of the text so far. */
+        const val MAX_OVERLAP_WORDS = 4
+    }
     private var partial = ""
 
     fun partial(text: String) {
@@ -215,6 +257,20 @@ class TranscriptAssembler {
     fun text(): String {
         val parts = committed.map { it.top } + listOfNotNull(partial.takeIf { it.isNotEmpty() })
         return parts.joinToString(" ").replace(Regex("\\s+"), " ").trim()
+    }
+
+    /**
+     * Adds text from a session that replayed audio from before it started. Words at its start that repeat the end of
+     * the text so far are dropped, so the replayed overlap isn't heard twice.
+     */
+    fun commitReplayed(text: String, alternatives: List<String> = emptyList()) {
+        val words = text.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        val before = committed.map { it.top }.joinToString(" ").split(Regex("\\s+")).filter { it.isNotEmpty() }
+        fun norm(word: String) = word.lowercase().trim { !it.isLetterOrDigit() }
+        val overlap = (minOf(MAX_OVERLAP_WORDS, before.size, words.size) downTo 1).firstOrNull { k ->
+            before.takeLast(k).map(::norm) == words.take(k).map(::norm)
+        } ?: 0
+        commit(words.drop(overlap).joinToString(" "), alternatives)
     }
 
     /**

@@ -14,6 +14,25 @@ android {
         // CI passes -PversionCode / -PversionName (from the run number); local builds use 1 / "1.0".
         versionCode = (findProperty("versionCode") as String?)?.toInt() ?: 1
         versionName = (findProperty("versionName") as String?) ?: "1.0"
+        // Whisper runs on arm64 phones only. Other ABIs would be missing the native library.
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
+        externalNativeBuild {
+            cmake {
+                cppFlags += "-std=c++17"
+                arguments += "-DANDROID_STL=c++_static"
+            }
+        }
+    }
+
+    // whisper.cpp is built from source by CMake (see app/src/main/cpp/CMakeLists.txt).
+    ndkVersion = "26.1.10909125"
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     // CI points WIRL_KEYSTORE at the fixed key (from the DEBUG_KEYSTORE_BASE64 secret) so every
