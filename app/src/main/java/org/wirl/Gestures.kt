@@ -73,6 +73,10 @@ sealed interface RecognizerEvent {
     /** [alternatives] are the other transcriptions for this result, most likely first. */
     data class Results(val text: String, val alternatives: List<String> = emptyList()) : RecognizerEvent
     data class Error(val code: Int) : RecognizerEvent
+    /** One finished segment of a segmented session, most likely text first. */
+    data class Segment(val text: String, val alternatives: List<String> = emptyList()) : RecognizerEvent
+    /** The segmented session has ended. Nothing more will come. */
+    data object EndOfSegments : RecognizerEvent
 }
 
 sealed interface SessionAction {
@@ -88,13 +92,23 @@ sealed interface SessionAction {
 }
 
 /**
- * One dictation, from tap to tap. Recognizers stop on pauses, so this restarts them and keeps appending
- * the text until the user stops.
+ * One dictation, from tap to tap. In a segmented session the recognizer stays open and reports each segment as it
+ * finishes. Otherwise the recognizer stops on each pause, so this restarts it and keeps appending the text. Either way
+ * the text is kept until the user stops.
  */
-class DictationSession {
+class DictationSession(segmented: Boolean = false) {
+    /** How results arrive: one continuous segmented session, or a recognizer restarted after each pause. */
+    enum class Mode { SEGMENTED, RESTART }
+
     private val assembler = TranscriptAssembler()
     private var listening = false
     private var stopRequested = false
+    private var fellBack = false
+    private var segments = 0
+    private var restarts = 0
+
+    var mode: Mode = if (segmented) Mode.SEGMENTED else Mode.RESTART
+        private set
 
     /** Text so far, including any partial result still being spoken. */
     val transcript: String get() = assembler.text()
@@ -104,15 +118,36 @@ class DictationSession {
             assembler.partial(event.text)
             null
         }
-        is RecognizerEvent.Results -> {
-            assembler.commit(event.text, event.alternatives)
+        is RecognizerEvent.Segment -> {
+            if (assembler.commitSegment(event.text, event.alternatives)) segments++
+            null
+        }
+        RecognizerEvent.EndOfSegments -> {
             listening = false
-            if (stopRequested) finish(null) else restart()
+            finish(null)
+        }
+        is RecognizerEvent.Results -> {
+            // In a segmented session the segments already hold this text. With none received, this recognizer
+            // doesn't do segments, so the session falls back to restarts and takes the result as usual.
+            if (mode == Mode.SEGMENTED && segments > 0) {
+                null
+            } else {
+                if (mode == Mode.SEGMENTED) fallBackToRestarts()
+                assembler.commit(event.text, event.alternatives)
+                segments++
+                listening = false
+                if (stopRequested) finish(null) else restart()
+            }
         }
         is RecognizerEvent.Error -> {
             listening = false
             val error = DictationError.from(event.code)
             when {
+                // A segmented session that fails before any text came: this device doesn't support it. Use restarts.
+                mode == Mode.SEGMENTED && segments == 0 && assembler.text().isEmpty() && !stopRequested -> {
+                    fallBackToRestarts()
+                    SessionAction.Restart
+                }
                 // Silence while dictating is normal: keep going unless the user stopped or nothing was said yet.
                 error == DictationError.NO_SPEECH && assembler.text().isNotEmpty() && !stopRequested -> restart()
                 error == DictationError.NO_SPEECH && stopRequested -> finish(null)
@@ -131,13 +166,26 @@ class DictationSession {
     private fun restart(): SessionAction {
         // Not listening until the service confirms the recognizer has started again (see onListening).
         listening = false
+        restarts++
         return SessionAction.Restart
+    }
+
+    private fun fallBackToRestarts() {
+        mode = Mode.RESTART
+        fellBack = true
     }
 
     private fun finish(error: DictationError?, code: Int? = null): SessionAction.Finish {
         listening = false
         // Keep whatever was heard, including a partial result that never became final.
         return SessionAction.Finish(assembler.text(), error, code, assembler.alternatives())
+    }
+
+    /** What Diagnostics shows: the mode that ran, and how many segments and restarts happened. */
+    fun summary(): String {
+        val name = if (mode == Mode.SEGMENTED) "segmented" else "restart"
+        val note = if (fellBack) " (segmented unsupported, fell back)" else ""
+        return "mode: $name$note, segments: $segments, restarts: $restarts"
     }
 
     /** The recognizer has started listening (first start, or after a restart). */
@@ -167,6 +215,18 @@ class TranscriptAssembler {
     fun text(): String {
         val parts = committed.map { it.top } + listOfNotNull(partial.takeIf { it.isNotEmpty() })
         return parts.joinToString(" ").replace(Regex("\\s+"), " ").trim()
+    }
+
+    /**
+     * Adds a finished segment, in order. A segment identical to the one before it is a repeat and is skipped.
+     * Returns whether it was added.
+     */
+    fun commitSegment(text: String, alternatives: List<String> = emptyList()): Boolean {
+        val clean = text.trim()
+        partial = ""
+        if (clean.isEmpty() || committed.lastOrNull()?.top == clean) return false
+        committed += Segment(clean, alternatives.map { it.trim() }.filter { it.isNotEmpty() })
+        return true
     }
 
     /**
