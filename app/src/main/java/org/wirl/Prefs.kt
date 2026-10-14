@@ -42,6 +42,11 @@ class Prefs(context: Context) {
         get() = plain.getString(KEY_DICTATION_LANGUAGE, "").orEmpty()
         set(value) = plain.edit().putString(KEY_DICTATION_LANGUAGE, value).apply()
 
+    /** The last dictation attempts, newest last. */
+    var diagnostics: List<DiagnosticEntry>
+        get() = DiagnosticsStore.decode(plain.getString(KEY_DIAGNOSTICS, "[]").orEmpty())
+        set(value) = plain.edit().putString(KEY_DIAGNOSTICS, DiagnosticsStore.encode(value)).apply()
+
     /** Briefly turn the bubble green with a check when a cleanup finishes. */
     var showDoneCheck: Boolean
         get() = plain.getBoolean(KEY_SHOW_DONE_CHECK, true)
@@ -98,6 +103,7 @@ class Prefs(context: Context) {
         const val KEY_LAST_RESULT = "last_result"
         const val KEY_DICTIONARY = "dictionary"
         const val KEY_DICTATION_CLEANUP = "dictation_cleanup"
+        const val KEY_DIAGNOSTICS = "diagnostics"
         const val KEY_DICTATION_LANGUAGE = "dictation_language"
         const val KEY_SHOW_DONE_CHECK = "show_done_check"
         const val KEY_SHOW_DONE_MESSAGE = "show_done_message"

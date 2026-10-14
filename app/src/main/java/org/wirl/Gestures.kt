@@ -77,7 +77,7 @@ sealed interface RecognizerEvent {
 sealed interface SessionAction {
     /** Listen again: the recognizer stopped on a pause while dictation is still on. */
     data object Restart : SessionAction
-    data class Finish(val transcript: String, val error: DictationError?) : SessionAction
+    data class Finish(val transcript: String, val error: DictationError?, val errorCode: Int? = null) : SessionAction
 }
 
 /**
@@ -109,7 +109,7 @@ class DictationSession {
                 // Silence while dictating is normal: keep going unless the user stopped or nothing was said yet.
                 error == DictationError.NO_SPEECH && assembler.text().isNotEmpty() && !stopRequested -> restart()
                 error == DictationError.NO_SPEECH && stopRequested -> finish(null)
-                else -> finish(error)
+                else -> finish(error, event.code)
             }
         }
     }
@@ -127,10 +127,10 @@ class DictationSession {
         return SessionAction.Restart
     }
 
-    private fun finish(error: DictationError?): SessionAction.Finish {
+    private fun finish(error: DictationError?, code: Int? = null): SessionAction.Finish {
         listening = false
         // Keep whatever was heard, including a partial result that never became final.
-        return SessionAction.Finish(assembler.text(), error)
+        return SessionAction.Finish(assembler.text(), error, code)
     }
 
     /** The recognizer has started listening (first start, or after a restart). */
@@ -157,27 +157,6 @@ class TranscriptAssembler {
     fun text(): String {
         val parts = if (partial.isEmpty()) committed else committed + partial
         return parts.joinToString(" ").replace(Regex("\\s+"), " ").trim()
-    }
-}
-
-/** Why dictation stopped without a transcript, in words that can be shown to the user. */
-enum class DictationError(val message: String) {
-    NO_PERMISSION("Microphone permission needed. Open Wirl settings to allow it."),
-    RECOGNIZER_UNAVAILABLE("Speech recognition isn't available. Open Wirl settings to see what's missing."),
-    NO_SPEECH("No speech heard."),
-    NO_INTERNET("No internet for speech recognition."),
-    BUSY("Speech recognizer is busy, try again."),
-    OTHER("Dictation stopped unexpectedly.");
-
-    companion object {
-        // Values from android.speech.SpeechRecognizer.
-        fun from(code: Int): DictationError = when (code) {
-            9 -> NO_PERMISSION // ERROR_INSUFFICIENT_PERMISSIONS
-            6, 7 -> NO_SPEECH // ERROR_SPEECH_TIMEOUT, ERROR_NO_MATCH
-            2, 3 -> NO_INTERNET // ERROR_NETWORK_TIMEOUT, ERROR_NETWORK
-            8 -> BUSY // ERROR_RECOGNIZER_BUSY
-            else -> OTHER
-        }
     }
 }
 

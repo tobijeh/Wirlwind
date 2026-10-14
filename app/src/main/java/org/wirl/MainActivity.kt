@@ -47,6 +47,7 @@ class MainActivity : AppCompatActivity() {
         binding.openDictionary.setOnClickListener { startActivity(Intent(this, DictionaryActivity::class.java)) }
         binding.micButton.setOnClickListener { micPermission.launch(Manifest.permission.RECORD_AUDIO) }
         binding.openVoiceSettings.setOnClickListener { openVoiceSettings() }
+        binding.openDiagnostics.setOnClickListener { startActivity(Intent(this, DiagnosticsActivity::class.java)) }
 
         binding.dictationCleanup.isChecked = prefs.dictationCleanup
         binding.dictationCleanup.setOnCheckedChangeListener { _, checked -> prefs.dictationCleanup = checked }
