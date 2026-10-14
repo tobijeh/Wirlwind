@@ -23,6 +23,7 @@ Wirl is a personal Android app (Kotlin, min SDK 26) that cleans up dictated text
 
 - Dictated text is pasted at the cursor via the clipboard, and the user's clipboard is restored. Setting the whole field is only a fallback.
 - Placeholder text (hint or content description) is never treated as typed text (`FieldText`), and is never sent to Claude.
+- Dictation never adds a leading space to a field that was empty (blank, hint, content description, or cursor at 0), and a safety net removes any leading whitespace left in such a field after inserting (`LeadingWhitespaceGuard`).
 
 ## Settings
 

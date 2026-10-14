@@ -217,7 +217,13 @@ object TextInsertion {
      * The exact text to paste at the cursor (replacing any selection): [inserted], with a space before or after where
      * the words would otherwise run together. Pasting this keeps the rest of the field untouched.
      */
-    fun pieceFor(existing: String, selectionStart: Int, selectionEnd: Int, inserted: String): String {
+    fun pieceFor(
+        existing: String,
+        selectionStart: Int,
+        selectionEnd: Int,
+        inserted: String,
+        allowLeadingSpace: Boolean = true,
+    ): String {
         val len = existing.length
         val (lo, hi) = if (selectionStart <= selectionEnd) selectionStart to selectionEnd else selectionEnd to selectionStart
         val start = if (lo in 0..len) lo else len
@@ -226,7 +232,8 @@ object TextInsertion {
         if (text.isEmpty()) return ""
         val before = existing.substring(0, start)
         val after = existing.substring(end)
-        val spaceBefore = before.isNotEmpty() && !before.last().isWhitespace()
+        // A space goes before only when there's text before the cursor. An empty field never gets a leading space.
+        val spaceBefore = allowLeadingSpace && before.isNotEmpty() && !before.last().isWhitespace()
         val spaceAfter = after.isNotEmpty() && after.first().isLetterOrDigit()
         return (if (spaceBefore) " " else "") + text + (if (spaceAfter) " " else "")
     }

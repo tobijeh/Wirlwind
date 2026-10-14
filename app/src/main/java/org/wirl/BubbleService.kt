@@ -492,7 +492,7 @@ class BubbleService : AccessibilityService() {
         recognizer = null
     }
 
-    /** How dictated text went into the field, and what the field looked like, for Diagnostics. */
+    /** How dictated text went into the field, with each stage marked so whitespace shows, for Diagnostics. */
     private data class Insertion(val method: InsertMethod, val details: String)
 
     /**
@@ -507,39 +507,81 @@ class BubbleService : AccessibilityService() {
         val placement = DictationPlacement.decide(node != null, sameField, node?.isEditable == true)
         if (placement == DictationPlacement.CLIPBOARD || node == null) {
             copyToClipboard(text)
-            return Insertion(InsertMethod.FAILED, fieldDetails(node, transcript, cleaned, text, "clipboard (field unavailable)"))
+            return Insertion(
+                InsertMethod.FAILED,
+                stages(transcript, cleaned, text, "clipboard (field unavailable)", "", "", fieldLines(node), null),
+            )
         }
-        val existing = node.realText()
-        val piece = TextInsertion.pieceFor(existing, node.textSelectionStart, node.textSelectionEnd, text)
-        val before = fieldDetails(node, transcript, cleaned, piece, "")
+
+        val wasEmpty = FieldState.wasEmpty(
+            node.text?.toString(),
+            node.hintText?.toString(),
+            node.contentDescription?.toString(),
+            node.isShowingHintText,
+            node.textSelectionStart,
+            node.textSelectionEnd,
+        )
+        val piece = TextInsertion.pieceFor(
+            node.realText(),
+            node.textSelectionStart,
+            node.textSelectionEnd,
+            text,
+            allowLeadingSpace = !wasEmpty,
+        )
+        // Read the field before pasting, so the diagnostics show what it held going in.
+        val fieldBefore = fieldLines(node)
         val method = DictationPaste.insert(AndroidClipboard(this), NodeField(node), piece) {
             val plan = TextInsertion.plan(node.realText(), node.textSelectionStart, node.textSelectionEnd, text)
             plan.text to plan.cursor
         }
         if (method == InsertMethod.FAILED) copyToClipboard(text)
-        return Insertion(method, "$before\nmethod: ${method.name}")
+
+        // Safety net: if the field was empty and now starts with whitespace, remove only that whitespace.
+        var guard = "none"
+        node.refresh()
+        val afterInsert = node.text?.toString().orEmpty()
+        LeadingWhitespaceGuard.correct(wasEmpty, afterInsert)?.let { fixed ->
+            node.setFieldText(fixed, fixed.length)
+            guard = "removed leading whitespace ${Visible.mark(afterInsert.takeWhile { it.isWhitespace() })}"
+        }
+        val leadingSpaceLine = if (piece.startsWith(" ")) {
+            "leading space added: yes (text was before the cursor and not a space)"
+        } else {
+            "leading space added: no (field ${if (wasEmpty) "was empty" else "had no text before the cursor"})"
+        }
+        val report = stages(transcript, cleaned, piece, method.name, guard, leadingSpaceLine, fieldBefore, afterInsert)
+        return Insertion(method, report)
     }
 
-    /** The field's state as the accessibility tree reports it, plus what was dictated. */
-    private fun fieldDetails(
-        node: AccessibilityNodeInfo?,
-        transcript: String,
-        cleaned: String?,
-        set: String,
-        method: String,
-    ): String = buildString {
+    /** The field's state as the accessibility tree reports it, with whitespace visible. */
+    private fun fieldLines(node: AccessibilityNodeInfo?): String = buildString {
         if (node == null) {
             appendLine("field: not found")
         } else {
-            appendLine("getText: ${node.text?.let { "\"$it\"" } ?: "null"}")
-            appendLine("getHintText: ${node.hintText?.let { "\"$it\"" } ?: "null"}")
-            appendLine("isShowingHintText: ${node.isShowingHintText}")
-            appendLine("contentDescription: ${node.contentDescription?.let { "\"$it\"" } ?: "null"}")
-            appendLine("selection: ${node.textSelectionStart}..${node.textSelectionEnd}")
+            appendLine("field before: getText ${Visible.mark(node.text?.toString())}, hintText ${Visible.mark(node.hintText?.toString())}")
+            appendLine("field before: isShowingHintText ${node.isShowingHintText}, contentDescription ${Visible.mark(node.contentDescription?.toString())}")
+            append("field before: selection ${node.textSelectionStart}..${node.textSelectionEnd}")
         }
-        appendLine("transcript: \"$transcript\"")
-        appendLine("cleaned: ${cleaned?.let { "\"$it\"" } ?: "not used"}")
-        appendLine("set in field: \"$set\"")
+    }
+
+    /** Each stage of a dictation, with whitespace visible. */
+    private fun stages(
+        transcript: String,
+        cleaned: String?,
+        piece: String,
+        method: String,
+        guard: String,
+        leadingSpaceLine: String,
+        fieldBefore: String,
+        afterInsert: String?,
+    ): String = buildString {
+        appendLine("raw transcript: ${Visible.mark(transcript)}")
+        appendLine("cleaned output: ${cleaned?.let { Visible.mark(it) } ?: "not used"}")
+        appendLine("placed for insert: ${Visible.mark(piece)}")
+        if (leadingSpaceLine.isNotEmpty()) appendLine(leadingSpaceLine)
+        appendLine(fieldBefore)
+        afterInsert?.let { appendLine("field after insert: ${Visible.mark(it)}") }
+        if (guard.isNotEmpty()) appendLine("leading-space guard: $guard")
         if (method.isNotEmpty()) append("method: $method")
     }.trimEnd()
 
