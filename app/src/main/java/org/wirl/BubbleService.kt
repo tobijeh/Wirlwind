@@ -1,6 +1,7 @@
 package org.wirl
 
 import android.Manifest
+import android.media.AudioFormat
 import android.media.AudioManager
 import android.accessibilityservice.AccessibilityService
 import android.content.ClipData
@@ -15,6 +16,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.ParcelFileDescriptor
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -122,6 +124,7 @@ class BubbleService : AccessibilityService() {
 
     override fun onDestroy() {
         releaseRecognizer()
+        ownAudio.stop()
         scope.cancel()
         handler.removeCallbacksAndMessages(null)
         if (::prefs.isInitialized) prefs.plain.unregisterOnSharedPreferenceChangeListener(prefsListener)
@@ -173,13 +176,17 @@ class BubbleService : AccessibilityService() {
     private var session: DictationSession? = null
     private var dictationField: FieldKey? = null
     private var firstListen = true
+    private val ownAudio = OwnAudio()
+    /** How many recognizer sessions have been given audio in this dictation. */
+    private var sessionsOpened = 0
     private val beeps by lazy {
         BeepSilencer(
             AndroidStreamMuter(getSystemService(AudioManager::class.java)),
             listOf(AudioManager.STREAM_SYSTEM, AudioManager.STREAM_NOTIFICATION),
         )
     }
-    private val restoreSound = Runnable { beeps.restore() }
+    /** Runs just after the first start, once its beep has played. From then on the dictation is silent. */
+    private val muteAfterFirstStart = Runnable { beeps.silence() }
 
     private fun onTap() {
         when (gestures.onTap()) {
@@ -280,7 +287,9 @@ class BubbleService : AccessibilityService() {
 
         dictationField = key
         // Android 13+ keeps one segmented session open until the user stops. Older versions restart after pauses.
-        session = DictationSession(segmented = Build.VERSION.SDK_INT >= 33)
+        // Android 13+ prefers one segmented session. If that isn't supported, restarts are fed from our own audio.
+        session = DictationSession(segmented = Build.VERSION.SDK_INT >= 33, ownAudio = Build.VERSION.SDK_INT >= 33)
+        sessionsOpened = 0
         detection = found
         availableEngines = available
         enginesTried.clear()
@@ -336,16 +345,20 @@ class BubbleService : AccessibilityService() {
         if (next != null) useEngine(next) else failWith(error, code)
     }
 
-    /** Silences the start and stop beeps of an automatic restart, and puts the sound back shortly after. */
-    private fun silenceRestart() {
-        beeps.silence()
-        handler.removeCallbacks(restoreSound)
-        handler.postDelayed(restoreSound, 1500L)
-    }
-
     private fun listen() {
-        // The first start of a dictation keeps its beep, so the user knows it's listening. Restarts are quiet.
-        if (firstListen) firstListen = false else silenceRestart()
+        val current = session
+        val audioSource = if (current?.mode == DictationSession.Mode.RESTART_OWN_AUDIO) openAudioPipe() else null
+        if (current?.mode == DictationSession.Mode.RESTART_OWN_AUDIO && audioSource == null) {
+            current.useMicrophone("own audio unavailable, using the mic")
+        }
+        // The first start keeps its beep, so the user knows it's listening. After that the whole dictation is silent,
+        // so segments and restarts don't beep. Sound comes back when the recognizer is released.
+        if (firstListen) {
+            firstListen = false
+            handler.postDelayed(muteAfterFirstStart, 1000L)
+        } else {
+            beeps.silence()
+        }
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE, dictationLanguageTag)
@@ -363,6 +376,12 @@ class BubbleService : AccessibilityService() {
             if (session?.mode == DictationSession.Mode.SEGMENTED) {
                 intent.putExtra(RecognizerIntent.EXTRA_SEGMENTED_SESSION, true)
             }
+            audioSource?.let {
+                intent.putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE, it)
+                    .putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_SAMPLING_RATE, AudioFormat16k.SAMPLE_RATE)
+                    .putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_CHANNEL_COUNT, 1)
+                    .putExtra(RecognizerIntent.EXTRA_AUDIO_SOURCE_ENCODING, AudioFormat.ENCODING_PCM_16BIT)
+            }
         }
         try {
             recognizer?.startListening(intent)
@@ -370,8 +389,32 @@ class BubbleService : AccessibilityService() {
             // Typically a SecurityException when the microphone can't be used in the background.
             Log.e(TAG, "startListening failed on $engine", e)
             return failWith(DictationError.from(e), null, e)
+        } finally {
+            // The recognizer has its own copy of the read side now.
+            audioSource?.close()
         }
         session?.onListening()
+    }
+
+    /**
+     * Opens the audio for the next recognizer session, from our own capture. The first session starts when it opens.
+     * Each later one replays from just before the previous session ended, so speech across the gap isn't lost.
+     */
+    private fun openAudioPipe(): ParcelFileDescriptor? {
+        val current = session ?: return null
+        if (!ownAudio.isRunning && !ownAudio.start()) return null
+        val endedAt = ownAudio.closePipe()
+        current.noteGap(ownAudio.takeDroppedSamples() * 1000 / AudioFormat16k.SAMPLE_RATE)
+        val from = if (sessionsOpened == 0) {
+            endedAt
+        } else {
+            val plan = ReplayPlan.plan(endedAt, ownAudio.oldest)
+            current.noteGap(plan.gapMs)
+            current.beginReplay()
+            plan.start
+        }
+        sessionsOpened++
+        return ownAudio.openPipe(from)
     }
 
     private val recognitionListener = object : RecognitionListener {
@@ -431,7 +474,6 @@ class BubbleService : AccessibilityService() {
             null -> showChip(current.transcript.ifBlank { getString(R.string.listening) })
             SessionAction.Restart -> {
                 showChip(current.transcript.ifBlank { getString(R.string.listening) })
-                silenceRestart()
                 handler.postDelayed({ if (session === current) listen() }, 100)
             }
             is SessionAction.Finish -> endDictation(action)
@@ -443,6 +485,7 @@ class BubbleService : AccessibilityService() {
         // Read before the session is cleared: which mode ran, and how many segments and restarts happened.
         val summary = session?.summary().orEmpty()
         releaseRecognizer()
+        ownAudio.stop()
         session = null
         dictationField = null
         runCatching { stopService(Intent(this, DictationService::class.java)) }
@@ -505,6 +548,7 @@ class BubbleService : AccessibilityService() {
         recordAttempt(message, code, throwable)
         Log.e(TAG, "Dictation failed: $message (code $code)", throwable)
         releaseRecognizer()
+        ownAudio.stop()
         session = null
         dictationField = null
         runCatching { stopService(Intent(this, DictationService::class.java)) }
@@ -527,7 +571,7 @@ class BubbleService : AccessibilityService() {
 
     /** Stops and destroys the current recognizer, if any. The next one is created by [useEngine]. */
     private fun releaseRecognizer() {
-        handler.removeCallbacks(restoreSound)
+        handler.removeCallbacks(muteAfterFirstStart)
         beeps.restore()
         recognizer?.let {
             runCatching { it.cancel() }
