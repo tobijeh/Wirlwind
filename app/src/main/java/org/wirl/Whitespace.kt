@@ -1,28 +1,29 @@
 package org.wirl
 
-/** Decides whether a field counts as empty before dictation, so no leading space is ever added to it. */
+/** Decides whether dictated text may get a space before it. A field the app can't read confidently never gets one. */
 object FieldState {
-    fun wasEmpty(
+    /** Whether a space may go before dictated text. Needs a real cursor, no hint showing, and a non-space character before the cursor. */
+    fun mayAddLeadingSpace(
         text: String?,
         hint: String?,
         contentDescription: String?,
         showingHint: Boolean,
         selectionStart: Int,
         selectionEnd: Int,
-    ): Boolean =
-        text.isNullOrBlank() ||
-            showingHint ||
-            text == hint ||
-            text == contentDescription ||
-            FieldText.visible(text, hint, showingHint, selectionStart, selectionEnd, contentDescription).isEmpty() ||
-            selectionStart == 0
+    ): Boolean {
+        if (!FieldText.hasCursor(selectionStart, selectionEnd) || showingHint) return false
+        val existing = FieldText.visible(text, hint, showingHint, selectionStart, selectionEnd, contentDescription)
+        val cursor = minOf(selectionStart, selectionEnd).coerceAtMost(existing.length)
+        val before = existing.substring(0, cursor)
+        return before.isNotEmpty() && !before.last().isWhitespace()
+    }
 }
 
-/** Safety net, run after inserting into a field that was empty: removes only leading whitespace. */
+/** Safety net, run after inserting into a field where no leading space was allowed: removes only leading whitespace. */
 object LeadingWhitespaceGuard {
-    /** The corrected text and cursor, or null if nothing needed fixing. */
-    fun correct(wasEmpty: Boolean, current: String): String? {
-        if (!wasEmpty || current.isEmpty() || !current.first().isWhitespace()) return null
+    /** The corrected text, or null if nothing needed fixing. */
+    fun correct(leadingSpaceAllowed: Boolean, current: String): String? {
+        if (leadingSpaceAllowed || current.isEmpty() || !current.first().isWhitespace()) return null
         return current.dropWhile { it.isWhitespace() }
     }
 }

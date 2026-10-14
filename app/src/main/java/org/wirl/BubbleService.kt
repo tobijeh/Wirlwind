@@ -1,6 +1,7 @@
 package org.wirl
 
 import android.Manifest
+import android.media.AudioManager
 import android.accessibilityservice.AccessibilityService
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -169,6 +170,14 @@ class BubbleService : AccessibilityService() {
     private var recognizer: SpeechRecognizer? = null
     private var session: DictationSession? = null
     private var dictationField: FieldKey? = null
+    private var firstListen = true
+    private val beeps by lazy {
+        BeepSilencer(
+            AndroidStreamMuter(getSystemService(AudioManager::class.java)),
+            listOf(AudioManager.STREAM_SYSTEM, AudioManager.STREAM_NOTIFICATION),
+        )
+    }
+    private val restoreSound = Runnable { beeps.restore() }
 
     private fun onTap() {
         when (gestures.onTap()) {
@@ -202,6 +211,7 @@ class BubbleService : AccessibilityService() {
     private fun cleanUp(node: AccessibilityNodeInfo, key: FieldKey) {
         val original = node.realText()
         val placeholder = FieldText.isPlaceholder(node.text?.toString(), node.hintText?.toString(), node.contentDescription?.toString())
+        // No valid cursor, or only a placeholder, means there's nothing the user wrote (realText is blank then).
         if (original.isBlank() || placeholder) {
             // Placeholder text is never sent to Claude.
             gestures.finish()
@@ -282,6 +292,7 @@ class BubbleService : AccessibilityService() {
         }
         setState(State.RECORDING)
         showChip(getString(R.string.listening))
+        firstListen = true
         useEngine(available.first())
     }
 
@@ -322,7 +333,16 @@ class BubbleService : AccessibilityService() {
         if (next != null) useEngine(next) else failWith(error, code)
     }
 
+    /** Silences the start and stop beeps of an automatic restart, and puts the sound back shortly after. */
+    private fun silenceRestart() {
+        beeps.silence()
+        handler.removeCallbacks(restoreSound)
+        handler.postDelayed(restoreSound, 1500L)
+    }
+
     private fun listen() {
+        // The first start of a dictation keeps its beep, so the user knows it's listening. Restarts are quiet.
+        if (firstListen) firstListen = false else silenceRestart()
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE, dictationLanguageTag)
@@ -392,6 +412,7 @@ class BubbleService : AccessibilityService() {
             null -> showChip(current.transcript.ifBlank { getString(R.string.listening) })
             SessionAction.Restart -> {
                 showChip(current.transcript.ifBlank { getString(R.string.listening) })
+                silenceRestart()
                 handler.postDelayed({ if (session === current) listen() }, 100)
             }
             is SessionAction.Finish -> endDictation(action)
@@ -485,6 +506,8 @@ class BubbleService : AccessibilityService() {
 
     /** Stops and destroys the current recognizer, if any. The next one is created by [useEngine]. */
     private fun releaseRecognizer() {
+        handler.removeCallbacks(restoreSound)
+        beeps.restore()
         recognizer?.let {
             runCatching { it.cancel() }
             runCatching { it.destroy() }
@@ -513,7 +536,7 @@ class BubbleService : AccessibilityService() {
             )
         }
 
-        val wasEmpty = FieldState.wasEmpty(
+        val leadingSpaceAllowed = FieldState.mayAddLeadingSpace(
             node.text?.toString(),
             node.hintText?.toString(),
             node.contentDescription?.toString(),
@@ -526,7 +549,7 @@ class BubbleService : AccessibilityService() {
             node.textSelectionStart,
             node.textSelectionEnd,
             text,
-            allowLeadingSpace = !wasEmpty,
+            allowLeadingSpace = leadingSpaceAllowed,
         )
         // Read the field before pasting, so the diagnostics show what it held going in.
         val fieldBefore = fieldLines(node)
@@ -536,21 +559,29 @@ class BubbleService : AccessibilityService() {
         }
         if (method == InsertMethod.FAILED) copyToClipboard(text)
 
-        // Safety net: if the field was empty and now starts with whitespace, remove only that whitespace.
+        // Safety net: wherever no leading space was allowed, remove any leading whitespace that got in anyway.
         var guard = "none"
         node.refresh()
         val afterInsert = node.text?.toString().orEmpty()
-        LeadingWhitespaceGuard.correct(wasEmpty, afterInsert)?.let { fixed ->
+        LeadingWhitespaceGuard.correct(leadingSpaceAllowed, afterInsert)?.let { fixed ->
             node.setFieldText(fixed, fixed.length)
             guard = "removed leading whitespace ${Visible.mark(afterInsert.takeWhile { it.isWhitespace() })}"
         }
         val leadingSpaceLine = if (piece.startsWith(" ")) {
             "leading space added: yes (text was before the cursor and not a space)"
         } else {
-            "leading space added: no (field ${if (wasEmpty) "was empty" else "had no text before the cursor"})"
+            "leading space added: no (${noLeadingSpaceReason(node, leadingSpaceAllowed)})"
         }
         val report = stages(transcript, cleaned, piece, method.name, guard, leadingSpaceLine, fieldBefore, afterInsert)
         return Insertion(method, report)
+    }
+
+    /** Why no leading space was added, for Diagnostics. */
+    private fun noLeadingSpaceReason(node: AccessibilityNodeInfo, allowed: Boolean): String = when {
+        allowed -> "no space needed: the text before the cursor ends in a space"
+        !FieldText.hasCursor(node.textSelectionStart, node.textSelectionEnd) -> "no valid cursor (selection -1)"
+        node.isShowingHintText -> "field is showing its hint"
+        else -> "no text before the cursor"
     }
 
     /** The field's state as the accessibility tree reports it, with whitespace visible. */

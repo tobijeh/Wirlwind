@@ -9,8 +9,11 @@ object FieldText {
     fun isPlaceholder(text: String?, hint: String?, contentDescription: String?): Boolean =
         !text.isNullOrEmpty() && (text == hint || text == contentDescription)
 
+    /** Android reports -1 when a field has no valid cursor. Its text can't be trusted then. */
+    fun hasCursor(selectionStart: Int, selectionEnd: Int): Boolean = selectionStart >= 0 && selectionEnd >= 0
+
     /**
-     * The text the user wrote, or "" if the field is empty, blank, or showing its placeholder.
+     * The text the user wrote, or "" if the field is empty, blank, showing its placeholder, or has no valid cursor.
      * A placeholder is recognised when the platform says it's showing its hint, or when the text matches the hint or
      * content description and the cursor is at the start (or unknown). Typed text normally leaves the cursor after it,
      * so a typed "Message" is kept.
@@ -24,6 +27,7 @@ object FieldText {
         contentDescription: String? = null,
     ): String {
         if (text == null || showingHint || text.isBlank()) return ""
+        if (!hasCursor(selectionStart, selectionEnd)) return ""
         val atStart = selectionStart <= 0 && selectionEnd <= 0
         if (atStart && isPlaceholder(text, hint, contentDescription)) return ""
         return text

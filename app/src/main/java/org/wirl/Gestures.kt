@@ -232,7 +232,7 @@ object TextInsertion {
         if (text.isEmpty()) return ""
         val before = existing.substring(0, start)
         val after = existing.substring(end)
-        // A space goes before only when there's text before the cursor. An empty field never gets a leading space.
+        // A space goes before only when the caller allows it and there's text before the cursor.
         val spaceBefore = allowLeadingSpace && before.isNotEmpty() && !before.last().isWhitespace()
         val spaceAfter = after.isNotEmpty() && after.first().isLetterOrDigit()
         return (if (spaceBefore) " " else "") + text + (if (spaceAfter) " " else "")

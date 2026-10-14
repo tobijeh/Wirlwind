@@ -36,7 +36,7 @@ class LeadingSpaceTest {
      * Runs a dictation the way the app does, returning the piece at each stage and the field afterwards. [reported] is
      * what the accessibility tree says the field holds; [field] is what's really in it.
      */
-    private data class Run(val piece: String, val wasEmpty: Boolean, val after: String, val guardedAfter: String, val cursorAfter: Int)
+    private data class Run(val piece: String, val allowed: Boolean, val after: String, val guardedAfter: String, val cursorAfter: Int)
 
     private fun dictate(
         field: Field,
@@ -48,9 +48,9 @@ class LeadingSpaceTest {
         selectionEnd: Int,
         transcript: String,
     ): Run {
-        val wasEmpty = FieldState.wasEmpty(reported, hint, contentDescription, showingHint, selectionStart, selectionEnd)
+        val allowed = FieldState.mayAddLeadingSpace(reported, hint, contentDescription, showingHint, selectionStart, selectionEnd)
         val existing = FieldText.visible(reported, hint, showingHint, selectionStart, selectionEnd, contentDescription)
-        val piece = TextInsertion.pieceFor(existing, selectionStart, selectionEnd, transcript, allowLeadingSpace = !wasEmpty)
+        val piece = TextInsertion.pieceFor(existing, selectionStart, selectionEnd, transcript, allowLeadingSpace = allowed)
         DictationPaste.insert(Clip().also { it.set(piece) }, object : FieldPort {
             override fun paste(): Boolean {
                 field.pasteAtCursor(piece)
@@ -59,22 +59,63 @@ class LeadingSpaceTest {
             override fun setText(text: String, cursor: Int) = field.setText(text, cursor)
         }, piece) { null }
         val after = field.buffer
-        val corrected = LeadingWhitespaceGuard.correct(wasEmpty, after)
+        val corrected = LeadingWhitespaceGuard.correct(allowed, after)
         val guarded = corrected ?: after
         val cursor = if (corrected != null) guarded.length else field.cursor
-        return Run(piece, wasEmpty, after, guarded, cursor)
+        return Run(piece, allowed, after, guarded, cursor)
     }
 
-    @Test fun emptyWhatsAppFieldHasNoLeadingSpaceAtAnyStage() {
-        // The placeholder "Message" is reported, but the real buffer is empty and the cursor is at the start.
-        val field = Field(buffer = "", cursor = 0)
-        val run = dictate(field, "Message", hint = null, contentDescription = "Message", showingHint = false,
-            selectionStart = 0, selectionEnd = 0, transcript = "Hi there")
+    /** The WhatsApp empty message box, exactly as the accessibility tree reported it in the field. */
+    private fun whatsAppEmptyBox() = Field(buffer = "", cursor = 0)
 
-        assertTrue(run.wasEmpty)
-        assertFalse("piece has a leading space", run.piece.startsWith(" "))
+    @Test fun whatsAppEmptyBoxInsertsWithNoLeadingSpaceAtAnyStage() {
+        // getText "Message", hintText null, isShowingHintText false, contentDescription null, selection -1..-1.
+        val field = whatsAppEmptyBox()
+        val run = dictate(field, "Message", hint = null, contentDescription = null, showingHint = false,
+            selectionStart = -1, selectionEnd = -1, transcript = "Hi there")
+
+        assertFalse(run.allowed)
+        assertEquals("Hi there", run.piece)
         assertEquals("Hi there", run.after)
         assertEquals("Hi there", run.guardedAfter)
+    }
+
+    @Test fun whatsAppEmptyBoxWithContentDescriptionMessageAlsoGetsNoLeadingSpace() {
+        val field = whatsAppEmptyBox()
+        val run = dictate(field, "Message", hint = null, contentDescription = "Message", showingHint = false,
+            selectionStart = -1, selectionEnd = -1, transcript = "Hi there")
+        assertFalse(run.piece.startsWith(" "))
+        assertEquals("Hi there", run.guardedAfter)
+    }
+
+    @Test fun validFieldHelloWithCursorAt5GetsHelloWorld() {
+        val field = Field(buffer = "Hello", cursor = 5)
+        val run = dictate(field, "Hello", hint = null, contentDescription = null, showingHint = false,
+            selectionStart = 5, selectionEnd = 5, transcript = "world")
+
+        assertTrue(run.allowed)
+        assertEquals(" world", run.piece)
+        assertEquals("Hello world", run.after)
+        assertEquals("Hello world", run.guardedAfter)
+        assertFalse(run.after.contains("  "))
+    }
+
+    @Test fun noValidCursorIsNeverReadAsTypedText() {
+        // A -1 cursor means the text can't be trusted: it's treated as nothing, so cleanup never sees it.
+        assertEquals("", FieldText.visible("Hello there", null, false, -1, -1))
+        assertEquals("", FieldText.visible("Message", null, false, -1, -1, "Message"))
+        assertFalse(FieldState.mayAddLeadingSpace("Hello there", null, null, false, -1, -1))
+        assertFalse(FieldState.mayAddLeadingSpace("Hello there", null, null, false, 11, -1))
+    }
+
+    @Test fun typedMessageWithCursorAtEndIsKept() {
+        // A real word that happens to match a placeholder is still text when the cursor is after it.
+        assertEquals("Message", FieldText.visible("Message", null, false, 7, 7, "Message"))
+        assertTrue(FieldState.mayAddLeadingSpace("Message", null, null, false, 7, 7))
+    }
+
+    @Test fun showingHintNeverGetsALeadingSpace() {
+        assertFalse(FieldState.mayAddLeadingSpace("Type a message", "Type a message", null, true, 14, 14))
     }
 
     @Test fun cursorAtZeroCountsAsEmptyAndGetsNoLeadingSpace() {
@@ -82,7 +123,7 @@ class LeadingSpaceTest {
         val field = Field(buffer = "Hello", cursor = 0)
         val run = dictate(field, "Hello", hint = null, contentDescription = null, showingHint = false,
             selectionStart = 0, selectionEnd = 0, transcript = "Hi")
-        assertTrue(run.wasEmpty)
+        assertFalse(run.allowed)
         assertFalse(run.piece.startsWith(" "))
         assertFalse(run.after.startsWith(" "))
         assertEquals("Hi Hello", run.after)
@@ -94,21 +135,10 @@ class LeadingSpaceTest {
         val run = dictate(field, " ", hint = null, contentDescription = null, showingHint = false,
             selectionStart = 1, selectionEnd = 1, transcript = "Hi there")
 
-        assertTrue(run.wasEmpty)
+        assertFalse(run.allowed)
         assertEquals(" Hi there", run.after)
         assertEquals("Hi there", run.guardedAfter)
         assertEquals("Hi there".length, run.cursorAfter)
-    }
-
-    @Test fun fieldWithHelloGetsHelloWorldWithExactlyOneSpace() {
-        val field = Field(buffer = "Hello", cursor = 5)
-        val run = dictate(field, "Hello", hint = null, contentDescription = null, showingHint = false,
-            selectionStart = 5, selectionEnd = 5, transcript = "world")
-
-        assertFalse(run.wasEmpty)
-        assertEquals(" world", run.piece)
-        assertEquals("Hello world", run.after)
-        assertEquals("Hello world", run.guardedAfter)
     }
 
     @Test fun trailingSpaceAlreadyPresentStillGivesOneSpace() {
@@ -119,25 +149,17 @@ class LeadingSpaceTest {
         assertFalse(run.after.contains("  "))
     }
 
-    @Test fun guardOnlyRemovesLeadingWhitespaceAndOnlyForEmptyFields() {
-        assertEquals("Hi there", LeadingWhitespaceGuard.correct(wasEmpty = true, current = "  Hi there"))
-        assertEquals("Hi  there", LeadingWhitespaceGuard.correct(wasEmpty = true, current = "\tHi  there"))
-        assertNull("a field the user had text in is left alone", LeadingWhitespaceGuard.correct(wasEmpty = false, current = " Hello"))
-        assertNull(LeadingWhitespaceGuard.correct(wasEmpty = true, current = "Hi"))
-        assertNull(LeadingWhitespaceGuard.correct(wasEmpty = true, current = ""))
+    @Test fun guardOnlyRemovesLeadingWhitespaceWhenNoLeadingSpaceWasAllowed() {
+        assertEquals("Hi there", LeadingWhitespaceGuard.correct(leadingSpaceAllowed = false, current = "  Hi there"))
+        assertEquals("Hi  there", LeadingWhitespaceGuard.correct(leadingSpaceAllowed = false, current = "\tHi  there"))
+        assertNull("a space was allowed, so the text is left alone", LeadingWhitespaceGuard.correct(leadingSpaceAllowed = true, current = " Hello"))
+        assertNull(LeadingWhitespaceGuard.correct(leadingSpaceAllowed = false, current = "Hi"))
+        assertNull(LeadingWhitespaceGuard.correct(leadingSpaceAllowed = false, current = ""))
     }
 
     @Test fun markersShowWhitespace() {
         assertEquals("[·Hi·there]", Visible.mark(" Hi there"))
         assertEquals("[a⏎b→c]", Visible.mark("a\nb\tc"))
         assertEquals("null", Visible.mark(null))
-    }
-
-    @Test fun placeholderOrHintOrDescriptionMeansEmpty() {
-        assertTrue(FieldState.wasEmpty("Message", hint = "Message", contentDescription = null, showingHint = false, selectionStart = 7, selectionEnd = 7))
-        assertTrue(FieldState.wasEmpty("Message", hint = null, contentDescription = "Message", showingHint = false, selectionStart = 7, selectionEnd = 7))
-        assertTrue(FieldState.wasEmpty("Anything", hint = null, contentDescription = null, showingHint = true, selectionStart = 3, selectionEnd = 3))
-        assertTrue(FieldState.wasEmpty("   ", hint = null, contentDescription = null, showingHint = false, selectionStart = 3, selectionEnd = 3))
-        assertFalse(FieldState.wasEmpty("Hello", hint = null, contentDescription = null, showingHint = false, selectionStart = 5, selectionEnd = 5))
     }
 }
