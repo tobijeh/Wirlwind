@@ -42,4 +42,11 @@ class DictionaryPromptTest {
         assertFalse(prompt.contains("(mishearings:"))
         assertFalse(prompt.contains("— context:"))
     }
+
+    @Test fun forTextIncludesOnlyEntriesThatMightAppear() {
+        val alex = DictionaryEntry("Alex")
+        val prompt = DictionaryPrompt.forText(base, listOf(sela, alex), "I'm meeting salad at noon")
+        assertTrue(prompt.contains("\"Sela\""))
+        assertFalse(prompt.contains("\"Alex\""))
+    }
 }

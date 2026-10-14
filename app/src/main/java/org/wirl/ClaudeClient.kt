@@ -18,7 +18,7 @@ object ClaudeClient {
         }
         if (apiKey.isBlank()) throw CleanupException("Add your API key in Wirl")
 
-        val relevant = DictionaryMatcher.relevant(prefs.dictionary, text)
-        api.clean(apiKey, DictionaryPrompt.build(prefs.systemPrompt, relevant), text)
+        val entries = DictionaryRepository.get(context).entries.value
+        api.clean(apiKey, DictionaryPrompt.forText(prefs.systemPrompt, entries, text), text)
     }
 }

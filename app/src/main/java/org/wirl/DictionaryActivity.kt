@@ -11,17 +11,24 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.launch
 import org.wirl.databinding.ActivityDictionaryBinding
 import org.wirl.databinding.DialogEntryBinding
 
-/** The personal dictionary: list, search, add, edit, delete, and import/export as JSON. */
+/** The personal dictionary: list, search, add, edit, swipe to delete (with undo), and import/export. */
 class DictionaryActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDictionaryBinding
-    private lateinit var prefs: Prefs
+    private lateinit var repository: DictionaryRepository
+    private lateinit var model: DictionaryViewModel
     private val adapter = EntryAdapter()
-    private var entries: List<DictionaryEntry> = emptyList()
 
     private val exportLauncher =
         registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
@@ -35,26 +42,35 @@ class DictionaryActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityDictionaryBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        prefs = Prefs(this)
-        entries = prefs.dictionary
+        repository = DictionaryRepository.get(this)
+        model = DictionaryViewModel(repository)
 
+        // RecyclerView draws nothing without a layout manager, so this line is required.
+        binding.list.layoutManager = LinearLayoutManager(this)
         binding.list.adapter = adapter
-        binding.search.doAfterTextChanged { refresh() }
+        ItemTouchHelper(SwipeToDelete()).attachToRecyclerView(binding.list)
+
+        binding.search.doAfterTextChanged { model.query.value = it?.toString().orEmpty() }
         binding.add.setOnClickListener { showEditor(null) }
         binding.importButton.setOnClickListener { importLauncher.launch(arrayOf("*/*")) }
         binding.exportButton.setOnClickListener { exportLauncher.launch("wirl-dictionary.json") }
-        refresh()
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                model.state.collect { render(it) }
+            }
+        }
     }
 
-    private fun refresh() {
-        adapter.submit(DictionaryEditor.search(entries, binding.search.text?.toString().orEmpty()))
-        binding.empty.visibility = if (entries.isEmpty()) View.VISIBLE else View.GONE
+    override fun onStart() {
+        super.onStart()
+        // Quick add can save while this screen is in the background; pick up anything new.
+        repository.reload()
     }
 
-    private fun save(updated: List<DictionaryEntry>) {
-        entries = updated
-        prefs.dictionary = updated
-        refresh()
+    private fun render(state: DictionaryUiState) {
+        adapter.submit(state.entries)
+        binding.empty.visibility = if (state.total == 0) View.VISIBLE else View.GONE
     }
 
     private fun showEditor(existing: DictionaryEntry?) {
@@ -83,13 +99,13 @@ class DictionaryActivity : AppCompatActivity() {
                     soundsLike = DictionaryEditor.parseSoundsLike(form.entrySounds.text.toString()),
                     note = form.entryNote.text.toString(),
                 )
-                save(
+                repository.update { list ->
                     if (existing == null) {
-                        DictionaryEditor.merge(entries, listOf(entry))
+                        DictionaryEditor.merge(list, listOf(entry))
                     } else {
-                        DictionaryEditor.replace(entries, entries.indexOf(existing), entry)
-                    },
-                )
+                        DictionaryEditor.replace(list, DictionaryEditor.indexOfEntry(list, existing), entry)
+                    }
+                }
                 dialog.dismiss()
             }
         }
@@ -99,14 +115,32 @@ class DictionaryActivity : AppCompatActivity() {
     private fun confirmDelete(entry: DictionaryEntry) {
         MaterialAlertDialogBuilder(this)
             .setMessage(R.string.delete_confirm)
-            .setPositiveButton(R.string.delete) { _, _ -> save(DictionaryEditor.delete(entries, entries.indexOf(entry))) }
+            .setPositiveButton(R.string.delete) { _, _ -> deleteWithUndo(entry) }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 
+    private fun deleteWithUndo(entry: DictionaryEntry) {
+        repository.update { list -> DictionaryEditor.delete(list, DictionaryEditor.indexOfEntry(list, entry)) }
+        Snackbar.make(binding.root, getString(R.string.deleted_term, entry.term), Snackbar.LENGTH_LONG)
+            .setAction(R.string.undo) { repository.update { DictionaryEditor.merge(it, listOf(entry)) } }
+            .show()
+    }
+
+    /** Swipe left on a row to delete it. The undo snackbar brings it back. */
+    private inner class SwipeToDelete : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
+        override fun onMove(rv: RecyclerView, vh: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder) = false
+
+        override fun onSwiped(vh: RecyclerView.ViewHolder, direction: Int) {
+            val entry = adapter.itemAt(vh.bindingAdapterPosition) ?: return
+            deleteWithUndo(entry)
+        }
+    }
+
     private fun writeExport(uri: Uri) {
         runCatching {
-            contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(DictionaryJson.encode(entries)) }
+            contentResolver.openOutputStream(uri)?.bufferedWriter()
+                ?.use { it.write(DictionaryJson.encode(repository.entries.value)) }
         }.onSuccess { say(getString(R.string.exported)) }
             .onFailure { say(getString(R.string.export_failed)) }
     }
@@ -119,7 +153,7 @@ class DictionaryActivity : AppCompatActivity() {
             say(getString(R.string.import_failed))
             return
         }
-        save(DictionaryEditor.merge(entries, incoming))
+        repository.update { DictionaryEditor.merge(it, incoming) }
         say(getString(R.string.imported, incoming.size))
     }
 
@@ -132,6 +166,8 @@ class DictionaryActivity : AppCompatActivity() {
             items = list
             notifyDataSetChanged()
         }
+
+        fun itemAt(position: Int): DictionaryEntry? = items.getOrNull(position)
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder =
             Holder(LayoutInflater.from(parent.context).inflate(R.layout.item_entry, parent, false))
