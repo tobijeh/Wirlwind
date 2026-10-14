@@ -64,4 +64,16 @@
     <string name="quick_added">Added to dictionary</string>
     <string name="deleted_term">Deleted %1$s</string>
     <string name="undo">Undo</string>
+    <string name="dictation_channel">Dictation</string>
+    <string name="dictation_notification_title">Wirl is listening</string>
+    <string name="dictation_notification_text">Tap the bubble to stop</string>
+    <string name="listening">Listening…</string>
+    <string name="undone">Undone</string>
+    <string name="copied_paste">Copied, paste it in</string>
+    <string name="cleanup_failed_raw">Cleanup failed, inserted what you said</string>
+    <string name="mic_title">Microphone</string>
+    <string name="mic_allowed">Allowed</string>
+    <string name="mic_tap_to_allow">Tap to allow</string>
+    <string name="dictation_cleanup_toggle">Clean up dictation with AI</string>
+    <string name="dictation_language">Dictation language</string>
 </resources>
