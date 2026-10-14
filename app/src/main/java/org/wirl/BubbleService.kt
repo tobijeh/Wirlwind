@@ -179,7 +179,8 @@ class BubbleService : AccessibilityService() {
             listOf(AudioManager.STREAM_SYSTEM, AudioManager.STREAM_NOTIFICATION),
         )
     }
-    private val restoreSound = Runnable { beeps.restore() }
+    /** Runs just after the first start, once its beep has played. From then on the dictation is silent. */
+    private val muteAfterFirstStart = Runnable { beeps.silence() }
 
     private fun onTap() {
         when (gestures.onTap()) {
@@ -336,16 +337,15 @@ class BubbleService : AccessibilityService() {
         if (next != null) useEngine(next) else failWith(error, code)
     }
 
-    /** Silences the start and stop beeps of an automatic restart, and puts the sound back shortly after. */
-    private fun silenceRestart() {
-        beeps.silence()
-        handler.removeCallbacks(restoreSound)
-        handler.postDelayed(restoreSound, 1500L)
-    }
-
     private fun listen() {
-        // The first start of a dictation keeps its beep, so the user knows it's listening. Restarts are quiet.
-        if (firstListen) firstListen = false else silenceRestart()
+        // The first start keeps its beep, so the user knows it's listening. After that the whole dictation is silent,
+        // so segments and restarts don't beep. Sound comes back when the recognizer is released.
+        if (firstListen) {
+            firstListen = false
+            handler.postDelayed(muteAfterFirstStart, 1000L)
+        } else {
+            beeps.silence()
+        }
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE, dictationLanguageTag)
@@ -431,7 +431,6 @@ class BubbleService : AccessibilityService() {
             null -> showChip(current.transcript.ifBlank { getString(R.string.listening) })
             SessionAction.Restart -> {
                 showChip(current.transcript.ifBlank { getString(R.string.listening) })
-                silenceRestart()
                 handler.postDelayed({ if (session === current) listen() }, 100)
             }
             is SessionAction.Finish -> endDictation(action)
@@ -527,7 +526,7 @@ class BubbleService : AccessibilityService() {
 
     /** Stops and destroys the current recognizer, if any. The next one is created by [useEngine]. */
     private fun releaseRecognizer() {
-        handler.removeCallbacks(restoreSound)
+        handler.removeCallbacks(muteAfterFirstStart)
         beeps.restore()
         recognizer?.let {
             runCatching { it.cancel() }
