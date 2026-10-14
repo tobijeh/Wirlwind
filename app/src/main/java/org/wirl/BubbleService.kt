@@ -150,8 +150,14 @@ class BubbleService : AccessibilityService() {
         return node
     }
 
-    private fun AccessibilityNodeInfo.realText(): String =
-        if (isShowingHintText) "" else text?.toString().orEmpty()
+    /** The text the user wrote. Hint text and blanks come back as "", so they're never cleaned, replaced, or sent. */
+    private fun AccessibilityNodeInfo.realText(): String = FieldText.visible(
+        text?.toString(),
+        hintText?.toString(),
+        isShowingHintText,
+        textSelectionStart,
+        textSelectionEnd,
+    )
 
     // ---------------------------------------------------------------------------------------------
     // Actions: tap starts or stops dictation; hold cleans up the field, or undoes the last cleanup.
