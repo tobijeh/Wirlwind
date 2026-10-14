@@ -19,6 +19,41 @@
             android:text="@string/app_name"
             android:textAppearance="?attr/textAppearanceHeadlineMedium" />
 
+        <!-- Shown until a speech model is downloaded -->
+        <LinearLayout
+            android:id="@+id/modelBanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="20dp"
+            android:background="?attr/colorPrimaryContainer"
+            android:orientation="vertical"
+            android:padding="16dp"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/speech_banner_title"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
+                android:textColor="?attr/colorOnPrimaryContainer" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/speech_banner_body"
+                android:textAppearance="?attr/textAppearanceBodyMedium"
+                android:textColor="?attr/colorOnPrimaryContainer" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/bannerDownload"
+                style="@style/Widget.Material3.Button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/speech_banner_title" />
+        </LinearLayout>
+
         <!-- API key -->
         <com.google.android.material.textfield.TextInputLayout
             android:id="@+id/apiKeyLayout"
@@ -270,6 +305,13 @@
             android:text="@string/silence_beeps_toggle"
             android:textAppearance="?attr/textAppearanceBodyLarge" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/speech_engine_section"
+            android:textAppearance="?attr/textAppearanceTitleMedium" />
+
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
             android:layout_width="match_parent"
@@ -284,42 +326,41 @@
                 android:inputType="none" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <com.google.android.material.textfield.TextInputLayout
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+        <TextView
+            android:id="@+id/engineStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:hint="@string/whisper_model_title">
+            android:textAppearance="?attr/textAppearanceBodyMedium" />
 
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/modelChoice"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="none" />
-        </com.google.android.material.textfield.TextInputLayout>
+        <include
+            android:id="@+id/modelFast"
+            layout="@layout/item_whisper_model" />
+
+        <include
+            android:id="@+id/modelAccurate"
+            layout="@layout/item_whisper_model" />
+
+        <include
+            android:id="@+id/modelMultilingual"
+            layout="@layout/item_whisper_model" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/mobileDataSwitch"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:minHeight="56dp"
+            android:paddingStart="4dp"
+            android:text="@string/allow_mobile_data_toggle"
+            android:textAppearance="?attr/textAppearanceBodyLarge" />
 
         <TextView
-            android:id="@+id/whisperStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="4dp"
+            android:text="@string/download_wifi_only"
             android:textAppearance="?attr/textAppearanceBodySmall" />
-
-        <com.google.android.material.progressindicator.LinearProgressIndicator
-            android:id="@+id/whisperProgress"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:max="100"
-            android:visibility="gone" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/downloadWhisper"
-            style="@style/Widget.Material3.Button.TonalButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:visibility="gone" />
 
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"

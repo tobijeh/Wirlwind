@@ -288,8 +288,14 @@ class BubbleService : AccessibilityService() {
         val available = SpeechEngine.order(found, prefs.onDevicePackInstalled(dictationLanguageTag))
         val modelReady = WhisperApp.store(this).isReady(prefs.whisperModel.spec)
         val nativeLoads = WhisperNative.loads()
-        val chosen = EngineChoice.choose(prefs.dictationEngine, modelReady, nativeLoads)
-        var note = EngineChoice.fallbackReason(prefs.dictationEngine, modelReady, nativeLoads)
+        val use = EngineChoice.use(prefs.dictationEngine, modelReady, nativeLoads)
+        val chosen = use.engine
+        var note = fallbackNote(use.reason)
+        if (use.reason == FallbackReason.MODEL_MISSING && !prefs.modelOfferShown) {
+            // Offered once, without taking focus away from the field being dictated into. Settings has the download.
+            prefs.modelOfferShown = true
+            showLabel(getString(R.string.model_offer), 4000)
+        }
         when {
             key == null -> return fail(getString(R.string.no_field))
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ->
@@ -339,6 +345,13 @@ class BubbleService : AccessibilityService() {
         enginesTried.clear()
         busyRetries = 0
         useEngine(available.first())
+    }
+
+    /** Why Google is used instead of Whisper, in words for Diagnostics. Null when there's no fallback. */
+    private fun fallbackNote(reason: FallbackReason): String? = when (reason) {
+        FallbackReason.MODEL_MISSING -> getString(R.string.engine_fallback_model, prefs.whisperModel.label)
+        FallbackReason.NATIVE_MISSING -> getString(R.string.engine_fallback_native)
+        FallbackReason.NONE -> null
     }
 
     /** Starts a Whisper dictation. Returns false if the microphone can't be opened, so the caller can use Google's recognizer. */

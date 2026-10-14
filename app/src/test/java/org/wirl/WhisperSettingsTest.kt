@@ -64,10 +64,10 @@ class WhisperSettingsTest {
         assertEquals(DictationEngine.GOOGLE, EngineChoice.choose(DictationEngine.GOOGLE, modelReady = true, nativeLoads = true))
     }
 
-    @Test fun theFallbackReasonSaysWhyGoogleIsUsed() {
-        assertTrue(EngineChoice.fallbackReason(DictationEngine.WHISPER, modelReady = false, nativeLoads = true)!!.contains("isn't downloaded"))
-        assertTrue(EngineChoice.fallbackReason(DictationEngine.WHISPER, modelReady = true, nativeLoads = false)!!.contains("isn't available"))
-        assertNull(EngineChoice.fallbackReason(DictationEngine.WHISPER, modelReady = true, nativeLoads = true))
-        assertNull(EngineChoice.fallbackReason(DictationEngine.GOOGLE, modelReady = false, nativeLoads = false))
+    @Test fun theFallbackReasonNamesWhyGoogleIsUsed() {
+        assertEquals(FallbackReason.MODEL_MISSING, EngineChoice.use(DictationEngine.WHISPER, modelReady = false, nativeLoads = true).reason)
+        assertEquals(FallbackReason.NATIVE_MISSING, EngineChoice.use(DictationEngine.WHISPER, modelReady = true, nativeLoads = false).reason)
+        assertEquals(FallbackReason.NONE, EngineChoice.use(DictationEngine.WHISPER, modelReady = true, nativeLoads = true).reason)
+        assertEquals(FallbackReason.NONE, EngineChoice.use(DictationEngine.GOOGLE, modelReady = false, nativeLoads = false).reason)
     }
 }

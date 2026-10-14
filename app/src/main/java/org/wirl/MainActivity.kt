@@ -19,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.wirl.databinding.ActivityMainBinding
+import org.wirl.databinding.ItemWhisperModelBinding
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -105,6 +106,8 @@ class MainActivity : AppCompatActivity() {
         },
     )
 
+    private val nativeLoads: Boolean by lazy { WhisperNative.loads() }
+
     private fun setupWhisperSettings() {
         val engines = DictationEngine.entries
         binding.engineChoice.setAdapter(ArrayAdapter(this, android.R.layout.simple_list_item_1, engines.map(::engineLabel)))
@@ -113,48 +116,110 @@ class MainActivity : AppCompatActivity() {
             prefs.dictationEngine = engines[position]
             refreshWhisper()
         }
-        val models = WhisperModel.entries
-        binding.modelChoice.setAdapter(ArrayAdapter(this, android.R.layout.simple_list_item_1, models.map(::modelLabel)))
-        binding.modelChoice.setText(modelLabel(prefs.whisperModel), false)
-        binding.modelChoice.setOnItemClickListener { _, _, position, _ ->
-            prefs.whisperModel = models[position]
-            refreshWhisper()
-        }
-        binding.downloadWhisper.setOnClickListener { downloadModel() }
+        bindModelRow(binding.modelFast, WhisperModel.FAST)
+        bindModelRow(binding.modelAccurate, WhisperModel.ACCURATE)
+        bindModelRow(binding.modelMultilingual, WhisperModel.MULTILINGUAL)
+        binding.mobileDataSwitch.isChecked = prefs.allowMobileData
+        binding.mobileDataSwitch.setOnCheckedChangeListener { _, checked -> prefs.allowMobileData = checked }
+        binding.bannerDownload.setOnClickListener { downloadModel(prefs.whisperModel) }
         refreshWhisper()
     }
 
-    private var downloading = false
-
-    private fun refreshWhisper() {
-        val model = prefs.whisperModel
-        val size = Formatter.formatShortFileSize(this, model.sizeBytes)
-        val ready = WhisperApp.store(this).isReady(model.spec)
-        binding.whisperStatus.text = if (ready) {
-            getString(R.string.whisper_status_ready, size)
-        } else {
-            getString(R.string.whisper_status_missing, size)
+    private fun bindModelRow(row: ItemWhisperModelBinding, model: WhisperModel) {
+        row.select.text = getString(
+            R.string.model_row_title,
+            modelLabel(model),
+            Formatter.formatShortFileSize(this, model.sizeBytes),
+        )
+        row.select.setOnClickListener {
+            prefs.whisperModel = model
+            if (!WhisperApp.store(this).isReady(model.spec)) {
+                Toast.makeText(this, getString(R.string.selection_not_downloaded, modelLabel(model)), Toast.LENGTH_LONG).show()
+            }
+            refreshWhisper()
         }
-        binding.downloadWhisper.text = getString(R.string.whisper_download, size)
-        binding.downloadWhisper.visibility = if (ready) View.GONE else View.VISIBLE
-        binding.downloadWhisper.isEnabled = !downloading
-        binding.whisperProgress.visibility = if (downloading) View.VISIBLE else View.GONE
+        row.download.setOnClickListener { downloadModel(model) }
+        row.delete.setOnClickListener { confirmDelete(model) }
     }
 
-    /** Downloads the chosen model on a background thread, showing progress. Resumes a partial download if there is one. */
-    private fun downloadModel() {
-        val model = prefs.whisperModel
-        downloading = true
-        binding.whisperProgress.progress = 0
+    /** Redraws the speech section: the engine in use and why, the banner, and each model's status and buttons. */
+    private fun refreshWhisper() {
+        val selected = prefs.whisperModel
+        val store = WhisperApp.store(this)
+        val selectedReady = store.isReady(selected.spec)
+        val anyReady = WhisperModel.entries.any { store.isReady(it.spec) }
+        binding.modelBanner.visibility = if (anyReady) View.GONE else View.VISIBLE
+        binding.engineStatus.text = engineStatusText(
+            EngineChoice.use(prefs.dictationEngine, selectedReady, nativeLoads),
+            selected,
+        )
+        refreshRow(binding.modelFast, WhisperModel.FAST, selected)
+        refreshRow(binding.modelAccurate, WhisperModel.ACCURATE, selected)
+        refreshRow(binding.modelMultilingual, WhisperModel.MULTILINGUAL, selected)
+    }
+
+    private fun engineStatusText(use: EngineUse, selected: WhisperModel): String = when {
+        prefs.dictationEngine == DictationEngine.GOOGLE -> getString(R.string.engine_using_google)
+        use.engine == DictationEngine.WHISPER -> getString(R.string.engine_using_whisper, modelLabel(selected))
+        use.reason == FallbackReason.MODEL_MISSING -> getString(R.string.engine_fallback_model, modelLabel(selected))
+        else -> getString(R.string.engine_fallback_native)
+    }
+
+    private fun refreshRow(row: ItemWhisperModelBinding, model: WhisperModel, selected: WhisperModel) {
+        val store = WhisperApp.store(this)
+        val state = ModelStatus.of(store, model)
+        row.select.isChecked = model == selected
+        row.status.text = when (state) {
+            ModelState.Ready -> getString(R.string.model_status_ready)
+            is ModelState.Downloading -> getString(R.string.model_status_downloading, state.percent)
+            is ModelState.Partial -> getString(R.string.model_status_partial, state.percent)
+            ModelState.NotDownloaded -> getString(R.string.model_status_not_downloaded)
+        }
+        val downloading = state is ModelState.Downloading
+        row.progress.visibility = if (downloading) View.VISIBLE else View.GONE
+        row.progress.progress = (state as? ModelState.Downloading)?.percent ?: 0
+        row.download.visibility = if (state == ModelState.NotDownloaded || state is ModelState.Partial) View.VISIBLE else View.GONE
+        row.download.text = if (state is ModelState.Partial) {
+            getString(R.string.model_resume)
+        } else {
+            getString(R.string.model_download, Formatter.formatShortFileSize(this, model.sizeBytes))
+        }
+        row.delete.visibility = if (state == ModelState.Ready || state is ModelState.Partial) View.VISIBLE else View.GONE
+    }
+
+    private fun confirmDelete(model: WhisperModel) {
+        MaterialAlertDialogBuilder(this)
+            .setMessage(getString(R.string.model_delete_confirm, modelLabel(model)))
+            .setPositiveButton(R.string.model_delete) { _, _ ->
+                WhisperApp.store(this).delete(model.spec)
+                refreshWhisper()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    /**
+     * Downloads [model] on a background thread, with progress. Only starts on an unmetered network, or on mobile data when
+     * the user has allowed it. A partial download is resumed.
+     */
+    private fun downloadModel(model: WhisperModel) {
+        if (ModelDownloads.isDownloading(model)) return
+        when (DownloadPolicy.check(WhisperApp.isOnline(this), WhisperApp.isUnmetered(this), prefs.allowMobileData)) {
+            DownloadCheck.NO_NETWORK -> return Toast.makeText(this, R.string.no_network, Toast.LENGTH_LONG).show()
+            DownloadCheck.NEEDS_MOBILE_DATA -> return Toast.makeText(this, R.string.needs_mobile_data, Toast.LENGTH_LONG).show()
+            DownloadCheck.ALLOWED -> Unit
+        }
+        ModelDownloads.start(model)
         refreshWhisper()
         Thread({
             val result = runCatching {
                 WhisperApp.downloader(this).download(model.spec) { done, total ->
-                    runOnUiThread { binding.whisperProgress.progress = (done * 100 / total).toInt() }
+                    // Redraw only when the whole percentage moves, so the progress bar doesn't flood the UI thread.
+                    if (ModelDownloads.update(model, ModelStatus.percent(done, total))) runOnUiThread { refreshWhisper() }
                 }
             }
+            ModelDownloads.finish(model)
             runOnUiThread {
-                downloading = false
                 result.exceptionOrNull()?.let {
                     Toast.makeText(this, getString(R.string.whisper_download_failed, it.message ?: "unknown error"), Toast.LENGTH_LONG).show()
                 }
