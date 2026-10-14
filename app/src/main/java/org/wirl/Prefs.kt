@@ -42,6 +42,13 @@ class Prefs(context: Context) {
         get() = plain.getString(KEY_DICTATION_LANGUAGE, "").orEmpty()
         set(value) = plain.edit().putString(KEY_DICTATION_LANGUAGE, value).apply()
 
+    /** Whether the on-device language pack for [language] was last seen installed. Read by dictation. */
+    fun onDevicePackInstalled(language: String): Boolean = plain.getBoolean(KEY_PACK_PREFIX + language, false)
+
+    fun setOnDevicePackInstalled(language: String, installed: Boolean) {
+        plain.edit().putBoolean(KEY_PACK_PREFIX + language, installed).apply()
+    }
+
     /** The last dictation attempts, newest last. */
     var diagnostics: List<DiagnosticEntry>
         get() = DiagnosticsStore.decode(plain.getString(KEY_DIAGNOSTICS, "[]").orEmpty())
@@ -104,6 +111,7 @@ class Prefs(context: Context) {
         const val KEY_DICTIONARY = "dictionary"
         const val KEY_DICTATION_CLEANUP = "dictation_cleanup"
         const val KEY_DIAGNOSTICS = "diagnostics"
+        const val KEY_PACK_PREFIX = "onDevicePack_"
         const val KEY_DICTATION_LANGUAGE = "dictation_language"
         const val KEY_SHOW_DONE_CHECK = "show_done_check"
         const val KEY_SHOW_DONE_MESSAGE = "show_done_message"

@@ -25,6 +25,8 @@ Speak, and the cleaned-up text appears where the cursor is, in any app.
 - **Tap the bubble** to start. The bubble turns red and shows what you've said so far. Tap again to stop.
 - **Hold the bubble** to clean up the text already in the field. Hold again, with the text unchanged, to put the original back.
 - Dictation uses Android's speech recognition, on-device when the phone supports it. Long pauses don't stop it; it keeps going until you tap.
+- Dictation tries the Google app recognizer, then Speech Services by Google, then the phone's default. The on-device recognizer is used first only when its offline pack is installed. Any language error moves on to the next recognizer.
+- **Settings → Test dictation** starts each recognizer and reports which ones work. Results also go to Diagnostics.
 - If the on-device speech pack for your language isn't installed, dictation uses the online recognizer instead. Settings shows the language in use and whether its offline pack is installed. On Android 13 and later, **Download speech pack** asks the phone to download it.
 - If your phone's language isn't supported, dictation uses English (US).
 - Your dictionary terms help the recognizer spell names correctly on Android 13 and later.

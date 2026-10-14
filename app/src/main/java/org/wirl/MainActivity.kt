@@ -49,6 +49,7 @@ class MainActivity : AppCompatActivity() {
         binding.micButton.setOnClickListener { micPermission.launch(Manifest.permission.RECORD_AUDIO) }
         binding.openVoiceSettings.setOnClickListener { openVoiceSettings() }
         binding.openDiagnostics.setOnClickListener { startActivity(Intent(this, DiagnosticsActivity::class.java)) }
+        binding.testDictation.setOnClickListener { testDictation() }
 
         binding.dictationCleanup.isChecked = prefs.dictationCleanup
         binding.dictationCleanup.setOnCheckedChangeListener { _, checked -> prefs.dictationCleanup = checked }
@@ -69,6 +70,11 @@ class MainActivity : AppCompatActivity() {
                 Toast.LENGTH_LONG,
             ).show()
         }
+    }
+
+    override fun onDestroy() {
+        tester?.cancel()
+        super.onDestroy()
     }
 
     override fun onResume() {
@@ -102,6 +108,29 @@ class MainActivity : AppCompatActivity() {
             render()
         }
         render()
+    }
+
+    private fun refreshEngineRow() {
+        val detection = SpeechEngineAndroid.detect(this)
+        val tag = LanguageTag.format(DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag()))
+        val order = SpeechEngine.order(detection, prefs.onDevicePackInstalled(tag))
+        val first = order.firstOrNull()?.label
+        binding.speechEngine.text = "${getString(R.string.speech_engine_title)}: " +
+            (first ?: SpeechEngine.describe(detection, onDevicePackInstalled = false))
+        binding.openVoiceSettings.visibility = if (order.isEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private var tester: EngineTester? = null
+
+    private fun testDictation() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            binding.testResults.text = getString(R.string.test_needs_mic)
+            return
+        }
+        binding.testResults.text = getString(R.string.test_running)
+        val runner = tester ?: EngineTester(this) { lines -> binding.testResults.text = lines.joinToString("\n") }
+            .also { tester = it }
+        runner.run(DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag()))
     }
 
     private fun openVoiceSettings() {
@@ -144,8 +173,11 @@ class MainActivity : AppCompatActivity() {
         binding.micButton.isEnabled = !micAllowed
 
         val language = DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag())
+        val tag = LanguageTag.format(language)
         binding.packStatus.text = getString(R.string.dictation_language_now, DictationLanguages.labelFor(language))
-        SpeechPacks.check(this, language) { status ->
+        SpeechPacks.check(this, tag) { status ->
+            prefs.setOnDevicePackInstalled(tag, status == DictationLanguage.PackStatus.INSTALLED)
+            refreshEngineRow()
             binding.packStatus.text = listOf(
                 getString(R.string.dictation_language_now, DictationLanguages.labelFor(language)),
                 getString(R.string.pack_status, DictationLanguage.describePack(status)),
@@ -155,9 +187,7 @@ class MainActivity : AppCompatActivity() {
                 if (status == DictationLanguage.PackStatus.INSTALLED) View.GONE else View.VISIBLE
         }
 
-        val engine = SpeechEngineAndroid.detect(this)
-        binding.speechEngine.text = "${getString(R.string.speech_engine_title)}: ${SpeechEngine.describe(engine)}"
-        binding.openVoiceSettings.visibility = if (engine.choice == SpeechEngine.Choice.NONE) View.VISIBLE else View.GONE
+        refreshEngineRow()
         val enabled = isServiceEnabled()
         binding.accessibilityStatus.setText(
             if (enabled) R.string.accessibility_on else R.string.accessibility_off,

@@ -1,74 +1,61 @@
 package org.wirl
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.wirl.SpeechEngine.Choice.GOOGLE_APP
+import org.wirl.SpeechEngine.Choice.GOOGLE_TTS
+import org.wirl.SpeechEngine.Choice.ON_DEVICE
+import org.wirl.SpeechEngine.Choice.SYSTEM
 
 class SpeechEngineTest {
-    private val google = "com.google.android.googlequicksearchbox/com.google.android.voicesearch.serviceapi.GoogleRecognitionService"
+    private val everything = SpeechEngine.Detection(
+        onDeviceAvailable = true,
+        googleAppComponent = "com.google.android.googlequicksearchbox/.Recognizer",
+        googleTtsComponent = "com.google.android.tts/.Recognizer",
+        systemAvailable = true,
+    )
 
-    @Test fun onDeviceIsPreferredWhenAvailable() {
-        assertEquals(SpeechEngine.Choice.ON_DEVICE, SpeechEngine.choose(onDeviceAvailable = true, googleAvailable = true, systemAvailable = true))
+    @Test fun onlineOrderIsGoogleAppThenSpeechServicesThenSystem() {
+        assertEquals(listOf(GOOGLE_APP, GOOGLE_TTS, SYSTEM), SpeechEngine.order(everything, onDevicePackInstalled = false))
     }
 
-    @Test fun onDeviceAloneIsEnough() {
-        assertEquals(SpeechEngine.Choice.ON_DEVICE, SpeechEngine.choose(onDeviceAvailable = true, googleAvailable = false, systemAvailable = false))
+    @Test fun onDeviceComesFirstOnlyWhenItsPackIsInstalled() {
+        assertEquals(listOf(ON_DEVICE, GOOGLE_APP, GOOGLE_TTS, SYSTEM), SpeechEngine.order(everything, onDevicePackInstalled = true))
     }
 
-    @Test fun googleIsNextWhenThereIsNoOnDevice() {
-        assertEquals(SpeechEngine.Choice.GOOGLE, SpeechEngine.choose(onDeviceAvailable = false, googleAvailable = true, systemAvailable = true))
+    @Test fun onDeviceIsNeverTheOnlyOption() {
+        val onlyOnDevice = SpeechEngine.Detection(true, null, null, false)
+        assertEquals(emptyList<SpeechEngine.Choice>(), SpeechEngine.order(onlyOnDevice, onDevicePackInstalled = false))
     }
 
-    @Test fun googleAloneIsEnough() {
-        assertEquals(SpeechEngine.Choice.GOOGLE, SpeechEngine.choose(onDeviceAvailable = false, googleAvailable = true, systemAvailable = false))
+    @Test fun missingServicesAreSkipped() {
+        val noTts = everything.copy(googleTtsComponent = null)
+        assertEquals(listOf(GOOGLE_APP, SYSTEM), SpeechEngine.order(noTts, onDevicePackInstalled = false))
     }
 
-    @Test fun systemDefaultIsTheLastResort() {
-        assertEquals(SpeechEngine.Choice.SYSTEM, SpeechEngine.choose(onDeviceAvailable = false, googleAvailable = false, systemAvailable = true))
+    @Test fun installedListIncludesOnDeviceEvenWithoutItsPack() {
+        assertEquals(listOf(ON_DEVICE, GOOGLE_APP, GOOGLE_TTS, SYSTEM), SpeechEngine.installed(everything))
     }
 
-    @Test fun noneWhenNothingIsAvailable() {
-        assertEquals(SpeechEngine.Choice.NONE, SpeechEngine.choose(onDeviceAvailable = false, googleAvailable = false, systemAvailable = false))
+    @Test fun onlyOnlineRecognizersPreferOfflineFalse() {
+        assertTrue(SpeechEngine.preferOffline(ON_DEVICE))
+        assertFalse(SpeechEngine.preferOffline(GOOGLE_APP))
+        assertFalse(SpeechEngine.preferOffline(GOOGLE_TTS))
+        assertFalse(SpeechEngine.preferOffline(SYSTEM))
     }
 
-    @Test fun detectionFollowsTheSameOrder() {
-        assertEquals(
-            SpeechEngine.Choice.GOOGLE,
-            SpeechEngine.Detection(onDeviceAvailable = false, googleComponent = google, systemAvailable = true).choice,
-        )
-        assertEquals(
-            SpeechEngine.Choice.NONE,
-            SpeechEngine.Detection(onDeviceAvailable = false, googleComponent = null, systemAvailable = false).choice,
-        )
-    }
-
-    @Test fun describeNamesTheEngineInUse() {
-        assertEquals(
-            "On-device recognizer (works offline)",
-            SpeechEngine.describe(SpeechEngine.Detection(true, google, true)),
-        )
-        assertEquals(
-            "Google speech service",
-            SpeechEngine.describe(SpeechEngine.Detection(false, google, true)),
-        )
-        assertEquals(
-            "Phone's default speech service",
-            SpeechEngine.describe(SpeechEngine.Detection(false, null, true)),
-        )
+    @Test fun describeNamesTheFirstEngine() {
+        assertEquals("Google app", SpeechEngine.describe(everything, onDevicePackInstalled = false))
+        assertEquals("On-device recognizer", SpeechEngine.describe(everything, onDevicePackInstalled = true))
     }
 
     @Test fun describeListsWhatIsMissingWhenNothingWorks() {
-        val text = SpeechEngine.describe(SpeechEngine.Detection(false, null, false))
-        assertEquals("Not found. Missing: on-device recognizer, Google speech service, default speech service", text)
-    }
-
-    @Test fun describeListsOnlyWhatIsMissing() {
-        val text = SpeechEngine.describe(SpeechEngine.Detection(false, null, false).copy(googleComponent = null, systemAvailable = false))
-        assertTrue(text.endsWith("on-device recognizer, Google speech service, default speech service"))
-    }
-
-    @Test fun noneOnlyWhenNoEngineAtAll() {
-        // An on-device recognizer alone still counts as available, so the message isn't shown.
-        assertTrue(SpeechEngine.describe(SpeechEngine.Detection(true, null, false)).startsWith("On-device"))
+        val none = SpeechEngine.Detection(false, null, null, false)
+        assertEquals(
+            "Not found. Missing: on-device recognizer, Google app, Speech Services by Google, default speech service",
+            SpeechEngine.describe(none, onDevicePackInstalled = false),
+        )
     }
 }

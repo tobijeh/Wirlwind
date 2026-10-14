@@ -2,52 +2,50 @@ package org.wirl
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import org.wirl.SpeechEngine.Choice.GOOGLE
+import org.wirl.SpeechEngine.Choice.GOOGLE_APP
+import org.wirl.SpeechEngine.Choice.GOOGLE_TTS
 import org.wirl.SpeechEngine.Choice.ON_DEVICE
 import org.wirl.SpeechEngine.Choice.SYSTEM
 
 class RecoveryPlannerTest {
-    private val all = listOf(ON_DEVICE, GOOGLE, SYSTEM)
+    private val withOnDevice = listOf(ON_DEVICE, GOOGLE_APP, GOOGLE_TTS, SYSTEM)
+    private val online = listOf(GOOGLE_APP, GOOGLE_TTS, SYSTEM)
 
     private fun plan(
         code: Int,
-        current: SpeechEngine.Choice = ON_DEVICE,
-        tried: Set<SpeechEngine.Choice> = setOf(ON_DEVICE),
-        available: List<SpeechEngine.Choice> = all,
+        current: SpeechEngine.Choice = GOOGLE_APP,
+        tried: Set<SpeechEngine.Choice> = setOf(current),
+        available: List<SpeechEngine.Choice> = online,
         transcriptEmpty: Boolean = true,
         busyRetries: Int = 0,
     ) = RecoveryPlanner.plan(code, transcriptEmpty, current, tried, available, busyRetries)
 
-    @Test fun onDeviceFailureFallsBackToTheNextEngine() {
-        // Code 13: the on-device language pack isn't downloaded. A non-language failure goes to Google first.
-        assertEquals(Recovery.Fallback(SYSTEM), plan(13))
-        assertEquals(Recovery.Fallback(GOOGLE), plan(5))
+    @Test fun languageErrorOnDeviceRetriesImmediatelyWithTheNextEngine() {
+        assertEquals(Recovery.Fallback(GOOGLE_APP), plan(13, current = ON_DEVICE, tried = setOf(ON_DEVICE), available = withOnDevice))
+    }
+
+    @Test fun languageErrorFromAnOnlineEngineMovesOnInOrder() {
+        assertEquals(Recovery.Fallback(GOOGLE_TTS), plan(13, current = GOOGLE_APP))
+        assertEquals(Recovery.Fallback(SYSTEM), plan(12, current = GOOGLE_TTS, tried = setOf(GOOGLE_APP, GOOGLE_TTS)))
     }
 
     @Test fun fallbackSkipsEnginesAlreadyTried() {
-        assertEquals(Recovery.Fallback(SYSTEM), plan(5, current = GOOGLE, tried = setOf(ON_DEVICE, GOOGLE)))
+        assertEquals(Recovery.Fallback(SYSTEM), plan(5, current = GOOGLE_TTS, tried = setOf(GOOGLE_APP, GOOGLE_TTS)))
     }
 
     @Test fun noFallbackWhenEveryEngineHasBeenTried() {
-        assertEquals(Recovery.None, plan(5, current = SYSTEM, tried = setOf(ON_DEVICE, GOOGLE, SYSTEM)))
+        assertEquals(Recovery.None, plan(13, current = SYSTEM, tried = setOf(GOOGLE_APP, GOOGLE_TTS, SYSTEM)))
     }
 
-    @Test fun noFallbackWhenNoOtherEngineExists() {
-        assertEquals(Recovery.None, plan(5, available = listOf(ON_DEVICE)))
-    }
-
-    @Test fun engineFailuresOfEveryKindFallBack() {
-        for (code in listOf(1, 2, 4, 5, 10, 11, 99)) {
-            assertEquals("code $code", Recovery.Fallback(GOOGLE), plan(code))
-        }
-        for (code in listOf(12, 13)) {
-            assertEquals("code $code", Recovery.Fallback(SYSTEM), plan(code))
+    @Test fun engineFailuresOfEveryKindMoveOn() {
+        for (code in listOf(1, 2, 4, 5, 10, 11, 12, 13, 99)) {
+            assertEquals("code $code", Recovery.Fallback(GOOGLE_TTS), plan(code, current = GOOGLE_APP))
         }
     }
 
     @Test fun busyRecreatesTheSameEngine() {
-        assertEquals(Recovery.RecreateSame(ON_DEVICE), plan(8, busyRetries = 0))
-        assertEquals(Recovery.RecreateSame(ON_DEVICE), plan(8, busyRetries = 1))
+        assertEquals(Recovery.RecreateSame(GOOGLE_APP), plan(8, busyRetries = 0))
+        assertEquals(Recovery.RecreateSame(GOOGLE_APP), plan(8, busyRetries = 1))
     }
 
     @Test fun busyStopsAfterTheRetryLimit() {
@@ -69,25 +67,18 @@ class RecoveryPlannerTest {
         assertEquals(Recovery.None, plan(6))
     }
 
-    @Test fun engineChoiceFollowsAvailabilityOrder() {
-        assertEquals(listOf(ON_DEVICE, GOOGLE, SYSTEM), SpeechEngine.available(SpeechEngine.Detection(true, "a/b", true)))
-        assertEquals(listOf(GOOGLE), SpeechEngine.available(SpeechEngine.Detection(false, "a/b", false)))
-        assertEquals(emptyList<SpeechEngine.Choice>(), SpeechEngine.available(SpeechEngine.Detection(false, null, false)))
-    }
-
-    @Test fun languageErrorOnDeviceGoesToTheStandardRecognizerFirst() {
-        assertEquals(Recovery.Fallback(SYSTEM), plan(13, current = ON_DEVICE, available = all))
-    }
-
-    @Test fun languageErrorUsesGoogleWhenThereIsNoStandardRecognizer() {
-        assertEquals(Recovery.Fallback(GOOGLE), plan(13, current = ON_DEVICE, available = listOf(ON_DEVICE, GOOGLE)))
-    }
-
-    @Test fun languageErrorWithNoOtherEngineFails() {
-        assertEquals(Recovery.None, plan(13, current = ON_DEVICE, available = listOf(ON_DEVICE)))
-    }
-
-    @Test fun languageErrorFromStandardRecognizerTriesTheNextOne() {
-        assertEquals(Recovery.Fallback(GOOGLE), plan(13, current = SYSTEM, tried = setOf(ON_DEVICE, SYSTEM)))
+    @Test fun aSimulatedRunTriesEveryEngineOnceThenStops() {
+        // Every engine answers with a language error: each is tried once, in order, then dictation gives up.
+        val tried = mutableSetOf(GOOGLE_APP)
+        val order = mutableListOf(GOOGLE_APP)
+        var current = GOOGLE_APP
+        while (true) {
+            val step = plan(13, current = current, tried = tried.toSet(), available = online)
+            if (step !is Recovery.Fallback) break
+            current = step.engine
+            tried += current
+            order += current
+        }
+        assertEquals(listOf(GOOGLE_APP, GOOGLE_TTS, SYSTEM), order)
     }
 }
