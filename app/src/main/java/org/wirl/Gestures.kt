@@ -163,7 +163,7 @@ class TranscriptAssembler {
 /** Why dictation stopped without a transcript, in words that can be shown to the user. */
 enum class DictationError(val message: String) {
     NO_PERMISSION("Microphone permission needed. Open Wirl settings to allow it."),
-    RECOGNIZER_UNAVAILABLE("Speech recognition isn't available on this phone."),
+    RECOGNIZER_UNAVAILABLE("Speech recognition isn't available. Open Wirl settings to see what's missing."),
     NO_SPEECH("No speech heard."),
     NO_INTERNET("No internet for speech recognition."),
     BUSY("Speech recognizer is busy, try again."),

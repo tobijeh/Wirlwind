@@ -228,16 +228,24 @@ class BubbleService : AccessibilityService() {
     private fun startDictation() {
         val node = focusedEditable()
         val key = node?.let { fieldKey(it) }
+        val engine = SpeechEngineAndroid.detect(this)
         when {
             key == null -> return fail(getString(R.string.no_field))
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ->
                 return fail(DictationError.NO_PERMISSION.message)
-            !SpeechRecognizer.isRecognitionAvailable(this) -> return fail(DictationError.RECOGNIZER_UNAVAILABLE.message)
+            engine.choice == SpeechEngine.Choice.NONE -> {
+                // The settings screen explains what's missing and has a button to the voice settings.
+                startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                return fail(DictationError.RECOGNIZER_UNAVAILABLE.message)
+            }
         }
 
         dictationField = key
         session = DictationSession()
-        recognizer = createRecognizer().also { it.setRecognitionListener(recognitionListener) }
+        recognizer = SpeechEngineAndroid.create(this, engine.choice, engine.googleComponent)?.also {
+            it.setRecognitionListener(recognitionListener)
+        }
+            ?: return fail(DictationError.RECOGNIZER_UNAVAILABLE.message)
         // Android stops background microphone use unless a microphone foreground service is running.
         runCatching { ContextCompat.startForegroundService(this, Intent(this, DictationService::class.java)) }
         setState(State.RECORDING)
@@ -256,14 +264,6 @@ class BubbleService : AccessibilityService() {
             recognizer?.stopListening()
         }
     }
-
-    private fun createRecognizer(): SpeechRecognizer =
-        // On-device recognition when the phone has it; otherwise the standard recognizer.
-        if (Build.VERSION.SDK_INT >= 31 && SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
-            SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
-        } else {
-            SpeechRecognizer.createSpeechRecognizer(this)
-        }
 
     private fun listen() {
         val language = prefs.dictationLanguage.ifBlank { Locale.getDefault().toLanguageTag() }
