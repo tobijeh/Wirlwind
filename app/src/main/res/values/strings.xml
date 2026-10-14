@@ -90,4 +90,5 @@
     <string name="test_dictation">Test dictation</string>
     <string name="test_running">Testing each speech engine…</string>
     <string name="test_needs_mic">Allow the microphone first, then run the test again.</string>
+    <string name="nothing_to_clean">Nothing to clean</string>
 </resources>

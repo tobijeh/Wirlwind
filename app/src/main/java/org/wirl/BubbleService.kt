@@ -157,6 +157,7 @@ class BubbleService : AccessibilityService() {
         isShowingHintText,
         textSelectionStart,
         textSelectionEnd,
+        contentDescription?.toString(),
     )
 
     // ---------------------------------------------------------------------------------------------
@@ -191,16 +192,18 @@ class BubbleService : AccessibilityService() {
     }
 
     private fun undo(node: AccessibilityNodeInfo, original: String) {
-        if (!node.setText(original, original.length)) return toast(getString(R.string.replace_failed))
+        if (!node.setFieldText(original, original.length)) return toast(getString(R.string.replace_failed))
         if (prefs.showDoneMessage) showLabel(getString(R.string.undone), 1500)
         scheduleCheck(0)
     }
 
     private fun cleanUp(node: AccessibilityNodeInfo, key: FieldKey) {
         val original = node.realText()
-        if (original.isBlank()) {
+        val placeholder = FieldText.isPlaceholder(node.text?.toString(), node.hintText?.toString(), node.contentDescription?.toString())
+        if (original.isBlank() || placeholder) {
+            // Placeholder text is never sent to Claude.
             gestures.finish()
-            return toast(getString(R.string.no_text))
+            return toast(getString(R.string.nothing_to_clean))
         }
 
         setState(State.BUSY)
@@ -212,7 +215,7 @@ class BubbleService : AccessibilityService() {
                     target == null -> fail(getString(R.string.no_field))
                     target.realText() != original -> fail(getString(R.string.text_changed))
                     cleaned == original -> succeed()
-                    !target.setText(cleaned, cleaned.length) -> fail(getString(R.string.replace_failed))
+                    !target.setFieldText(cleaned, cleaned.length) -> fail(getString(R.string.replace_failed))
                     else -> {
                         gestures.onCleaned(key, original, cleaned)
                         succeed()
@@ -396,14 +399,11 @@ class BubbleService : AccessibilityService() {
         runCatching { stopService(Intent(this, DictationService::class.java)) }
 
         val raw = finish.transcript
-        recordAttempt(
-            if (finish.error != null) DictationError.messageFor(finish.error, finish.errorCode) else "Heard ${raw.length} characters",
-            finish.errorCode,
-            null,
-        )
         if (raw.isBlank()) {
             val error = finish.error ?: DictationError.NO_SPEECH
-            return fail(DictationError.messageFor(error, finish.errorCode))
+            val message = DictationError.messageFor(error, finish.errorCode)
+            recordAttempt(message, finish.errorCode, null, "transcript: (empty)")
+            return fail(message)
         }
 
         setState(State.BUSY)
@@ -419,7 +419,9 @@ class BubbleService : AccessibilityService() {
             } else {
                 null
             }
-            val inserted = insertDictation(field, DictationResult.choose(raw, aiEnabled, cleaned))
+            val text = DictationResult.choose(raw, aiEnabled, cleaned)
+            val insertion = insertDictation(field, text, raw, cleaned)
+            val inserted = insertion.method != InsertMethod.FAILED
             gestures.finish()
             val note = when {
                 !inserted -> getString(R.string.copied_paste)
@@ -427,6 +429,12 @@ class BubbleService : AccessibilityService() {
                 aiEnabled && cleaned == null -> getString(R.string.cleanup_failed_raw)
                 else -> null
             }
+            recordAttempt(
+                note ?: "Inserted by ${insertion.method.name}",
+                finish.errorCode,
+                null,
+                insertion.details,
+            )
             if (note != null) showLabel(note, 3000)
             if (inserted) {
                 setState(State.DONE)
@@ -450,7 +458,7 @@ class BubbleService : AccessibilityService() {
         fail(message)
     }
 
-    private fun recordAttempt(message: String, code: Int?, throwable: Throwable?) {
+    private fun recordAttempt(message: String, code: Int?, throwable: Throwable?, details: String = "") {
         val prefs = Prefs(this)
         val engines = attemptTrail.ifEmpty { enginesTried.map { it.name } }.joinToString(" → ")
         val entry = DiagnosticEntry(
@@ -459,6 +467,7 @@ class BubbleService : AccessibilityService() {
             errorCode = code,
             message = message,
             stackTrace = throwable?.let { Log.getStackTraceString(it) },
+            details = details,
         )
         prefs.diagnostics = DiagnosticsLog.add(prefs.diagnostics, entry)
     }
@@ -472,11 +481,14 @@ class BubbleService : AccessibilityService() {
         recognizer = null
     }
 
+    /** How dictated text went into the field, and what the field looked like, for Diagnostics. */
+    private data class Insertion(val method: InsertMethod, val details: String)
+
     /**
-     * Puts the text into the field the dictation started in, at the cursor. If that field can't be
-     * edited any more, copies the text to the clipboard instead. Returns whether it went into the field.
+     * Puts the dictated text in at the cursor by pasting, so the rest of the field is never rewritten. Only if pasting
+     * fails is the whole field rewritten. If the field can't be edited, the text goes to the clipboard.
      */
-    private fun insertDictation(field: FieldKey?, text: String): Boolean {
+    private fun insertDictation(field: FieldKey?, text: String, transcript: String, cleaned: String?): Insertion {
         val node = focusedEditable()
         val sameField = node != null && field != null &&
             node.packageName?.toString() == field.packageName &&
@@ -484,13 +496,41 @@ class BubbleService : AccessibilityService() {
         val placement = DictationPlacement.decide(node != null, sameField, node?.isEditable == true)
         if (placement == DictationPlacement.CLIPBOARD || node == null) {
             copyToClipboard(text)
-            return false
+            return Insertion(InsertMethod.FAILED, fieldDetails(node, transcript, cleaned, text, "clipboard (field unavailable)"))
         }
-        val plan = TextInsertion.plan(node.realText(), node.textSelectionStart, node.textSelectionEnd, text)
-        if (node.setText(plan.text, plan.cursor)) return true
-        copyToClipboard(text)
-        return false
+        val existing = node.realText()
+        val piece = TextInsertion.pieceFor(existing, node.textSelectionStart, node.textSelectionEnd, text)
+        val before = fieldDetails(node, transcript, cleaned, piece, "")
+        val method = DictationPaste.insert(AndroidClipboard(this), NodeField(node), piece) {
+            val plan = TextInsertion.plan(node.realText(), node.textSelectionStart, node.textSelectionEnd, text)
+            plan.text to plan.cursor
+        }
+        if (method == InsertMethod.FAILED) copyToClipboard(text)
+        return Insertion(method, "$before\nmethod: ${method.name}")
     }
+
+    /** The field's state as the accessibility tree reports it, plus what was dictated. */
+    private fun fieldDetails(
+        node: AccessibilityNodeInfo?,
+        transcript: String,
+        cleaned: String?,
+        set: String,
+        method: String,
+    ): String = buildString {
+        if (node == null) {
+            appendLine("field: not found")
+        } else {
+            appendLine("getText: ${node.text?.let { "\"$it\"" } ?: "null"}")
+            appendLine("getHintText: ${node.hintText?.let { "\"$it\"" } ?: "null"}")
+            appendLine("isShowingHintText: ${node.isShowingHintText}")
+            appendLine("contentDescription: ${node.contentDescription?.let { "\"$it\"" } ?: "null"}")
+            appendLine("selection: ${node.textSelectionStart}..${node.textSelectionEnd}")
+        }
+        appendLine("transcript: \"$transcript\"")
+        appendLine("cleaned: ${cleaned?.let { "\"$it\"" } ?: "not used"}")
+        appendLine("set in field: \"$set\"")
+        if (method.isNotEmpty()) append("method: $method")
+    }.trimEnd()
 
     private fun copyToClipboard(text: String) {
         getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText("Dictation", text))
@@ -502,20 +542,6 @@ class BubbleService : AccessibilityService() {
         val bounds = Rect()
         node.getBoundsInScreen(bounds)
         return FieldKey(node.packageName?.toString().orEmpty(), node.viewIdResourceName.orEmpty(), bounds.left, bounds.top)
-    }
-
-    /** Sets the field's whole text and puts the cursor at [cursor]. */
-    private fun AccessibilityNodeInfo.setText(text: String, cursor: Int): Boolean {
-        val args = Bundle().apply {
-            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
-        }
-        if (!performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)) return false
-        val sel = Bundle().apply {
-            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_START_INT, cursor)
-            putInt(AccessibilityNodeInfo.ACTION_ARGUMENT_SELECTION_END_INT, cursor)
-        }
-        performAction(AccessibilityNodeInfo.ACTION_SET_SELECTION, sel)
-        return true
     }
 
     private fun succeed() {

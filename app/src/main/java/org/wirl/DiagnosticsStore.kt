@@ -14,7 +14,8 @@ object DiagnosticsStore {
                     .put("engines", e.engines)
                     .put("errorCode", e.errorCode ?: JSONObject.NULL)
                     .put("message", e.message)
-                    .put("stackTrace", e.stackTrace ?: JSONObject.NULL),
+                    .put("stackTrace", e.stackTrace ?: JSONObject.NULL)
+                    .put("details", e.details),
             )
         }
         return array.toString()
@@ -30,6 +31,7 @@ object DiagnosticsStore {
                 errorCode = if (o.isNull("errorCode")) null else o.getInt("errorCode"),
                 message = o.optString("message"),
                 stackTrace = if (o.isNull("stackTrace")) null else o.getString("stackTrace"),
+                details = o.optString("details"),
             )
         }
     }.getOrDefault(emptyList())

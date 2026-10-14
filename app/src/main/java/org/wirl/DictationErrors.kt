@@ -101,6 +101,8 @@ data class DiagnosticEntry(
     val errorCode: Int?,
     val message: String,
     val stackTrace: String?,
+    /** Field and transcript details for dictation attempts. */
+    val details: String = "",
 )
 
 object DiagnosticsLog {
@@ -119,6 +121,7 @@ object DiagnosticsLog {
                 append("\nRecognizer: ").append(e.engines.ifBlank { "none" })
                 append("\nError code: ").append(e.errorCode?.toString() ?: "none")
                 append("\nResult: ").append(e.message)
+                if (e.details.isNotBlank()) append("\n").append(e.details)
                 e.stackTrace?.let { append("\n").append(it) }
             }
         }

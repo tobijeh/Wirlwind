@@ -32,6 +32,8 @@ Speak, and the cleaned-up text appears where the cursor is, in any app.
 - Your dictionary terms help the recognizer spell names correctly on Android 13 and later.
 - **Settings:** the microphone permission button, the language, and "Clean up dictation with AI". Turn the last one off to insert exactly what you said.
 - If cleanup fails, Wirl inserts what you said instead. If the field can't take text, it copies it to the clipboard.
+- Dictated text is pasted at the cursor, so the rest of the box is never rewritten. Your clipboard is restored afterwards.
+- Placeholder text (such as WhatsApp's "Message") is never treated as something you typed, and hold-to-clean says "Nothing to clean" for it.
 - If dictation fails, the bubble shows the specific cause. **Settings → Diagnostics** keeps the last 20 attempts with the error code and any exception; **Copy** puts them on the clipboard.
 
 ## Personal dictionary
