@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 
@@ -30,7 +31,13 @@ class DictationService : Service() {
             .setOngoing(true)
             .setSilent(true)
             .build()
-        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+        try {
+            ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+        } catch (e: Exception) {
+            // Without this the app would crash. Stopping lets the bubble report the mic as blocked.
+            Log.e("Wirl", "Couldn't start the microphone service", e)
+            stopSelf()
+        }
         return START_NOT_STICKY
     }
 

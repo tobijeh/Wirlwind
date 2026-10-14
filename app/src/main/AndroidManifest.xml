@@ -49,6 +49,11 @@
         </activity>
 
         <activity
+            android:name=".DiagnosticsActivity"
+            android:exported="false"
+            android:label="@string/diagnostics_title" />
+
+        <activity
             android:name=".DictionaryActivity"
             android:exported="false"
             android:label="@string/dictionary_title" />

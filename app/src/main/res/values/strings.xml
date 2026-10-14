@@ -78,4 +78,8 @@
     <string name="dictation_language">Dictation language</string>
     <string name="speech_engine_title">Speech engine</string>
     <string name="open_voice_settings">Open voice settings</string>
+    <string name="diagnostics_title">Diagnostics</string>
+    <string name="diagnostics_empty">No dictation attempts yet. Dictate once, then come back here.</string>
+    <string name="open_diagnostics">Diagnostics</string>
+    <string name="copy">Copy</string>
 </resources>

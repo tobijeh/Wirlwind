@@ -16,6 +16,13 @@ object SpeechEngine {
         else -> Choice.NONE
     }
 
+    /** The engines the phone has, in the order they're tried. */
+    fun available(detection: Detection): List<Choice> = listOfNotNull(
+        Choice.ON_DEVICE.takeIf { detection.onDeviceAvailable },
+        Choice.GOOGLE.takeIf { detection.googleComponent != null },
+        Choice.SYSTEM.takeIf { detection.systemAvailable },
+    )
+
     /** What the phone offers. [googleComponent] is "package/class" for Google's service, or null if it isn't installed. */
     data class Detection(val onDeviceAvailable: Boolean, val googleComponent: String?, val systemAvailable: Boolean) {
         val choice: Choice get() = choose(onDeviceAvailable, googleComponent != null, systemAvailable)

@@ -116,8 +116,7 @@ class BubbleService : AccessibilityService() {
     }
 
     override fun onDestroy() {
-        recognizer?.destroy()
-        recognizer = null
+        releaseRecognizer()
         scope.cancel()
         handler.removeCallbacksAndMessages(null)
         if (::prefs.isInitialized) prefs.plain.unregisterOnSharedPreferenceChangeListener(prefsListener)
@@ -224,33 +223,49 @@ class BubbleService : AccessibilityService() {
     }
 
     // --- Dictation -----------------------------------------------------------------------------
+    // All SpeechRecognizer calls happen on the main thread. Only one recognizer exists at a time.
+
+    private var detection: SpeechEngine.Detection? = null
+    private var availableEngines: List<SpeechEngine.Choice> = emptyList()
+    private var engine: SpeechEngine.Choice = SpeechEngine.Choice.NONE
+    private val enginesTried = mutableSetOf<SpeechEngine.Choice>()
+    private var busyRetries = 0
+    private var attemptStart = 0L
+    private val attemptTrail = mutableListOf<String>()
 
     private fun startDictation() {
         val node = focusedEditable()
         val key = node?.let { fieldKey(it) }
-        val engine = SpeechEngineAndroid.detect(this)
+        val found = SpeechEngineAndroid.detect(this)
+        val available = SpeechEngine.available(found)
         when {
             key == null -> return fail(getString(R.string.no_field))
             checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ->
-                return fail(DictationError.NO_PERMISSION.message)
-            engine.choice == SpeechEngine.Choice.NONE -> {
+                return failWith(DictationError.NO_PERMISSION, null)
+            available.isEmpty() -> {
                 // The settings screen explains what's missing and has a button to the voice settings.
                 startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                return fail(DictationError.RECOGNIZER_UNAVAILABLE.message)
+                return failWith(DictationError.RECOGNIZER_UNAVAILABLE, null)
             }
         }
 
         dictationField = key
         session = DictationSession()
-        recognizer = SpeechEngineAndroid.create(this, engine.choice, engine.googleComponent)?.also {
-            it.setRecognitionListener(recognitionListener)
+        detection = found
+        availableEngines = available
+        enginesTried.clear()
+        busyRetries = 0
+        attemptTrail.clear()
+        attemptStart = System.currentTimeMillis()
+        try {
+            // Android stops background microphone use unless a microphone foreground service is running.
+            ContextCompat.startForegroundService(this, Intent(this, DictationService::class.java))
+        } catch (e: Exception) {
+            return failWith(DictationError.from(e), null, e)
         }
-            ?: return fail(DictationError.RECOGNIZER_UNAVAILABLE.message)
-        // Android stops background microphone use unless a microphone foreground service is running.
-        runCatching { ContextCompat.startForegroundService(this, Intent(this, DictationService::class.java)) }
         setState(State.RECORDING)
         showLabel(getString(R.string.listening), null)
-        listen()
+        useEngine(available.first())
     }
 
     private fun stopDictation() {
@@ -265,6 +280,29 @@ class BubbleService : AccessibilityService() {
         }
     }
 
+    /** Creates the recognizer for [choice], replacing any existing one, and starts listening. */
+    private fun useEngine(choice: SpeechEngine.Choice) {
+        releaseRecognizer()
+        engine = choice
+        enginesTried += choice
+        val created = try {
+            SpeechEngineAndroid.create(this, choice, detection?.googleComponent)
+        } catch (e: Exception) {
+            return failWith(DictationError.from(e), null, e)
+        }
+        if (created == null) {
+            attemptTrail += "$choice: couldn't create"
+            return nextEngineOrFail(DictationError.RECOGNIZER_UNAVAILABLE, null)
+        }
+        recognizer = created.also { it.setRecognitionListener(recognitionListener) }
+        listen()
+    }
+
+    private fun nextEngineOrFail(error: DictationError, code: Int?) {
+        val next = availableEngines.firstOrNull { it !in enginesTried }
+        if (next != null) useEngine(next) else failWith(error, code)
+    }
+
     private fun listen() {
         val language = prefs.dictationLanguage.ifBlank { Locale.getDefault().toLanguageTag() }
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
@@ -277,7 +315,13 @@ class BubbleService : AccessibilityService() {
             val terms = DictionaryRepository.get(this).entries.value.map { it.term }.distinct()
             if (terms.isNotEmpty()) intent.putStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS, ArrayList(terms))
         }
-        recognizer?.startListening(intent)
+        try {
+            recognizer?.startListening(intent)
+        } catch (e: Exception) {
+            // Typically a SecurityException when the microphone can't be used in the background.
+            Log.e(TAG, "startListening failed on $engine", e)
+            return failWith(DictationError.from(e), null, e)
+        }
         session?.onListening()
     }
 
@@ -298,6 +342,28 @@ class BubbleService : AccessibilityService() {
 
     private fun onRecognizerEvent(event: RecognizerEvent) {
         val current = session ?: return
+        if (event is RecognizerEvent.Error) {
+            attemptTrail += "$engine: error ${event.code}"
+            val plan = RecoveryPlanner.plan(
+                code = event.code,
+                transcriptEmpty = current.transcript.isEmpty(),
+                current = engine,
+                tried = enginesTried,
+                available = availableEngines,
+                busyRetries = busyRetries,
+            )
+            when (plan) {
+                is Recovery.Fallback -> return useEngine(plan.engine)
+                is Recovery.RecreateSame -> {
+                    busyRetries++
+                    releaseRecognizer()
+                    // Give the busy recognizer a moment before making a new one.
+                    handler.postDelayed({ if (session === current) useEngine(plan.engine) }, 400L * busyRetries)
+                    return
+                }
+                Recovery.None -> Unit
+            }
+        }
         when (val action = current.onEvent(event)) {
             null -> showLabel(current.transcript.ifBlank { getString(R.string.listening) }, null)
             SessionAction.Restart -> {
@@ -310,14 +376,21 @@ class BubbleService : AccessibilityService() {
 
     private fun endDictation(finish: SessionAction.Finish) {
         val field = dictationField
-        recognizer?.destroy()
-        recognizer = null
+        releaseRecognizer()
         session = null
         dictationField = null
         runCatching { stopService(Intent(this, DictationService::class.java)) }
 
         val raw = finish.transcript
-        if (raw.isBlank()) return fail(finish.error?.message ?: DictationError.NO_SPEECH.message)
+        recordAttempt(
+            if (finish.error != null) DictationError.messageFor(finish.error, finish.errorCode) else "Heard ${raw.length} characters",
+            finish.errorCode,
+            null,
+        )
+        if (raw.isBlank()) {
+            val error = finish.error ?: DictationError.NO_SPEECH
+            return fail(DictationError.messageFor(error, finish.errorCode))
+        }
 
         setState(State.BUSY)
         hideLabel()
@@ -336,7 +409,7 @@ class BubbleService : AccessibilityService() {
             gestures.finish()
             val note = when {
                 !inserted -> getString(R.string.copied_paste)
-                finish.error != null -> finish.error.message
+                finish.error != null -> DictationError.messageFor(finish.error, finish.errorCode)
                 aiEnabled && cleaned == null -> getString(R.string.cleanup_failed_raw)
                 else -> null
             }
@@ -349,6 +422,40 @@ class BubbleService : AccessibilityService() {
             }
             scheduleCheck(0)
         }
+    }
+
+    /** Ends the attempt with an error: logs it to Diagnostics, cleans up, and tells the user why. */
+    private fun failWith(error: DictationError, code: Int?, throwable: Throwable? = null) {
+        val message = DictationError.messageFor(error, code)
+        recordAttempt(message, code, throwable)
+        Log.e(TAG, "Dictation failed: $message (code $code)", throwable)
+        releaseRecognizer()
+        session = null
+        dictationField = null
+        runCatching { stopService(Intent(this, DictationService::class.java)) }
+        fail(message)
+    }
+
+    private fun recordAttempt(message: String, code: Int?, throwable: Throwable?) {
+        val prefs = Prefs(this)
+        val engines = attemptTrail.ifEmpty { enginesTried.map { it.name } }.joinToString(" → ")
+        val entry = DiagnosticEntry(
+            time = if (attemptStart == 0L) System.currentTimeMillis() else attemptStart,
+            engines = engines,
+            errorCode = code,
+            message = message,
+            stackTrace = throwable?.let { Log.getStackTraceString(it) },
+        )
+        prefs.diagnostics = DiagnosticsLog.add(prefs.diagnostics, entry)
+    }
+
+    /** Stops and destroys the current recognizer, if any. The next one is created by [useEngine]. */
+    private fun releaseRecognizer() {
+        recognizer?.let {
+            runCatching { it.cancel() }
+            runCatching { it.destroy() }
+        }
+        recognizer = null
     }
 
     /**

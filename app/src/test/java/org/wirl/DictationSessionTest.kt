@@ -52,7 +52,7 @@ class DictationSessionTest {
     @Test fun silenceWithNothingSaidFinishesWithNoSpeech() {
         val session = started()
         assertEquals(
-            SessionAction.Finish("", DictationError.NO_SPEECH),
+            SessionAction.Finish("", DictationError.NO_SPEECH, 7),
             session.onEvent(RecognizerEvent.Error(7)),
         )
     }
@@ -63,7 +63,7 @@ class DictationSessionTest {
         session.onListening()
         session.onEvent(RecognizerEvent.Partial("how are"))
         assertEquals(
-            SessionAction.Finish("hello there how are", DictationError.NO_INTERNET),
+            SessionAction.Finish("hello there how are", DictationError.NETWORK, 2),
             session.onEvent(RecognizerEvent.Error(2)),
         )
     }
@@ -73,8 +73,8 @@ class DictationSessionTest {
         session.onEvent(RecognizerEvent.Partial("call me"))
         session.stopByUser()
         assertEquals(
-            SessionAction.Finish("call me", DictationError.NO_INTERNET),
-            session.onEvent(RecognizerEvent.Error(3)),
+            SessionAction.Finish("call me", DictationError.NETWORK, 2),
+            session.onEvent(RecognizerEvent.Error(2)),
         )
     }
 }

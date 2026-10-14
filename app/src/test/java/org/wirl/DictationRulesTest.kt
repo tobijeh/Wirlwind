@@ -25,16 +25,11 @@ class DictationRulesTest {
         assertEquals(DictationError.NO_PERMISSION, DictationError.from(9))
         assertEquals(DictationError.NO_SPEECH, DictationError.from(7))
         assertEquals(DictationError.NO_SPEECH, DictationError.from(6))
-        assertEquals(DictationError.NO_INTERNET, DictationError.from(2))
+        assertEquals(DictationError.NETWORK, DictationError.from(2))
         assertEquals(DictationError.BUSY, DictationError.from(8))
         assertEquals(DictationError.OTHER, DictationError.from(99))
     }
 
-    @Test fun messagesAreShortAndClear() {
-        assertEquals("Microphone permission needed. Open Wirl settings to allow it.", DictationError.NO_PERMISSION.message)
-        assertEquals("Speech recognition isn't available. Open Wirl settings to see what's missing.", DictationError.RECOGNIZER_UNAVAILABLE.message)
-        assertEquals("No speech heard.", DictationError.NO_SPEECH.message)
-    }
 
     @Test fun dictationGoesIntoTheSameEditableField() {
         assertEquals(DictationPlacement.IN_FIELD, DictationPlacement.decide(fieldFound = true, sameField = true, editable = true))

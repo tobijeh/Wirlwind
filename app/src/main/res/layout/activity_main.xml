@@ -210,6 +210,13 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp" />
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/openDiagnostics"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/open_diagnostics" />
+
         <!-- Speech engine -->
         <TextView
             android:id="@+id/speechEngine"
