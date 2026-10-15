@@ -7,13 +7,17 @@ import android.media.MediaRecorder
 import android.util.Log
 import kotlin.math.max
 
-/** The outcome of one Whisper dictation: the text, and what happened to each chunk, for Diagnostics. */
+/**
+ * The outcome of one Whisper dictation: the text, and what happened to each chunk, for Diagnostics. [duringRecording] is how
+ * many chunks had already been transcribed when the user tapped stop. Only the rest were left for the stop.
+ */
 data class WhisperOutcome(
     val text: String,
     val chunks: List<ChunkResult>,
     val missing: List<Int>,
     val finished: Boolean,
     val stopToTextMs: Long,
+    val duringRecording: Int,
 )
 
 /**
@@ -26,21 +30,17 @@ class WhisperSession(
     language: String,
     prompt: String?,
     private val now: () -> Long,
-    /** Called on the transcription thread whenever a chunk finishes. Read [liveText] for the new text. */
-    private val onChunk: () -> Unit,
 ) {
+    // No live preview: the bubble alone shows recording. Chunks are transcribed as they're cut, in the background.
     private val pipeline = ChunkPipeline(
         model = { models.get() },
         language = language,
         prompt = prompt,
         now = now,
-        onResult = { onChunk() },
+        onResult = {},
     )
     @Volatile private var record: AudioRecord? = null
     private var reader: Thread? = null
-
-    /** The text transcribed so far, in spoken order. */
-    fun liveText(): String = pipeline.text()
 
     /** Starts recording. Returns false if the microphone can't be opened. */
     @SuppressLint("MissingPermission")
@@ -69,6 +69,8 @@ class WhisperSession(
      * [tappedAt] is when the user tapped stop, for the timing in Diagnostics.
      */
     fun stop(tappedAt: Long, onDone: (WhisperOutcome) -> Unit) {
+        // Read now, on the caller's thread: these are the chunks done before the user tapped stop.
+        val duringRecording = pipeline.completedCount()
         Thread({
             val rec = record
             record = null
@@ -86,6 +88,7 @@ class WhisperSession(
                     missing = pipeline.missing(),
                     finished = finished,
                     stopToTextMs = now() - tappedAt,
+                    duringRecording = duringRecording,
                 ),
             )
         }, "wirl-stop").start()
