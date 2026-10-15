@@ -22,8 +22,12 @@ object WhisperPrompt {
         return "Glossary: ${kept.joinToString(", ")}."
     }
 
-    /** Threads for transcription: leave two cores for the system and recording, and stay between 2 and 6. */
-    fun threadsFor(cores: Int): Int = (cores - 2).coerceIn(2, 6)
+    /**
+     * Threads for transcription. Four is the number of performance cores on most phones. More than that reaches the
+     * efficiency cores, which slow the whole transcription down. Developer options can change it for testing.
+     */
+    const val DEFAULT_THREADS = 4
+    val THREAD_CHOICES = listOf(2, 3, 4, 5, 6, 8)
 
     /**
      * The language to ask Whisper for. The English models only do English. Multilingual uses the dictation language

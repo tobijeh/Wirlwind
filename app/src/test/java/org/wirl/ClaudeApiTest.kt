@@ -7,6 +7,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -125,5 +126,78 @@ class ClaudeApiTest {
         server.enqueue(MockResponse().setHeadersDelay(2, TimeUnit.SECONDS).setBody(textReply("late")))
         val impatient = api(OkHttpClient.Builder().callTimeout(300, TimeUnit.MILLISECONDS).build())
         assertEquals("Timed out, try again", expectFailure(impatient))
+    }
+
+    @Test fun aReplyReportsItsOutputTokensAndThatThinkingWasNotUsed() {
+        val (tokens, thinking) = ClaudeApi.parseUsage(
+            """{"content":[{"type":"text","text":"hi"}],"usage":{"input_tokens":90,"output_tokens":37}}""",
+        )
+        assertEquals(37, tokens)
+        assertFalse(thinking)
+    }
+
+    @Test fun aReplyThatUsedThinkingSaysSo() {
+        val (tokens, thinking) = ClaudeApi.parseUsage(
+            """{"content":[{"type":"thinking","thinking":"..."},{"type":"text","text":"hi"}],"usage":{"output_tokens":12}}""",
+        )
+        assertEquals(12, tokens)
+        assertTrue(thinking)
+    }
+
+    @Test fun aReplyWithoutUsageGivesNoTokenCount() {
+        assertEquals(null to false, ClaudeApi.parseUsage("""{"content":[]}""").let { it.first to it.second })
+        assertEquals(null, ClaudeApi.parseUsage("not json").first)
+    }
+
+    @Test fun aCleanupReportsTheTimingOfItsRequest() {
+        reply(200, """{"content":[{"type":"text","text":"Hello."}],"usage":{"output_tokens":4}}""")
+        var timing: ClaudeCallTiming? = null
+        val cleaned = runBlocking { api(sharedClient()).clean("key", "system", "hello", onTiming = { timing = it }) }
+        assertEquals("Hello.", cleaned)
+        val t = timing!!
+        assertEquals(4, t.outputTokens)
+        assertFalse(t.thinkingUsed)
+        assertTrue("first byte no later than the total", t.firstByteMs <= t.totalMs)
+    }
+
+    @Test fun aFailedRequestStillReportsItsTiming() {
+        reply(500, """{"error":{"message":"busy"}}""")
+        var timing: ClaudeCallTiming? = null
+        try {
+            runBlocking { api(sharedClient()).clean("key", "system", "hello", onTiming = { timing = it }) }
+            fail("expected a failure")
+        } catch (expected: CleanupException) {
+            assertEquals("Claude is unavailable, try again", expected.message)
+        }
+        assertTrue("timing is reported on failure too", timing != null)
+    }
+
+    /** One client for the test, so its connections are reused the way the app's shared client reuses them. */
+    private fun sharedClient() = OkHttpClient()
+
+    @Test fun theSecondRequestReusesTheConnectionOpenedByTheFirst() {
+        val client = sharedClient()
+        reply(200, """{"content":[{"type":"text","text":"one"}]}""")
+        reply(200, """{"content":[{"type":"text","text":"two"}]}""")
+        val timings = mutableListOf<ClaudeCallTiming>()
+        val api = api(client)
+        runBlocking {
+            api.clean("key", "system", "one", onTiming = { timings += it })
+            api.clean("key", "system", "two", onTiming = { timings += it })
+        }
+        assertFalse("the first request opens a connection", timings[0].connectionReused)
+        assertTrue("the second request reuses it", timings[1].connectionReused)
+    }
+
+    @Test fun aWarmUpMakesTheFirstCleanupReuseTheConnection() {
+        val client = sharedClient()
+        // The warm-up goes to the server root, which the test server answers with a plain 200.
+        server.enqueue(MockResponse().setResponseCode(200))
+        reply(200, """{"content":[{"type":"text","text":"hi"}]}""")
+        val timings = mutableListOf<ClaudeCallTiming>()
+        val api = api(client)
+        api.warmUp(server.url("/").toString())
+        runBlocking { api.clean("key", "system", "hi", onTiming = { timings += it }) }
+        assertTrue("the first cleanup reuses the warmed connection", timings[0].connectionReused)
     }
 }

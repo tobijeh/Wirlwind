@@ -253,12 +253,6 @@
             android:layout_marginTop="16dp"
             android:text="@string/open_setup" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/openDiagnostics"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/open_diagnostics" />
 
         <!-- Speech engine -->
         <TextView
@@ -440,5 +434,23 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:text="@string/save" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/developerOptions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:minHeight="56dp"
+            android:paddingStart="4dp"
+            android:text="@string/developer_options_toggle"
+            android:textAppearance="?attr/textAppearanceBodyLarge" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/openDiagnostics"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/diagnostics_button" />
     </LinearLayout>
 </ScrollView>

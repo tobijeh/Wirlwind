@@ -60,6 +60,10 @@ Java_org_wirl_WhisperNative_nativeTranscribe(JNIEnv *env, jobject /* thiz */, jl
     params.no_timestamps = true;
     params.no_context = true;
     params.single_segment = false;
+    // Greedy decoding without temperature fallback. The fallback re-decodes a chunk at higher temperatures whenever the
+    // first attempt looks uncertain, which can multiply the time a short dictation takes.
+    params.temperature = 0.0f;
+    params.temperature_inc = 0.0f;
     params.print_realtime = false;
     params.print_progress = false;
     params.print_timestamps = false;

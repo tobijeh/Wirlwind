@@ -15,7 +15,11 @@ class CleanupPipeline(
     private val dictionary: () -> List<DictionaryEntry>,
 ) {
     /** Returns the cleaned text, or throws [CleanupException] with a message for the user. */
-    suspend fun clean(text: String, alternatives: List<String> = emptyList()): String = withContext(Dispatchers.IO) {
+    suspend fun clean(
+        text: String,
+        alternatives: List<String> = emptyList(),
+        onTiming: (ClaudeCallTiming) -> Unit = {},
+    ): String = withContext(Dispatchers.IO) {
         val key = try {
             apiKey()
         } catch (e: Exception) {
@@ -24,14 +28,23 @@ class CleanupPipeline(
         }
         if (key.isBlank()) throw CleanupException("Add your API key in Wirl")
         val system = CleanupPrompt.build(styleNotes(), dictionary(), text, alternatives)
-        api.clean(key, system, text)
+        api.clean(key, system, text, onTiming)
     }
 }
 
 object ClaudeClient {
     /** Cleans [text]. Dictation passes its recognizer alternatives; hold-to-clean passes none. */
-    suspend fun clean(context: Context, text: String, alternatives: List<String> = emptyList()): String =
-        pipeline(context).clean(text, alternatives)
+    suspend fun clean(
+        context: Context,
+        text: String,
+        alternatives: List<String> = emptyList(),
+        onTiming: (ClaudeCallTiming) -> Unit = {},
+    ): String = pipeline(context).clean(text, alternatives, onTiming)
+
+    /** Opens the connection to Claude in the background, so the first dictation doesn't pay for the handshake. */
+    fun warmUp() {
+        Thread({ ClaudeApi().warmUp() }, "wirl-claude-warmup").start()
+    }
 
     private fun pipeline(context: Context) = CleanupPipeline(
         api = ClaudeApi(),

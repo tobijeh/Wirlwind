@@ -72,7 +72,7 @@ class ModelHolder(
     }
 
     companion object {
-        /** Five minutes without dictation, then the model is freed. */
-        const val IDLE_MS = 5 * 60 * 1000L
+        /** Ten minutes without dictation, then the model is freed. It stays loaded while the accessibility service runs. */
+        const val IDLE_MS = 10 * 60 * 1000L
     }
 }

@@ -3,6 +3,11 @@ project(wirl_whisper C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
+# Always optimize, whatever build type AGP asks for. A debug build of whisper.cpp runs many times slower.
+# Only the baseline arm64 NEON instructions are used: every arm64 phone has them. dotprod and i8mm are not
+# enabled, because a build that needs them crashes on phones without them.
+set(CMAKE_BUILD_TYPE Release)
+
 include(FetchContent)
 
 # whisper.cpp, pinned to one commit so every build is the same. Only the library is built.
