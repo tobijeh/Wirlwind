@@ -314,7 +314,6 @@ class BubbleService : AccessibilityService() {
             return failWith(DictationError.from(e), null, e)
         }
         setState(State.RECORDING)
-        showChip(getString(R.string.listening))
         val audio = getSystemService(AudioManager::class.java)
         pendingSoundLines = DictationSound.restoreLeftovers(AndroidStreamMuter(audio), prefs.mutedStreams)
         dictationSound = DictationSound(
@@ -329,6 +328,8 @@ class BubbleService : AccessibilityService() {
             if (startWhisper(key)) return
             note = "Whisper couldn't open the microphone, using Google's recognizer"
         }
+        // The engine in use here is Google's recognizer (Whisper returned above). Only it shows live words.
+        if (DictationPreview.forEngine(DictationEngine.GOOGLE) == LivePreview.WORDS) showChip(getString(R.string.listening))
 
         // Google's recognizer, on its own or as the fallback.
         if (available.isEmpty()) {
@@ -365,7 +366,6 @@ class BubbleService : AccessibilityService() {
             language = language,
             prompt = prompt,
             now = { System.currentTimeMillis() },
-            onChunk = { handler.post { whisper?.let { showChip(it.liveText().ifBlank { getString(R.string.listening) }) } } },
         )
         if (!created.start()) {
             // Nothing was recorded, so there's nothing to transcribe. Stop the worker it started.
@@ -590,7 +590,6 @@ class BubbleService : AccessibilityService() {
         stopTappedAt = System.currentTimeMillis()
         DictationTones.play(DictationTones.END)
         setState(State.BUSY)
-        showChip(getString(R.string.transcribing))
         current.stop(stopTappedAt) { outcome -> handler.post { finishWhisper(outcome) } }
     }
 
@@ -619,7 +618,11 @@ class BubbleService : AccessibilityService() {
 
     private fun whisperLines(outcome: WhisperOutcome): String = buildString {
         appendLine(dictationDetails)
-        appendLine("chunks: ${outcome.chunks.size}, failed: ${outcome.chunks.count { it.error != null }}, missing: ${outcome.missing}")
+        val afterStop = outcome.chunks.size - outcome.duringRecording
+        appendLine(
+            "chunks: ${outcome.chunks.size} total, ${outcome.duringRecording} transcribed during recording, " +
+                "$afterStop after stop, failed: ${outcome.chunks.count { it.error != null }}, missing: ${outcome.missing}",
+        )
         for (chunk in outcome.chunks) {
             val error = chunk.error?.let { ", error: $it" }.orEmpty()
             appendLine("chunk ${chunk.seq}: ${chunk.transcribeMs} ms for ${chunk.samples} samples$error")

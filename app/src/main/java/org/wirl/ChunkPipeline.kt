@@ -54,6 +54,12 @@ class ChunkPipeline(
     private val results = mutableListOf<ChunkResult>()
     private var nextSeq = 0
 
+    /** Chunks queued so far. */
+    fun submittedCount(): Int = nextSeq
+
+    /** Chunks transcribed so far. Chunks finished during recording stay done; stop doesn't redo them. */
+    fun completedCount(): Int = synchronized(lock) { results.size }
+
     /** Queues one chunk of 16 kHz mono samples. Called from the recording thread. */
     fun submit(pcm: FloatArray) {
         val seq = nextSeq++
