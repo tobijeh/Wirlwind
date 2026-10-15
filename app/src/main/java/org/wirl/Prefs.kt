@@ -52,6 +52,16 @@ class Prefs(context: Context) {
         get() = WhisperModel.fromKey(plain.getString(KEY_WHISPER_MODEL, null))
         set(value) = plain.edit().putString(KEY_WHISPER_MODEL, value.name).apply()
 
+    /** Shows the Diagnostics screen in Settings. Logging runs either way. */
+    var developerOptions: Boolean
+        get() = plain.getBoolean(KEY_DEVELOPER_OPTIONS, false)
+        set(value) = plain.edit().putBoolean(KEY_DEVELOPER_OPTIONS, value).apply()
+
+    /** Threads for Whisper transcription. Four matches the performance cores on most phones. */
+    var whisperThreads: Int
+        get() = plain.getInt(KEY_WHISPER_THREADS, WhisperPrompt.DEFAULT_THREADS).coerceIn(1, 8)
+        set(value) = plain.edit().putInt(KEY_WHISPER_THREADS, value.coerceIn(1, 8)).apply()
+
     /** Whether model downloads may use mobile data. Off by default: downloads wait for Wi-Fi. */
     var allowMobileData: Boolean
         get() = plain.getBoolean(KEY_ALLOW_MOBILE_DATA, false)
@@ -181,6 +191,8 @@ class Prefs(context: Context) {
         const val KEY_DICTATION_ENGINE = "dictation_engine"
         const val KEY_WHISPER_MODEL = "whisper_model"
         const val KEY_ALLOW_MOBILE_DATA = "allow_mobile_data"
+        const val KEY_DEVELOPER_OPTIONS = "developer_options"
+        const val KEY_WHISPER_THREADS = "whisper_threads"
         const val KEY_MODEL_OFFER_SHOWN = "model_offer_shown"
         const val KEY_MUTED_STREAMS = "muted_streams"
         const val KEY_DIAGNOSTICS = "diagnostics"
@@ -194,6 +206,7 @@ class Prefs(context: Context) {
             KEY_BUBBLE_ENABLED, KEY_BUBBLE_X, KEY_BUBBLE_Y, KEY_BUBBLE_SIZE, KEY_BUBBLE_OPACITY,
             KEY_SHOW_DONE_CHECK, KEY_SHOW_DONE_MESSAGE, KEY_STYLE_NOTES, KEY_DICTATION_CLEANUP,
             KEY_DICTATION_LANGUAGE, KEY_PROMPT, KEY_SILENCE_BEEPS, KEY_DICTATION_ENGINE, KEY_WHISPER_MODEL, KEY_ALLOW_MOBILE_DATA,
+            KEY_DEVELOPER_OPTIONS, KEY_WHISPER_THREADS,
         )
         const val KEY_PACK_PREFIX = "onDevicePack_"
         const val KEY_DICTATION_LANGUAGE = "dictation_language"

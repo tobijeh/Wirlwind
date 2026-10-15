@@ -63,6 +63,11 @@ class MainActivity : AppCompatActivity() {
         binding.micButton.setOnClickListener { micPermission.launch(Manifest.permission.RECORD_AUDIO) }
         binding.openVoiceSettings.setOnClickListener { openVoiceSettings() }
         binding.openDiagnostics.setOnClickListener { startActivity(Intent(this, DiagnosticsActivity::class.java)) }
+        binding.developerOptions.isChecked = prefs.developerOptions
+        binding.developerOptions.setOnCheckedChangeListener { _, checked ->
+            prefs.developerOptions = checked
+            refreshDeveloperOptions()
+        }
         binding.testDictation.setOnClickListener { testDictation() }
 
         binding.dictationCleanup.isChecked = prefs.dictationCleanup
@@ -107,6 +112,11 @@ class MainActivity : AppCompatActivity() {
     )
 
     private val nativeLoads: Boolean by lazy { WhisperLibrary.loads }
+
+    /** Diagnostics is hidden unless Developer options is on. The log itself is kept either way. */
+    private fun refreshDeveloperOptions() {
+        binding.openDiagnostics.visibility = if (prefs.developerOptions) View.VISIBLE else View.GONE
+    }
 
     private fun setupWhisperSettings() {
         val engines = DictationEngine.entries
@@ -232,6 +242,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         refreshStatus()
         refreshWhisper()
+        refreshDeveloperOptions()
         // The Setup button goes away once every checklist item is done.
         binding.openSetup.visibility = if (SetupChecklist.allDone(SetupActivity.status(this))) View.GONE else View.VISIBLE
     }

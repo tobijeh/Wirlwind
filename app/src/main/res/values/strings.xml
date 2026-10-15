@@ -108,6 +108,10 @@
     <string name="whisper_download_failed">Download failed: %1$s</string>
     <string name="whisper_failed">Whisper couldn\'t transcribe the dictation: %1$s</string>
     <string name="transcribing">Transcribing…</string>
+    <string name="developer_options_toggle">Developer options</string>
+    <string name="diagnostics_button">Diagnostics</string>
+    <string name="whisper_threads_title">Whisper threads</string>
+    <string name="threads_label">%1$d threads</string>
     <string name="dictation_language">Dictation language</string>
     <string name="speech_engine_title">Speech engine</string>
     <string name="open_voice_settings">Open voice settings</string>

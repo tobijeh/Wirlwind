@@ -29,9 +29,11 @@ Wirl is a personal Android app (Kotlin, min SDK 26) that cleans up dictated text
 - **No live preview for Whisper.** While recording, only the red bubble shows (`DictationPreview`). Google's recognizer keeps its word-by-word preview when it's the engine in use.
 - **Audio is never stored.** Chunk samples live only in memory, and are dropped once transcribed. Nothing is written to disk or uploaded.
 - **Accuracy.** Dictionary terms go to Whisper as the initial prompt (`WhisperPrompt.build`). On stop, the full transcript goes through the same `ClaudeClient.clean` as every other dictation. Whisper doesn't send recognizer alternatives.
-- **Memory.** The model is freed after five minutes without dictation and reloaded when needed (`ModelHolder`). Threads are chosen from the core count, leaving two cores free.
+- **Memory and warm-up.** The model loads when the accessibility service connects and when dictation starts, stays loaded, and is freed after ten minutes without use (`ModelHolder`). Threads default to four (the performance cores), and Developer options can change them. The native library is built with `-O3`, using baseline NEON. dotprod and i8mm aren't enabled, because a build that needs them crashes on phones without them. Greedy decoding with no timestamps and no temperature fallback keeps decoding to one pass.
+- **Claude speed.** One shared HTTP client keeps connections open between dictations. Dictation opens the connection when it starts (`ClaudeClient.warmUp`), so the request doesn't wait for a TLS handshake.
+- **Developer options.** The Diagnostics screen is hidden behind a switch at the bottom of Settings, and it's off by default. Logging runs either way, and keeps the last 20 attempts.
 - **Sounds.** Whisper dictation makes one start tone and one end tone (`DictationTones`). It makes no other sounds, and doesn't mute streams. The mute logic is for the Google fallback only.
-- **Diagnostics** show the engine, model, threads, chunk count, each chunk's transcription time and any error, the stop-to-text time, and the stop-to-insert time.
+- **Diagnostics** open with a TIMING section: model wait, final chunk, Whisper total, Claude first byte and total (and whether its connection was reused), output tokens, thinking, insert time, and stop-to-insert time. Then the engine, cleanup, insert, and sound sections (`DictationTiming`).
 - **Tests** cover everything that doesn't need the phone: chunk assembly, pause detection, the pipeline, the model holder, downloads (resume, corrupt files), prompts, and the engine fallback. The native bridge and the microphone can't run in unit tests. Check those on a phone.
 
 ## Insertion and field text

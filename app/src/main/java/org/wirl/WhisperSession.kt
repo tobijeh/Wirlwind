@@ -18,7 +18,20 @@ data class WhisperOutcome(
     val finished: Boolean,
     val stopToTextMs: Long,
     val duringRecording: Int,
-)
+    /** Time spent waiting for the model across all chunks. Near zero when it was already loaded. */
+    val modelWaitMs: Long,
+) {
+    /** The chunk cut at stop: the one with the highest number. Null if there were no chunks. */
+    fun finalChunk(): ChunkResult? = chunks.maxByOrNull { it.seq }
+
+    fun timing(): WhisperTiming = WhisperTiming(
+        modelWaitMs = modelWaitMs,
+        finalChunkMs = finalChunk()?.transcribeMs,
+        totalMs = stopToTextMs,
+        chunks = chunks.size,
+        duringRecording = duringRecording,
+    )
+}
 
 /**
  * One dictation with on-device Whisper. The microphone is recorded continuously until [stop]. Each pause ends a chunk,
@@ -31,9 +44,18 @@ class WhisperSession(
     prompt: String?,
     private val now: () -> Long,
 ) {
+    private val modelWaitNs = java.util.concurrent.atomic.AtomicLong(0)
+
     // No live preview: the bubble alone shows recording. Chunks are transcribed as they're cut, in the background.
     private val pipeline = ChunkPipeline(
-        model = { models.get() },
+        model = {
+            val started = System.nanoTime()
+            try {
+                models.get()
+            } finally {
+                modelWaitNs.addAndGet(System.nanoTime() - started)
+            }
+        },
         language = language,
         prompt = prompt,
         now = now,
@@ -89,6 +111,7 @@ class WhisperSession(
                     finished = finished,
                     stopToTextMs = now() - tappedAt,
                     duringRecording = duringRecording,
+                    modelWaitMs = modelWaitNs.get() / 1_000_000,
                 ),
             )
         }, "wirl-stop").start()

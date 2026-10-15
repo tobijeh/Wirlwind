@@ -83,4 +83,17 @@ class ModelHolderTest {
         holder.get()
         assertEquals(2, scheduled.size)
     }
+
+    @Test fun theModelStaysLoadedAcrossConsecutiveDictations() {
+        // Two dictations a few minutes apart: the second one reuses the model, so it loads only once.
+        val holder = holder(idleMs = 10 * 60 * 1000L)
+        holder.get()
+        clock = 5 * 60 * 1000L
+        holder.checkIdle()
+        holder.get()
+        clock = 14 * 60 * 1000L
+        holder.checkIdle()
+        assertTrue("used 9 minutes ago, so still loaded", holder.isLoaded)
+        assertEquals(1, loads)
+    }
 }

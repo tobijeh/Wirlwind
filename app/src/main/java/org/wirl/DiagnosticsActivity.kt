@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.os.Bundle
 import android.view.View
+import android.widget.ArrayAdapter
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -15,8 +16,20 @@ class DiagnosticsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Only reachable with Developer options on. Otherwise the log stays, but this screen doesn't open.
+        if (!Prefs(this).developerOptions) {
+            finish()
+            return
+        }
         binding = ActivityDiagnosticsBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        val labels = WhisperPrompt.THREAD_CHOICES.map { getString(R.string.threads_label, it) }
+        binding.threadsChoice.setAdapter(ArrayAdapter(this, android.R.layout.simple_list_item_1, labels))
+        binding.threadsChoice.setText(getString(R.string.threads_label, Prefs(this).whisperThreads), false)
+        binding.threadsChoice.setOnItemClickListener { _, _, position, _ ->
+            Prefs(this).whisperThreads = WhisperPrompt.THREAD_CHOICES[position]
+            binding.threadsChoice.setText(labels[position], false)
+        }
         binding.copyDiagnostics.setOnClickListener {
             getSystemService(ClipboardManager::class.java)
                 .setPrimaryClip(ClipData.newPlainText("Wirl diagnostics", DiagnosticsLog.copyText(Prefs(this).diagnostics)))

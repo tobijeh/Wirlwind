@@ -101,6 +101,7 @@ class BubbleService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         prefs = Prefs(this)
+        preloadWhisper()
         // A service killed mid-restart may have left a stream muted. Put it back before anything else.
         DictationSound.restoreLeftovers(AndroidStreamMuter(getSystemService(AudioManager::class.java)), prefs.mutedStreams)
             .forEach { Log.w(TAG, it) }
@@ -192,7 +193,9 @@ class BubbleService : AccessibilityService() {
     private var whisper: WhisperSession? = null
     private var whisperStopping = false
     private var whisperModels: ModelHolder? = null
-    private var whisperModelKey: WhisperModel? = null
+    private var whisperModelKey: Pair<WhisperModel, Int>? = null
+    /** Whisper's timing for the dictation in progress, set when its text is ready. */
+    private var whisperTiming: WhisperTiming? = null
     /** Engine, model, and chunk lines for the current dictation's Diagnostics entry. */
     private var dictationDetails = ""
     /** When the user tapped stop, for the stop-to-insert timing. */
@@ -305,6 +308,10 @@ class BubbleService : AccessibilityService() {
         dictationField = key
         dictationDetails = ""
         stopTappedAt = 0L
+        whisperTiming = null
+        // Open the Claude connection and load the model while the user is still talking, so stop doesn't wait for them.
+        ClaudeClient.warmUp()
+        preloadWhisper()
         attemptStart = System.currentTimeMillis()
         attemptTrail.clear()
         try {
@@ -358,7 +365,7 @@ class BubbleService : AccessibilityService() {
     /** Starts a Whisper dictation. Returns false if the microphone can't be opened, so the caller can use Google's recognizer. */
     private fun startWhisper(key: FieldKey): Boolean {
         val model = prefs.whisperModel
-        val threads = WhisperPrompt.threadsFor(Runtime.getRuntime().availableProcessors())
+        val threads = prefs.whisperThreads
         val language = WhisperPrompt.languageFor(model, dictationLanguageTag)
         val prompt = WhisperPrompt.build(DictionaryRepository.get(this).entries.value.map { it.term })
         val created = WhisperSession(
@@ -385,7 +392,8 @@ class BubbleService : AccessibilityService() {
 
     /** The model for [model], kept loaded between dictations. Switching models frees the previous one. */
     private fun modelHolderFor(model: WhisperModel, threads: Int): ModelHolder {
-        whisperModels?.takeIf { whisperModelKey == model }?.let { return it }
+        val key = model to threads
+        whisperModels?.takeIf { whisperModelKey == key }?.let { return it }
         whisperModels?.unload()
         val store = WhisperApp.store(this)
         val holder = ModelHolder(
@@ -401,8 +409,17 @@ class BubbleService : AccessibilityService() {
             schedule = { delay, task -> handler.postDelayed(task, delay) },
         )
         whisperModels = holder
-        whisperModelKey = model
+        whisperModelKey = key
         return holder
+    }
+
+    /** Loads the Whisper model in the background, so the first dictation doesn't wait for it. */
+    private fun preloadWhisper() {
+        if (prefs.dictationEngine != DictationEngine.WHISPER || !WhisperLibrary.loads) return
+        val model = prefs.whisperModel
+        if (!WhisperApp.store(this).isReady(model.spec)) return
+        val holder = modelHolderFor(model, prefs.whisperThreads)
+        Thread({ holder.get() }, "wirl-model-preload").start()
     }
 
     private fun stopDictation() {
@@ -597,6 +614,7 @@ class BubbleService : AccessibilityService() {
         whisper = null
         runCatching { stopService(Intent(this, DictationService::class.java)) }
         dictationDetails = whisperLines(outcome)
+        whisperTiming = outcome.timing()
         if (outcome.text.isBlank()) {
             val failure = outcome.chunks.firstNotNullOfOrNull { it.error }
             val message = if (failure != null) {
@@ -609,7 +627,8 @@ class BubbleService : AccessibilityService() {
             val soundLines = endSound()
             session = null
             dictationField = null
-            recordAttempt(message, null, null, "transcript: (empty)\n$dictationDetails\n${timingLine()}\n${soundDetails(soundLines)}")
+            val timing = DictationTiming(whisper = whisperTiming, stopToInsertMs = stopToInsertMs())
+            recordAttempt(message, null, null, attemptDetails(timing, listOf(section("TRANSCRIPT", listOf("(empty)"))), soundLines))
             fail(message)
             return
         }
@@ -631,9 +650,17 @@ class BubbleService : AccessibilityService() {
         if (!outcome.finished) append("\nwarning: transcription didn't finish in time")
     }
 
-    /** How long from the tap to stop until the text was inserted, for Diagnostics. */
-    private fun timingLine(): String =
-        if (stopTappedAt > 0) "timing: stop to insert ${System.currentTimeMillis() - stopTappedAt} ms" else ""
+    /** Milliseconds from the tap to stop until now, or null if stop wasn't tapped (Google fallback started it). */
+    private fun stopToInsertMs(): Long? = if (stopTappedAt > 0) System.currentTimeMillis() - stopTappedAt else null
+
+    /** One Diagnostics section: a title, then its lines indented. */
+    private fun section(title: String, lines: List<String>): String =
+        (listOf(title) + lines.filter { it.isNotBlank() }.map { "  $it" }).joinToString("\n")
+
+    /** The full Diagnostics text for one attempt: timing first, then the sections, then the sound log. */
+    private fun attemptDetails(timing: DictationTiming, sections: List<String>, soundLines: List<String>): String =
+        (listOf(section("TIMING", timing.lines())) + sections + listOf(section("SOUND", soundLines.ifEmpty { listOf("none") })))
+            .joinToString("\n\n")
 
     /** Mutes the beep streams for an automatic restart. They come back when the recognizer is ready, or shortly after. */
     private fun silenceForRestart() {
@@ -651,8 +678,6 @@ class BubbleService : AccessibilityService() {
         return (pendingSoundLines + sound?.log.orEmpty()).also { pendingSoundLines = emptyList() }
     }
 
-    private fun soundDetails(lines: List<String>): String =
-        if (lines.isEmpty()) "sound: none" else lines.joinToString("\n") { "sound: $it" }
 
     private fun endDictation(finish: SessionAction.Finish) {
         val field = dictationField
@@ -669,7 +694,13 @@ class BubbleService : AccessibilityService() {
         if (raw.isBlank()) {
             val error = finish.error ?: DictationError.NO_SPEECH
             val message = DictationError.messageFor(error, finish.errorCode)
-            recordAttempt(message, finish.errorCode, null, "transcript: (empty)\n$summary\n$dictationDetails\n${soundDetails(soundLines)}")
+            val timing = DictationTiming(stopToInsertMs = stopToInsertMs())
+            recordAttempt(
+                message,
+                finish.errorCode,
+                null,
+                attemptDetails(timing, listOf(section("ENGINE", listOf(summary) + dictationDetails.lines()), section("TRANSCRIPT", listOf("(empty)"))), soundLines),
+            )
             return fail(message)
         }
 
@@ -678,14 +709,17 @@ class BubbleService : AccessibilityService() {
         job = scope.launch {
             // Same pipeline as hold-to-clean. The text is inserted only after Claude has answered.
             val aiEnabled = prefs.dictationCleanup
+            var claude: ClaudeCallTiming? = null
             // Same cleanup as hold-to-clean, plus the recognizer's alternatives to resolve unclear words.
             val cleaned = if (aiEnabled) {
-                runCatching { ClaudeClient.clean(this@BubbleService, raw, finish.alternatives) }
+                runCatching { ClaudeClient.clean(this@BubbleService, raw, finish.alternatives) { claude = it } }
             } else {
                 null
             }
             val outcome = DictationDecision.decide(raw, aiEnabled, cleaned)
+            val insertStart = System.nanoTime()
             val insertion = insertDictation(field, outcome.text, raw, (outcome as? DictationOutcome.Cleaned)?.text)
+            val insertMs = (System.nanoTime() - insertStart) / 1_000_000
             val inserted = insertion.method != InsertMethod.FAILED
             gestures.finish()
             val note = when {
@@ -700,11 +734,20 @@ class BubbleService : AccessibilityService() {
                 outcome is DictationOutcome.Cleaned -> "cleanup: ok"
                 else -> "cleanup: failed (${(outcome as DictationOutcome.Raw).reason})"
             }
+            val timing = DictationTiming(whisper = whisperTiming, claude = claude, insertMs = insertMs, stopToInsertMs = stopToInsertMs())
             recordAttempt(
                 note ?: "Inserted by ${insertion.method.name}",
                 finish.errorCode,
                 cleaned?.exceptionOrNull(),
-                "$cleanupLine\n$summary\n$dictationDetails\n${insertion.details}\n${soundDetails(soundLines)}\n${timingLine()}",
+                attemptDetails(
+                    timing,
+                    listOf(
+                        section("ENGINE", listOf(summary) + dictationDetails.lines()),
+                        section("CLEANUP", listOf(cleanupLine)),
+                        section("INSERT", insertion.details.lines()),
+                    ),
+                    soundLines,
+                ),
             )
             if (note != null) showLabel(note, 3000)
             if (inserted) {
@@ -723,7 +766,7 @@ class BubbleService : AccessibilityService() {
         releaseRecognizer()
         ownAudio.stop()
         val soundLines = endSound()
-        recordAttempt(message, code, throwable, "$dictationDetails\n${soundDetails(soundLines)}")
+        recordAttempt(message, code, throwable, attemptDetails(DictationTiming(), listOf(section("ENGINE", dictationDetails.lines())), soundLines))
         Log.e(TAG, "Dictation failed: $message (code $code)", throwable)
         session = null
         dictationField = null
