@@ -1,0 +1,179 @@
+[
+  {
+    "id": "selfcorrect-time",
+    "category": "self-correction",
+    "input": "Let's meet at 5, no actually 6.",
+    "expected": "Meet at 6. Only 6; the 5 is discarded."
+  },
+  {
+    "id": "selfcorrect-name",
+    "category": "self-correction",
+    "input": "Send it to Dan. Wait, send it to Dana instead.",
+    "expected": "Send it to Dana. Dan is discarded."
+  },
+  {
+    "id": "selfcorrect-day",
+    "category": "self-correction",
+    "input": "I'll be there Tuesday, sorry, Wednesday.",
+    "expected": "I'll be there Wednesday. Tuesday is discarded."
+  },
+  {
+    "id": "restart-false-start",
+    "category": "restart",
+    "input": "So the the the report is, I think, um, the report is almost done.",
+    "expected": "The report is almost done. No stutter, no false start, no filler."
+  },
+  {
+    "id": "repeat-sentence",
+    "category": "repetition",
+    "input": "We can ship it Friday. We can ship it Friday.",
+    "expected": "We can ship it Friday, said once."
+  },
+  {
+    "id": "redundant-restatement",
+    "category": "redundancy",
+    "input": "The meeting got moved. It's been pushed back, the meeting is now at three instead.",
+    "expected": "The meeting moved to three. The point is made once, not twice."
+  },
+  {
+    "id": "cmd-new-paragraph",
+    "category": "spoken-command",
+    "input": "Thanks for the update new paragraph I'll review it tonight.",
+    "expected": "Two paragraphs: 'Thanks for the update.' then 'I'll review it tonight.' The command words are gone and the paragraphs are separated by a blank line."
+  },
+  {
+    "id": "cmd-scratch-that",
+    "category": "spoken-command",
+    "input": "Let's grab lunch at noon scratch that let's grab dinner at seven.",
+    "expected": "Let's grab dinner at seven. The lunch sentence is removed by 'scratch that'."
+  },
+  {
+    "id": "cmd-make-list",
+    "category": "spoken-command",
+    "input": "We need eggs milk and bread make that a list.",
+    "expected": "A list of three items, eggs, milk, and bread, one per line. The words 'make that a list' are gone."
+  },
+  {
+    "id": "cmd-quotes",
+    "category": "spoken-command",
+    "input": "She said I'm running late put that in quotes.",
+    "expected": "She said, \"I'm running late.\" The text is in quotation marks and the command is gone."
+  },
+  {
+    "id": "cmd-question-mark",
+    "category": "spoken-command",
+    "input": "Are you coming to the party question mark",
+    "expected": "Are you coming to the party? The words 'question mark' are replaced by a question mark."
+  },
+  {
+    "id": "cmd-all-caps",
+    "category": "spoken-command",
+    "input": "We need this done asap all caps",
+    "expected": "WE NEED THIS DONE ASAP, in all capitals. The command words are gone."
+  },
+  {
+    "id": "cmd-delete-last-part",
+    "category": "spoken-command",
+    "input": "We should buy the blue chairs. Delete that last part. We should buy the green chairs.",
+    "expected": "We should buy the green chairs. The blue-chairs sentence is removed."
+  },
+  {
+    "id": "content-not-command",
+    "category": "command-as-content",
+    "input": "Tell him no, actually it's fine, we're good.",
+    "expected": "Tell him no, actually it's fine, we're good. 'No, actually' is part of the message, not a correction, so it stays."
+  },
+  {
+    "id": "content-new-line-in-message",
+    "category": "command-as-content",
+    "input": "The new line for the store opens in May.",
+    "expected": "The new line for the store opens in May. 'New line' here is the product, not a formatting command, so it stays."
+  },
+  {
+    "id": "sound-alike-producing",
+    "category": "sound-alike",
+    "input": "Is it still a pro, juicing that spacebar thing?",
+    "expected": "Is it still producing that spacebar thing? 'a pro, juicing' should be 'producing'."
+  },
+  {
+    "id": "wrong-word-their-there",
+    "category": "wrong-word",
+    "input": "Their going to meet us at there office.",
+    "expected": "They're going to meet us at their office."
+  },
+  {
+    "id": "wrong-word-accept-except",
+    "category": "wrong-word",
+    "input": "Everyone can come accept Ben.",
+    "expected": "Everyone can come except Ben."
+  },
+  {
+    "id": "dictionary-sela",
+    "category": "dictionary",
+    "input": "I built a salad app for the team.",
+    "dictionary": [
+      {
+        "term": "Sela",
+        "soundsLike": [
+          "salad"
+        ],
+        "note": "my web app"
+      }
+    ],
+    "expected": "I built a Sela app for the team. 'salad' is the misheard name Sela, from the dictionary."
+  },
+  {
+    "id": "dictionary-kubernetes",
+    "category": "dictionary",
+    "input": "We deploy on cooper netties every week.",
+    "dictionary": [
+      {
+        "term": "Kubernetes",
+        "soundsLike": [
+          "cooper netties"
+        ],
+        "note": "infrastructure"
+      }
+    ],
+    "expected": "We deploy on Kubernetes every week. The dictionary term replaces the misheard words."
+  },
+  {
+    "id": "alternatives-resolve",
+    "category": "alternatives",
+    "input": "We need to fix the bug in the authentification flow.",
+    "alternatives": [
+      "We need to fix the bug in the authentication flow."
+    ],
+    "expected": "We need to fix the bug in the authentication flow."
+  },
+  {
+    "id": "already-clean-formal",
+    "category": "already-clean",
+    "input": "The quarterly numbers look good, I'll send the summary tomorrow.",
+    "expected": "Unchanged, or with only trivial punctuation. The meaning and wording are already right."
+  },
+  {
+    "id": "already-clean-short",
+    "category": "already-clean",
+    "input": "Thanks, see you at 3.",
+    "expected": "Unchanged. It's already clean."
+  },
+  {
+    "id": "casual-tone-kept",
+    "category": "tone",
+    "input": "yeah lol that's so funny, gonna grab food brb",
+    "expected": "Still casual: 'yeah lol that's so funny, gonna grab food, brb' or very close. It must not become formal business writing."
+  },
+  {
+    "id": "filler-removed",
+    "category": "filler",
+    "input": "um so basically uh the plan is, you know, to launch in June",
+    "expected": "The plan is to launch in June. Fillers (um, uh, you know, basically) are removed, and the meaning is kept."
+  },
+  {
+    "id": "multiline-steps",
+    "category": "line-breaks",
+    "input": "Here are the steps new line first open the app new line second tap save",
+    "expected": "'Here are the steps:' then 'First, open the app.' then 'Second, tap save.' Each step is on its own line, so there are line breaks between them."
+  }
+]
