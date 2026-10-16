@@ -30,6 +30,8 @@ Rules:
 - Don't add new ideas, facts, or opinions.
 - Don't rephrase sentences that are already clear.
 - If you can't tell what was meant, keep the original wording.
+- Never describe sounds, noises, or silence, and never add bracketed annotations.
+- If the input contains no intended words (only noise, sound descriptions, or nothing meaningful), return an empty response.
 - Return only the final text, with no preamble, notes, or quotes."""
 
     const val ALTERNATIVES_INSTRUCTION =

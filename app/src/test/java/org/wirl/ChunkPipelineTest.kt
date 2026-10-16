@@ -83,4 +83,28 @@ class ChunkPipelineTest {
         assertEquals(listOf(7, 8), seen.map { it.samples }.sorted())
         assertNull(seen.firstOrNull { it.error != null })
     }
+
+    /** Answers with fixed text, so a test can check what the pipeline keeps from it. */
+    private class TextTranscriber(private val answer: String) : SpeechTranscriber {
+        override fun transcribe(pcm: FloatArray, language: String, prompt: String?) = answer
+        override fun close() = Unit
+    }
+
+    @Test fun aChunkOfSoundAnnotationsOrASilencePhraseIsDroppedAndNotInserted() {
+        for (answer in listOf("[BLANK_AUDIO]", "Thanks for watching!")) {
+            val pipeline = ChunkPipeline(model = { TextTranscriber(answer) }, language = "en", prompt = null, now = { 0L }, onResult = {})
+            pipeline.submit(FloatArray(10))
+            assertTrue(pipeline.finish(5_000))
+            assertEquals("", pipeline.text())
+            assertEquals("sound or silence only", pipeline.results().single().dropReason)
+        }
+    }
+
+    @Test fun aRealSentenceWithAnAnnotationKeepsItsWords() {
+        val pipeline = ChunkPipeline(model = { TextTranscriber("[beep] see you at 6") }, language = "en", prompt = null, now = { 0L }, onResult = {})
+        pipeline.submit(FloatArray(10))
+        assertTrue(pipeline.finish(5_000))
+        assertEquals("see you at 6", pipeline.text())
+        assertEquals(null, pipeline.results().single().dropReason)
+    }
 }

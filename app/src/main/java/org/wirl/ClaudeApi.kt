@@ -166,9 +166,8 @@ class ClaudeApi(
                 val block = content.getJSONObject(i)
                 if (block.optString("type") == "text") out.append(block.optString("text"))
             }
-            val cleaned = out.toString().trim()
-            if (cleaned.isEmpty()) throw CleanupException("Empty response")
-            return cleaned
+            // An empty reply means there were no words to clean. The caller inserts nothing for it.
+            return out.toString().trim()
         }
 
         fun errorMessage(code: Int, raw: String): String {

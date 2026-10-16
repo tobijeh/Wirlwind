@@ -46,4 +46,9 @@ class CleanupPromptTest {
         assertTrue(CleanupPrompt.build("", entries, "I met salad").contains("\"Sela\""))
         assertFalse(CleanupPrompt.build("", entries, "let's get lunch").contains("\"Sela\""))
     }
+
+    @Test fun theRulesTellClaudeToIgnoreSoundsAndReturnNothingForNoise() {
+        assertTrue(CleanupPrompt.CORE.contains("- Never describe sounds, noises, or silence, and never add bracketed annotations."))
+        assertTrue(CleanupPrompt.CORE.contains("- If the input contains no intended words (only noise, sound descriptions, or nothing meaningful), return an empty response."))
+    }
 }
