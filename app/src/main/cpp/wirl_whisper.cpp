@@ -64,6 +64,12 @@ Java_org_wirl_WhisperNative_nativeTranscribe(JNIEnv *env, jobject /* thiz */, jl
     // first attempt looks uncertain, which can multiply the time a short dictation takes.
     params.temperature = 0.0f;
     params.temperature_inc = 0.0f;
+    // Silence and noise: no non-speech tokens (music, applause), no blank output, and a segment whose no-speech probability
+    // is high is dropped before any text is produced. Kotlin also strips sound annotations and silence phrases.
+    params.suppress_blank = true;
+    params.suppress_nst = true;
+    params.no_speech_thold = 0.6f;
+    params.logprob_thold = -1.0f;
     params.print_realtime = false;
     params.print_progress = false;
     params.print_timestamps = false;

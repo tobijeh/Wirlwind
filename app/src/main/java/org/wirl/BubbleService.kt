@@ -248,6 +248,12 @@ class BubbleService : AccessibilityService() {
                 val cleaned = ClaudeClient.clean(this@BubbleService, original)
                 val target = node.takeIf { it.refresh() } ?: focusedEditable()
                 when {
+                    cleaned.isBlank() -> {
+                        // Nothing intended to keep: leave the field as it is.
+                        gestures.finish()
+                        setState(State.IDLE)
+                        toast(getString(R.string.no_speech_heard))
+                    }
                     target == null -> fail(getString(R.string.no_field))
                     target.realText() != original -> fail(getString(R.string.text_changed))
                     cleaned == original -> succeed()
@@ -617,19 +623,26 @@ class BubbleService : AccessibilityService() {
         whisperTiming = outcome.timing()
         if (outcome.text.isBlank()) {
             val failure = outcome.chunks.firstNotNullOfOrNull { it.error }
-            val message = if (failure != null) {
-                getString(R.string.whisper_failed, failure)
-            } else {
-                DictationError.messageFor(DictationError.NO_SPEECH, null)
-            }
             releaseRecognizer()
             ownAudio.stop()
             val soundLines = endSound()
             session = null
             dictationField = null
             val timing = DictationTiming(whisper = whisperTiming, stopToInsertMs = stopToInsertMs())
-            recordAttempt(message, null, null, attemptDetails(timing, listOf(section("TRANSCRIPT", listOf("(empty)"))), soundLines))
-            fail(message)
+            if (failure != null) {
+                val message = getString(R.string.whisper_failed, failure)
+                recordAttempt(message, null, null, attemptDetails(timing, listOf(section("TRANSCRIPT", listOf("(empty)"))), soundLines))
+                fail(message)
+            } else {
+                // Silence, noise, or only sound annotations: nothing was said, so Claude isn't called and nothing is inserted.
+                recordAttempt(
+                    DictationError.messageFor(DictationError.NO_SPEECH, null),
+                    null,
+                    null,
+                    attemptDetails(timing, listOf(section("TRANSCRIPT", listOf("no words spoken"))), soundLines),
+                )
+                noSpeechLabel()
+            }
             return
         }
         endDictation(SessionAction.Finish(outcome.text, null, null, emptyList()))
@@ -644,7 +657,8 @@ class BubbleService : AccessibilityService() {
         )
         for (chunk in outcome.chunks) {
             val error = chunk.error?.let { ", error: $it" }.orEmpty()
-            appendLine("chunk ${chunk.seq}: ${chunk.transcribeMs} ms for ${chunk.samples} samples$error")
+            val dropped = chunk.dropReason?.let { ", dropped: $it" }.orEmpty()
+            appendLine("chunk ${chunk.seq}: ${chunk.transcribeMs} ms for ${chunk.samples} samples$error$dropped")
         }
         append("stop to text: ${outcome.stopToTextMs} ms")
         if (!outcome.finished) append("\nwarning: transcription didn't finish in time")
@@ -691,9 +705,9 @@ class BubbleService : AccessibilityService() {
         runCatching { stopService(Intent(this, DictationService::class.java)) }
 
         val raw = finish.transcript
-        if (raw.isBlank()) {
-            val error = finish.error ?: DictationError.NO_SPEECH
-            val message = DictationError.messageFor(error, finish.errorCode)
+        val spoken = SpeechGate.spokenWords(raw)
+        if (raw.isBlank() && finish.error != null) {
+            val message = DictationError.messageFor(finish.error, finish.errorCode)
             val timing = DictationTiming(stopToInsertMs = stopToInsertMs())
             recordAttempt(
                 message,
@@ -702,6 +716,11 @@ class BubbleService : AccessibilityService() {
                 attemptDetails(timing, listOf(section("ENGINE", listOf(summary) + dictationDetails.lines()), section("TRANSCRIPT", listOf("(empty)"))), soundLines),
             )
             return fail(message)
+        }
+        if (!SpeechGate.callsClaude(spoken)) {
+            // Silence, noise, or sound descriptions only: nothing goes to Claude and nothing is inserted.
+            noSpeech(raw, summary, soundLines, "no words spoken: sound or silence only")
+            return
         }
 
         setState(State.BUSY)
@@ -712,13 +731,26 @@ class BubbleService : AccessibilityService() {
             var claude: ClaudeCallTiming? = null
             // Same cleanup as hold-to-clean, plus the recognizer's alternatives to resolve unclear words.
             val cleaned = if (aiEnabled) {
-                runCatching { ClaudeClient.clean(this@BubbleService, raw, finish.alternatives) { claude = it } }
+                runCatching { ClaudeClient.clean(this@BubbleService, spoken, finish.alternatives) { claude = it } }
             } else {
                 null
             }
-            val outcome = DictationDecision.decide(raw, aiEnabled, cleaned)
+            if (SpeechGate.textToInsert(spoken, aiEnabled, cleaned) == null) {
+                // Claude replied with nothing: there were no words to clean, so nothing is inserted.
+                gestures.finish()
+                val timing = DictationTiming(claude = claude, stopToInsertMs = stopToInsertMs())
+                recordAttempt(
+                    DictationError.messageFor(DictationError.NO_SPEECH, null),
+                    null,
+                    null,
+                    attemptDetails(timing, listOf(section("ENGINE", listOf(summary) + dictationDetails.lines()), section("CLEANUP", listOf("cleanup: empty reply, nothing inserted"))), soundLines),
+                )
+                noSpeechLabel()
+                return@launch
+            }
+            val outcome = DictationDecision.decide(spoken, aiEnabled, cleaned)
             val insertStart = System.nanoTime()
-            val insertion = insertDictation(field, outcome.text, raw, (outcome as? DictationOutcome.Cleaned)?.text)
+            val insertion = insertDictation(field, outcome.text, spoken, (outcome as? DictationOutcome.Cleaned)?.text)
             val insertMs = (System.nanoTime() - insertStart) / 1_000_000
             val inserted = insertion.method != InsertMethod.FAILED
             gestures.finish()
@@ -758,6 +790,26 @@ class BubbleService : AccessibilityService() {
             }
             scheduleCheck(0)
         }
+    }
+
+    /** Nothing was said: logs the attempt, says so briefly on the bubble, and inserts nothing. */
+    private fun noSpeech(raw: String, summary: String, soundLines: List<String>, why: String) {
+        val timing = DictationTiming(stopToInsertMs = stopToInsertMs())
+        recordAttempt(
+            DictationError.messageFor(DictationError.NO_SPEECH, null),
+            null,
+            null,
+            attemptDetails(timing, listOf(section("ENGINE", listOf(summary) + dictationDetails.lines()), section("TRANSCRIPT", listOf(why, "raw: ${Visible.mark(raw)}"))), soundLines),
+        )
+        gestures.finish()
+        noSpeechLabel()
+    }
+
+    private fun noSpeechLabel() {
+        setState(State.IDLE)
+        Prefs(this).lastResult = getString(R.string.no_speech_heard)
+        showLabel(getString(R.string.no_speech_heard), 2000)
+        scheduleCheck(0)
     }
 
     /** Ends the attempt with an error: logs it to Diagnostics, cleans up, and tells the user why. */

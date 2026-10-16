@@ -6,7 +6,15 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /** One chunk's transcription. [text] is empty and [error] set if it failed. */
-data class ChunkResult(val seq: Int, val text: String, val error: String?, val transcribeMs: Long, val samples: Int)
+data class ChunkResult(
+    val seq: Int,
+    val text: String,
+    val error: String?,
+    val transcribeMs: Long,
+    val samples: Int,
+    /** Set when the model's text was dropped as a sound annotation or silence, so nothing is inserted for it. */
+    val dropReason: String? = null,
+)
 
 /**
  * Joins chunk texts in the order they were spoken. Each chunk number counts once: a result that arrives twice is ignored,
@@ -70,7 +78,10 @@ class ChunkPipeline(
         val started = now()
         val result = try {
             val transcriber = model() ?: throw IOException("The Whisper model isn't loaded")
-            ChunkResult(seq, transcriber.transcribe(pcm, language, prompt), null, now() - started, pcm.size)
+            val raw = transcriber.transcribe(pcm, language, prompt)
+            val spoken = TranscriptFilter.clean(raw)
+            val dropped = if (raw.isNotBlank() && spoken.isBlank()) "sound or silence only" else null
+            ChunkResult(seq, spoken, null, now() - started, pcm.size, dropped)
         } catch (e: Throwable) {
             ChunkResult(seq, "", e.message ?: e.javaClass.simpleName, now() - started, pcm.size)
         }

@@ -11,6 +11,8 @@ class PauseDetector(
     private val threshold: Float = DEFAULT_THRESHOLD,
     private val minSilenceFrames: Int = 20,
     private val maxFrames: Int = 20_000 / FRAME_MS,
+    /** Frames of speech a chunk needs before it counts as speech. One loud frame is a click, not a word. */
+    private val minSpeechFrames: Int = 6,
 ) {
     private var frames = 0
     private var speechFrames = 0
@@ -25,13 +27,15 @@ class PauseDetector(
         } else {
             silentRun++
         }
-        val pauseAfterSpeech = speechFrames > 0 && silentRun >= minSilenceFrames
+        val pauseAfterSpeech = hasSpeech() && silentRun >= minSilenceFrames
         return pauseAfterSpeech || frames >= maxFrames
     }
 
+    private fun hasSpeech(): Boolean = speechFrames >= minSpeechFrames
+
     /** Starts the next chunk. Returns whether the chunk just ended had any speech in it. */
     fun reset(): Boolean {
-        val hadSpeech = speechFrames > 0
+        val hadSpeech = hasSpeech()
         frames = 0
         speechFrames = 0
         silentRun = 0

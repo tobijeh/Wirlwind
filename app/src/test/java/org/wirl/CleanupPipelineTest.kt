@@ -96,4 +96,35 @@ class CleanupPipelineTest {
 
         assertEquals(CleanupPrompt.CORE, system)
     }
+
+    /** The system prompt the API received for the last request. */
+    private fun lastSystemPrompt(): String = JSONObject(server.takeRequest().body.readUtf8()).getString("system")
+
+    @Test fun holdToCleanAndDictationBothUseTheNewCorePrompt() {
+        server.enqueue(MockResponse().setBody("""{"content":[{"type":"text","text":"Hi."}]}"""))
+        runBlocking { pipeline().clean("hi") }
+        val holdToClean = lastSystemPrompt()
+        assertTrue(holdToClean.startsWith(CleanupPrompt.CORE))
+        assertFalse("hold-to-clean never sends alternatives", holdToClean.contains("Alternative 1"))
+
+        server.enqueue(MockResponse().setBody("""{"content":[{"type":"text","text":"Hi."}]}"""))
+        runBlocking { pipeline().clean("hi", listOf("high")) }
+        val dictation = lastSystemPrompt()
+        assertTrue(dictation.startsWith(CleanupPrompt.CORE))
+        assertTrue("dictation sends the alternatives", dictation.contains("Alternative 1: high"))
+    }
+
+    @Test fun styleNotesAndDictionaryAreStillAppendedForBothPaths() {
+        val styled = CleanupPipeline(
+            api = ClaudeApi(server.url("/v1/messages").toString(), OkHttpClient()),
+            apiKey = { "sk-test" },
+            styleNotes = { "Keep it short." },
+            dictionary = { dictionary },
+        )
+        server.enqueue(MockResponse().setBody("""{"content":[{"type":"text","text":"I met Sela."}]}"""))
+        runBlocking { styled.clean("I met salad") }
+        val prompt = lastSystemPrompt()
+        assertTrue(prompt.contains("Speaker's style preferences:\nKeep it short."))
+        assertTrue(prompt.contains("\"Sela\""))
+    }
 }
