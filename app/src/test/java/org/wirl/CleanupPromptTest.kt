@@ -14,9 +14,16 @@ class CleanupPromptTest {
     }
 
     @Test fun coreMatchesTheRequiredText() {
-        assertTrue(CleanupPrompt.CORE.startsWith("You clean up text that was dictated by voice"))
-        assertTrue(CleanupPrompt.CORE.contains("Is it still a pro, juicing that spacebar thing' becomes 'Is it still producing that spacebar thing'"))
-        assertTrue(CleanupPrompt.CORE.endsWith("Return only the cleaned text, with no preamble or quotes."))
+        assertTrue(CleanupPrompt.CORE.startsWith("You are an expert editor turning spoken dictation into the message the speaker intended to write."))
+        assertTrue(CleanupPrompt.CORE.contains("'no, actually,' 'I mean,' 'wait,' 'sorry,' 'not that, this'"))
+        assertTrue(CleanupPrompt.CORE.contains("'new paragraph,' 'new line,' 'scratch that,' 'delete that last part,' 'make that a list,' 'put that in quotes,' 'question mark,' 'all caps'"))
+        assertTrue(CleanupPrompt.CORE.contains("'tell him no, actually it's fine'"))
+        assertTrue(CleanupPrompt.CORE.contains("becomes 'Is it still producing that spacebar thing.'"))
+        assertTrue(CleanupPrompt.CORE.endsWith("Return only the final text, with no preamble, notes, or quotes."))
+    }
+
+    @Test fun theOldTranscriberPromptIsGone() {
+        assertFalse(CleanupPrompt.CORE.contains("You clean up text that was dictated by voice"))
     }
 
     @Test fun styleNotesAreAppendedOnlyWhenPresent() {

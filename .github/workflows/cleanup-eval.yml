@@ -1,0 +1,63 @@
+name: Cleanup quality
+
+# Runs the cleanup test set against the real Claude API (claude-haiku-5-5) whenever the prompt or the cleanup code changes.
+# Haiku judges each output against the expected meaning. The check fails below a 90% pass rate.
+
+on:
+  pull_request:
+    paths:
+      - 'app/src/main/java/org/wirl/CleanupPrompt.kt'
+      - 'app/src/main/java/org/wirl/ClaudeApi.kt'
+      - 'app/src/main/java/org/wirl/ClaudeClient.kt'
+      - 'app/src/main/java/org/wirl/Dictionary*.kt'
+      - 'app/src/test/java/org/wirl/CleanupEvalTest.kt'
+      - 'evals/**'
+      - '.github/workflows/cleanup-eval.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup-eval:
+    name: cleanup-eval
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fail early without the API key
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY secret is missing. Add it under Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The unit test task configures the native build, so it needs the same NDK and CMake as ci.yml.
+      - name: Install NDK and CMake
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ -x "$SDKMANAGER" ]; then
+            yes | "$SDKMANAGER" --install "ndk;26.1.10909125" "cmake;3.22.1" > /dev/null
+          fi
+
+      - name: Cleanup eval
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: ./gradlew testDebugUnitTest --tests 'org.wirl.CleanupEvalTest' --no-daemon
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleanup-eval-results
+          path: app/build/cleanup-eval/results.json
+          if-no-files-found: ignore
