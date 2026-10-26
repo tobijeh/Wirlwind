@@ -20,6 +20,7 @@ import androidx.core.content.ContextCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.wirl.databinding.ActivityMainBinding
 import org.wirl.databinding.ItemWhisperModelBinding
+import org.wirl.databinding.SectionHeaderBinding
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -82,6 +83,7 @@ class MainActivity : AppCompatActivity() {
             prefs.dictationLanguage = DictationLanguages.options[position].first
             refreshStatus()
         }
+        setupSections()
         setupWhisperSettings()
         binding.downloadPack.setOnClickListener {
             val language = DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag())
@@ -112,6 +114,22 @@ class MainActivity : AppCompatActivity() {
     )
 
     private val nativeLoads: Boolean by lazy { WhisperLibrary.loads }
+
+    /** Each settings card gets its icon tile, a title, and one line about what it controls. */
+    private fun setupSections() {
+        section(binding.cardClaude, R.drawable.ux_wand, R.string.section_claude, R.string.section_claude_sub)
+        section(binding.cardDictation, R.drawable.ux_mic, R.string.section_dictation, R.string.section_dictation_sub)
+        section(binding.cardSpeech, R.drawable.ux_waves, R.string.section_speech, R.string.section_speech_sub)
+        section(binding.cardBubble, R.drawable.ux_send, R.string.section_bubble, R.string.section_bubble_sub)
+        section(binding.cardDictionary, R.drawable.ux_text, R.string.section_dictionary, R.string.section_dictionary_sub)
+        section(binding.cardDeveloper, R.drawable.ux_refresh, R.string.section_developer, R.string.section_developer_sub)
+    }
+
+    private fun section(header: SectionHeaderBinding, icon: Int, title: Int, subtitle: Int) {
+        header.sectionIcon.setImageResource(icon)
+        header.sectionTitle.setText(title)
+        header.sectionSubtitle.setText(subtitle)
+    }
 
     /** Diagnostics is hidden unless Developer options is on. The log itself is kept either way. */
     private fun refreshDeveloperOptions() {
