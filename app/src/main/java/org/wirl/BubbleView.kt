@@ -3,6 +3,7 @@ package org.wirl
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.PorterDuff
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
@@ -12,7 +13,10 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import androidx.core.content.ContextCompat
 
-/** The round Wirl bubble: teal circle with the white glyph. Used by the overlay and the settings preview. */
+/**
+ * The round Wirl bubble: purple circle with the white glyph. While recording it turns white with a purple glyph and a
+ * white pulse. Used by the overlay and the settings preview.
+ */
 class BubbleView(context: Context) : FrameLayout(context) {
 
     enum class State { IDLE, RECORDING, BUSY, DONE }
@@ -22,7 +26,7 @@ class BubbleView(context: Context) : FrameLayout(context) {
     private val ring = View(context).apply {
         background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setStroke((3 * resources.displayMetrics.density).toInt(), ContextCompat.getColor(context, R.color.bubble_record))
+            setStroke((3 * resources.displayMetrics.density).toInt(), ContextCompat.getColor(context, R.color.white))
         }
         visibility = View.GONE
     }
@@ -73,12 +77,19 @@ class BubbleView(context: Context) : FrameLayout(context) {
     }
 
     fun setState(state: State) {
+        val recording = state == State.RECORDING
         val color = when (state) {
             State.DONE -> R.color.bubble_green
-            State.RECORDING -> R.color.bubble_record
+            State.RECORDING -> R.color.white
             else -> R.color.brand
         }
         background.setColor(ContextCompat.getColor(context, color))
+        // The white glyph becomes purple on the white bubble while recording.
+        if (recording) {
+            glyph.setColorFilter(ContextCompat.getColor(context, R.color.brand), PorterDuff.Mode.SRC_IN)
+        } else {
+            glyph.clearColorFilter()
+        }
         glyph.visibility = if (state == State.BUSY || state == State.DONE) View.GONE else View.VISIBLE
         spinner.visibility = if (state == State.BUSY) View.VISIBLE else View.GONE
         check.visibility = if (state == State.DONE) View.VISIBLE else View.GONE
