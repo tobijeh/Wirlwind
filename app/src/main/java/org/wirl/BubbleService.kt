@@ -10,8 +10,10 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -40,6 +42,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.math.hypot
@@ -76,6 +79,8 @@ class BubbleService : AccessibilityService() {
 
     private var state = State.IDLE
     private var job: Job? = null
+    private var cancelShown = false
+    private var cancelView: TextView? = null
 
     /** Text before the last cleanup, and what we replaced it with (for undo). */
     private var undoOriginal: String? = null
@@ -90,7 +95,7 @@ class BubbleService : AccessibilityService() {
 
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
-            Prefs.KEY_BUBBLE_ENABLED -> scheduleCheck(0)
+            Prefs.KEY_BUBBLE_ENABLED -> onBubbleEnabledChanged()
             Prefs.KEY_BUBBLE_SIZE, Prefs.KEY_BUBBLE_OPACITY -> applyAppearance()
         }
     }
@@ -113,7 +118,7 @@ class BubbleService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (::bubbleRoot.isInitialized) scheduleCheck(150)
+        if (::bubbleRoot.isInitialized && prefs.bubbleEnabled) scheduleCheck(150)
     }
 
     override fun onInterrupt() = Unit
@@ -156,6 +161,32 @@ class BubbleService : AccessibilityService() {
             hideLabel()
             hideBubble()
         }
+    }
+
+    /** Wirl was turned on or off, from the tile or Settings. Off stops everything; on starts again from a clean slate. */
+    private fun onBubbleEnabledChanged() {
+        if (!::bubbleRoot.isInitialized) return
+        if (prefs.bubbleEnabled) restartBubble() else stopBubble()
+        scheduleCheck(0)
+    }
+
+    /** Off: any recording or processing is discarded, the microphone and audio focus are released, and the bubble is hidden. */
+    private fun stopBubble() {
+        discardDictation("Wirl was turned off")
+        hideLabel()
+        hideBubble()
+    }
+
+    /** On: a new bubble, with every piece of state reset: recording, processing, undo, and overlays. */
+    private fun restartBubble() {
+        discardDictation("Wirl was turned on")
+        gestures.reset()
+        undoOriginal = null
+        undoCleaned = null
+        hideLabel()
+        hideBubble()
+        buildBubble()
+        setState(State.IDLE)
     }
 
     /** The focused editable field in another app, or null. Password fields are never touched. */
@@ -429,6 +460,8 @@ class BubbleService : AccessibilityService() {
     }
 
     private fun stopDictation() {
+        // A stray tap, under a second: discarded without processing or a message.
+        if (RecordingRules.tooShort(System.currentTimeMillis() - attemptStart)) return discardDictation("recording under 1 second")
         whisper?.let { return stopWhisper(it) }
         stopTappedAt = System.currentTimeMillis()
         // Put the streams back first, so the stop sound plays.
@@ -613,10 +646,12 @@ class BubbleService : AccessibilityService() {
         stopTappedAt = System.currentTimeMillis()
         DictationTones.play(DictationTones.END)
         setState(State.BUSY)
-        current.stop(stopTappedAt) { outcome -> handler.post { finishWhisper(outcome) } }
+        current.stop(stopTappedAt) { outcome -> handler.post { finishWhisper(current, outcome) } }
     }
 
-    private fun finishWhisper(outcome: WhisperOutcome) {
+    private fun finishWhisper(current: WhisperSession, outcome: WhisperOutcome) {
+        // Discarded while transcribing (turned off, or a new dictation started): this outcome is dropped.
+        if (whisper !== current) return
         whisper = null
         runCatching { stopService(Intent(this, DictationService::class.java)) }
         dictationDetails = whisperLines(outcome)
@@ -641,7 +676,7 @@ class BubbleService : AccessibilityService() {
                     null,
                     attemptDetails(timing, listOf(section("TRANSCRIPT", listOf("no words spoken"))), soundLines),
                 )
-                noSpeechLabel()
+                endQuietly()
             }
             return
         }
@@ -735,17 +770,18 @@ class BubbleService : AccessibilityService() {
             } else {
                 null
             }
+            // Cancelled while Claude was answering (turned off, or the bubble was reset): insert nothing.
+            ensureActive()
             if (SpeechGate.textToInsert(spoken, aiEnabled, cleaned) == null) {
-                // Claude replied with nothing: there were no words to clean, so nothing is inserted.
-                gestures.finish()
+                // Claude replied with nothing, or only with a remark about the recording: nothing is inserted, and no message.
                 val timing = DictationTiming(claude = claude, stopToInsertMs = stopToInsertMs())
                 recordAttempt(
                     DictationError.messageFor(DictationError.NO_SPEECH, null),
                     null,
                     null,
-                    attemptDetails(timing, listOf(section("ENGINE", listOf(summary) + dictationDetails.lines()), section("CLEANUP", listOf("cleanup: empty reply, nothing inserted"))), soundLines),
+                    attemptDetails(timing, listOf(section("ENGINE", listOf(summary) + dictationDetails.lines()), section("CLEANUP", listOf(cleanupReplyLine(cleaned)))), soundLines),
                 )
-                noSpeechLabel()
+                endQuietly()
                 return@launch
             }
             val outcome = DictationDecision.decide(spoken, aiEnabled, cleaned)
@@ -792,7 +828,7 @@ class BubbleService : AccessibilityService() {
         }
     }
 
-    /** Nothing was said: logs the attempt, says so briefly on the bubble, and inserts nothing. */
+    /** Nothing was said: logged to Diagnostics, with no message. Nothing is inserted. */
     private fun noSpeech(raw: String, summary: String, soundLines: List<String>, why: String) {
         val timing = DictationTiming(stopToInsertMs = stopToInsertMs())
         recordAttempt(
@@ -801,15 +837,45 @@ class BubbleService : AccessibilityService() {
             null,
             attemptDetails(timing, listOf(section("ENGINE", listOf(summary) + dictationDetails.lines()), section("TRANSCRIPT", listOf(why, "raw: ${Visible.mark(raw)}"))), soundLines),
         )
-        gestures.finish()
-        noSpeechLabel()
+        endQuietly()
     }
 
-    private fun noSpeechLabel() {
+    /** Ends a dictation that inserts nothing, without a message. The bubble goes straight back to idle. */
+    private fun endQuietly() {
+        gestures.finish()
         setState(State.IDLE)
-        Prefs(this).lastResult = getString(R.string.no_speech_heard)
-        showLabel(getString(R.string.no_speech_heard), 2000)
         scheduleCheck(0)
+    }
+
+    private fun cleanupReplyLine(cleaned: Result<String>?): String = when {
+        cleaned?.getOrNull()?.let(SpeechGate::isRecordingRemark) == true ->
+            "cleanup: reply was a remark about the recording, nothing inserted"
+        else -> "cleanup: empty reply, nothing inserted"
+    }
+
+    /**
+     * Stops whatever is recording or transcribing, throws it away, and releases the microphone, audio focus, and recognizer.
+     * Nothing is processed or inserted. [reason] goes to Diagnostics when a dictation was running.
+     */
+    private fun discardDictation(reason: String) {
+        job?.cancel()
+        job = null
+        val active = whisper != null || session != null || dictationField != null
+        whisper?.cancel()
+        whisper = null
+        whisperStopping = false
+        releaseRecognizer()
+        ownAudio.stop()
+        val soundLines = endSound()
+        session = null
+        dictationField = null
+        runCatching { stopService(Intent(this, DictationService::class.java)) }
+        if (active) {
+            val timing = DictationTiming(stopToInsertMs = stopToInsertMs())
+            recordAttempt("Discarded: $reason", null, null, attemptDetails(timing, listOf(section("TRANSCRIPT", listOf(reason))), soundLines))
+        }
+        gestures.reset()
+        setState(State.IDLE)
     }
 
     /** Ends the attempt with an error: logs it to Diagnostics, cleans up, and tells the user why. */
@@ -993,6 +1059,7 @@ class BubbleService : AccessibilityService() {
     private fun setState(newState: State) {
         state = newState
         handler.removeCallbacks(resetDoneRunnable)
+        if (newState == State.RECORDING) showCancelTarget() else hideCancelTarget()
         circle.setState(
             when (newState) {
                 State.IDLE -> BubbleView.State.IDLE
@@ -1015,6 +1082,60 @@ class BubbleService : AccessibilityService() {
             (if (touchable) 0 else WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE),
         PixelFormat.TRANSLUCENT,
     ).apply { gravity = Gravity.TOP or Gravity.LEFT }
+
+    /** The X at the bottom of the screen. Shown only while recording: dragging the bubble onto it cancels the dictation. */
+    private fun showCancelTarget() {
+        if (cancelShown) return
+        val target = cancelTarget()
+        val view = cancelView ?: TextView(this).apply {
+            text = "✕"
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            textSize = 22f
+            contentDescription = getString(R.string.cancel_target)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(getColor(R.color.bubble_record))
+            }
+        }.also { cancelView = it }
+        val size = dp(56)
+        val params = overlayParams(touchable = false).apply {
+            width = size
+            height = size
+            x = target.centerX - size / 2
+            y = target.centerY - size / 2
+        }
+        runCatching { wm.addView(view, params) }.onSuccess { cancelShown = true }
+    }
+
+    private fun hideCancelTarget() {
+        cancelView?.apply {
+            scaleX = 1f
+            scaleY = 1f
+        }
+        if (!cancelShown) return
+        runCatching { wm.removeView(cancelView) }
+        cancelShown = false
+    }
+
+    /** The X's hit area: the bubble's centre over it counts as dropping on it. */
+    private fun cancelTarget(): CancelTarget =
+        CancelTarget.bottomCentre(screenWidth(), screenHeight(), radius = dp(44), bottomOffset = dp(96))
+
+    /** True when the bubble is dragged over the X while it's shown. */
+    private fun overCancelTarget(): Boolean {
+        if (!cancelShown) return false
+        val half = windowSize() / 2
+        return cancelTarget().contains(bubbleParams.x + half, bubbleParams.y + half)
+    }
+
+    private fun highlightCancelTarget(over: Boolean) {
+        val scale = if (over) 1.25f else 1f
+        cancelView?.apply {
+            scaleX = scale
+            scaleY = scale
+        }
+    }
 
     private fun buildBubble() {
         circle = BubbleView(this)
@@ -1106,12 +1227,19 @@ class BubbleService : AccessibilityService() {
                         bubbleParams.y = startY + dy.toInt()
                         clampBubble()
                         wm.updateViewLayout(bubbleRoot, bubbleParams)
+                        highlightCancelTarget(overCancelTarget())
                     }
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     handler.removeCallbacks(longPress)
                     v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
-                    if (dragging) {
+                    if (dragging && overCancelTarget()) {
+                        // Dropped on the X: nothing is processed, and the bubble goes back to where it was before the drag.
+                        bubbleParams.x = startX
+                        bubbleParams.y = startY
+                        if (bubbleShown) wm.updateViewLayout(bubbleRoot, bubbleParams)
+                        discardDictation("cancelled by dragging the bubble to the X")
+                    } else if (dragging) {
                         prefs.bubblePosition = bubbleParams.x to bubbleParams.y
                     } else if (!longFired && e.actionMasked == MotionEvent.ACTION_UP) {
                         onTap()

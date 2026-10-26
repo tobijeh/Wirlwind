@@ -117,6 +117,23 @@ class WhisperSession(
         }, "wirl-stop").start()
     }
 
+    /**
+     * Stops recording at once and discards everything: no chunk is transcribed and nothing is returned. Used when the user
+     * cancels, or turns Wirl off, mid-dictation.
+     */
+    fun cancel() {
+        val rec = record
+        record = null
+        pipeline.cancel()
+        Thread({
+            reader?.join(READER_TIMEOUT_MS)
+            if (rec != null) {
+                runCatching { rec.stop() }
+                rec.release()
+            }
+        }, "wirl-cancel").start()
+    }
+
     private fun readLoop(rec: AudioRecord) {
         val frame = ShortArray(PauseDetector.SAMPLES_PER_FRAME)
         val detector = PauseDetector()

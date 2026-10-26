@@ -61,6 +61,7 @@ class ChunkPipeline(
     private val assembler = ChunkAssembler()
     private val results = mutableListOf<ChunkResult>()
     private var nextSeq = 0
+    private var cancelled = false
 
     /** Chunks queued so far. */
     fun submittedCount(): Int = nextSeq
@@ -68,13 +69,28 @@ class ChunkPipeline(
     /** Chunks transcribed so far. Chunks finished during recording stay done; stop doesn't redo them. */
     fun completedCount(): Int = synchronized(lock) { results.size }
 
-    /** Queues one chunk of 16 kHz mono samples. Called from the recording thread. */
+    /** Queues one chunk of 16 kHz mono samples. Called from the recording thread. Ignored after [cancel]. */
     fun submit(pcm: FloatArray) {
-        val seq = nextSeq++
-        worker.execute { run(seq, pcm) }
+        synchronized(lock) {
+            if (cancelled) return
+            val seq = nextSeq++
+            worker.execute { run(seq, pcm) }
+        }
+    }
+
+    /**
+     * Drops every chunk not yet transcribed, and anything submitted later. Used when a recording is cancelled: nothing
+     * is transcribed or inserted. A chunk already being transcribed finishes in the background and its text is thrown away.
+     */
+    fun cancel() {
+        synchronized(lock) {
+            cancelled = true
+            worker.shutdown()
+        }
     }
 
     private fun run(seq: Int, pcm: FloatArray) {
+        if (synchronized(lock) { cancelled }) return
         val started = now()
         val result = try {
             val transcriber = model() ?: throw IOException("The Whisper model isn't loaded")
