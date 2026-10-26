@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Wirl" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/wirl_teal_dark</item>
-        <item name="colorSecondary">@color/wirl_teal_dark</item>
+        <item name="colorPrimary">@color/brand</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">@color/brand_light</item>
+        <item name="colorOnPrimaryContainer">@color/brand_dark</item>
+        <item name="colorSecondary">@color/brand</item>
+        <item name="colorSurface">@color/paper</item>
+        <item name="android:colorBackground">@color/paper</item>
     </style>
 
     <style name="Theme.Wirl.Translucent" parent="Theme.Wirl">
@@ -13,5 +18,35 @@
         <item name="android:windowAnimationStyle">@null</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- A settings card: filled surface, rounded, flat. -->
+    <style name="Widget.Wirl.Card" parent="Widget.Material3.CardView.Filled">
+        <item name="cardBackgroundColor">@color/card</item>
+        <item name="cardCornerRadius">20dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginBottom">4dp</item>
+    </style>
+
+    <style name="Wirl_CardBody">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:padding">18dp</item>
+    </style>
+
+    <!-- A switch row inside a card. -->
+    <style name="Wirl_Row" parent="Widget.Material3.CompoundButton.MaterialSwitch">
+        <item name="android:minHeight">48dp</item>
+        <item name="android:paddingStart">2dp</item>
+        <item name="android:textAppearance">?attr/textAppearanceBodyLarge</item>
+    </style>
+
+    <!-- Helper text under a control. -->
+    <style name="Wirl_Caption">
+        <item name="android:textAppearance">?attr/textAppearanceBodySmall</item>
+        <item name="android:textColor">?android:attr/textColorSecondary</item>
     </style>
 </resources>

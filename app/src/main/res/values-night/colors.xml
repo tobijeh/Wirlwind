@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand">#8C7FFF</color>
+    <color name="brand_dark">#B3A9FF</color>
+    <color name="brand_light">#2A2650</color>
+    <color name="ink">#12171B</color>
+    <color name="cream">#1B2128</color>
+    <color name="paper">#12171B</color>
+    <color name="card">#1B2128</color>
+    <color name="well">#171C22</color>
+    <color name="stroke">#2C333C</color>
+    <color name="bubble_green">#2E9E66</color>
+    <color name="bubble_record">#E53935</color>
+    <color name="label_bg">#E6202124</color>
+    <color name="white">#FFFFFF</color>
+</resources>

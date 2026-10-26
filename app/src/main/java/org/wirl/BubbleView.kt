@@ -76,7 +76,7 @@ class BubbleView(context: Context) : FrameLayout(context) {
         val color = when (state) {
             State.DONE -> R.color.bubble_green
             State.RECORDING -> R.color.bubble_record
-            else -> R.color.wirl_teal
+            else -> R.color.brand
         }
         background.setColor(ContextCompat.getColor(context, color))
         glyph.visibility = if (state == State.BUSY || state == State.DONE) View.GONE else View.VISIBLE
