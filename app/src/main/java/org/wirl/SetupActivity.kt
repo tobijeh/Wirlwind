@@ -105,7 +105,7 @@ class SetupActivity : AppCompatActivity() {
     private fun row(item: SetupChecklist.Item, status: Map<SetupChecklist.Item, Boolean>, view: android.widget.TextView) {
         val done = status[item] == true
         view.text = (if (done) "✓ " else "○ ") + getString(labelFor(item))
-        view.setTextColor(getColor(if (done) R.color.bubble_green else R.color.wirl_teal_dark))
+        view.setTextColor(getColor(if (done) R.color.bubble_green else R.color.brand_dark))
     }
 
     private fun labelFor(item: SetupChecklist.Item): Int = when (item) {

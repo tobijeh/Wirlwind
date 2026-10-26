@@ -156,4 +156,17 @@
     <string name="setup_open_app_settings">Open Wirl\'s settings</string>
     <string name="setup_test">Test dictation</string>
     <string name="setup_title">Setup</string>
+    <string name="header_tagline">Speak it. Get clean text.</string>
+    <string name="section_claude">Claude cleanup</string>
+    <string name="section_claude_sub">Tidies what you dictate and what you select</string>
+    <string name="section_dictation">Dictation</string>
+    <string name="section_dictation_sub">Microphone, language, and sounds</string>
+    <string name="section_speech">Speech engine</string>
+    <string name="section_speech_sub">On-device Whisper, or Google\'s recognizer</string>
+    <string name="section_bubble">Bubble</string>
+    <string name="section_bubble_sub">The floating button, and how it looks</string>
+    <string name="section_dictionary">Dictionary and setup</string>
+    <string name="section_dictionary_sub">Names to get right, and permissions</string>
+    <string name="section_developer">Developer</string>
+    <string name="section_developer_sub">Diagnostics for debugging on a phone</string>
 </resources>
