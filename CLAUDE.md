@@ -44,6 +44,12 @@ Wirl is a personal Android app (Kotlin, min SDK 26) that cleans up dictated text
 - **Diagnostics** open with a TIMING section: model wait, final chunk, Whisper total, Claude first byte and total (and whether its connection was reused), output tokens, thinking, insert time, and stop-to-insert time. Then the engine, cleanup, insert, and sound sections (`DictationTiming`).
 - **Tests** cover everything that doesn't need the phone: chunk assembly, pause detection, the pipeline (including cancel), the model holder, downloads (resume, corrupt files), prompts, the engine fallback, the recording rules and tile logic (`RecordingRulesTest`), and gesture reset. The native bridge, the microphone, the X target, the tile service, and the off/on switch can't run in unit tests. Check those on a phone.
 
+## Look and feel
+
+- **Palette** (`values/colors.xml`, with night values in `values-night/`): `brand` purple (the icon tile), `brand_dark`, `brand_light`, `ink`, `paper` (page background), `card` (settings cards). Use these tokens, not hex values. Teal is gone.
+- **Icons** are the tiles from the icon set, in `drawable-nodpi/ux_*.png`, with transparent rounded corners. `ux_logo_tile` is the app mark and `ic_wirl_glyph` is the white swirl for the bubble and the notification. The launcher is the swirl on the ink background.
+- **Settings** is a stack of cards. Each card opens with `section_header.xml` (icon tile, title, one line). Controls inside use the `Wirl_Row` and `Wirl_Caption` styles. Style names must not contain dots, or Android reads them as children of the part before the dot.
+
 ## Insertion and field text
 
 - Dictated text is pasted at the cursor via the clipboard, and the user's clipboard is restored. Setting the whole field is only a fallback.

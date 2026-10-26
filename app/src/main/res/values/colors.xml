@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Brand teal, sampled from wirl.jpg. Used for the icon and the bubble. -->
-    <color name="wirl_teal">#02A8AB</color>
-    <!-- Darker teal for buttons and switches, so white text on it stays readable. -->
-    <color name="wirl_teal_dark">#007A7C</color>
+    <!-- Brand palette from the icon set: the purple tile, ink, cream, and paper. -->
+    <color name="brand">#6355ED</color>
+    <color name="brand_dark">#4B3DC9</color>
+    <color name="brand_light">#ECE9FF</color>
+    <color name="ink">#12171B</color>
+    <color name="cream">#F2EFE8</color>
+    <color name="paper">#F7F6F1</color>
+    <color name="card">#FFFFFF</color>
+    <color name="well">#F2EFE8</color>
+    <color name="stroke">#E4E1D8</color>
     <color name="bubble_green">#1F7A4D</color>
     <color name="bubble_record">#D32F2F</color>
     <color name="label_bg">#E6202124</color>
