@@ -96,12 +96,13 @@ class ClaudeApiTest {
         assertEquals("bad request", errorFor(400, """{"error":{"message":"bad request"}}"""))
     }
 
-    @Test fun emptyAnswerIsAnError() {
-        val message = runBlocking<String> {
+    @Test fun emptyAnswerIsEmptyTextNotAnError() {
+        // Claude's reply is empty when there were no words to clean. The caller inserts nothing.
+        val cleaned = runBlocking {
             reply(200, textReply("   "))
-            expectFailure(api())
+            api().clean("key", "system", "hello")
         }
-        assertEquals("Empty response", message)
+        assertEquals("", cleaned)
     }
 
     @Test fun truncatedAnswerIsAnError() {

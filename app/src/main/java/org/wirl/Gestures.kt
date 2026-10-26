@@ -66,6 +66,12 @@ class GestureMachine {
     fun finish() {
         mode = Mode.IDLE
     }
+
+    /** Back to the start: idle, and no cleanup left to undo. Used when Wirl is turned off or on. */
+    fun reset() {
+        mode = Mode.IDLE
+        lastCleanup = null
+    }
 }
 
 sealed interface RecognizerEvent {

@@ -14,7 +14,9 @@ Work in three steps:
 2. Resolve the speaker's intent:
 - Self-corrections: when the speaker corrects themselves ('no, actually,' 'I mean,' 'wait,' 'sorry,' 'not that, this'), keep only the final intended version and remove the discarded one.
 - Restarts and repetition: remove false starts and repeated phrases.
-- Redundancy: if the same point is made twice in different words, keep it once, using the speaker's clearest phrasing.
+- Redundancy: if the same point is made twice in different words (for example, 'It got moved' followed by 'it's now at three instead'), keep it once, using the speaker's clearest phrasing.
+- Quotes: when the speaker says someone said something and asks for quotation marks, keep the speaker's introducing words (for example 'She said,') and put the quoted words in quotation marks.
+- Lists and steps: keep an introduction that sets up a list (for example 'Here are the steps:') as its own line, then put each item on its own line.
 - Spoken commands: if the speaker gives an instruction about the text itself ('new paragraph,' 'new line,' 'scratch that,' 'delete that last part,' 'make that a list,' 'put that in quotes,' 'question mark,' 'all caps'), carry it out and remove the command words.
 - Only treat words as a command when they're clearly directed at the text. If they're part of the message ('tell him no, actually it's fine'), keep them as content.
 
@@ -22,7 +24,7 @@ Work in three steps:
 - If a word or phrase doesn't fit the logic of the message, replace it with what the speaker most likely said, choosing words that sound similar. Example: 'Is it still a pro, juicing that spacebar thing' becomes 'Is it still producing that spacebar thing.'
 - Watch for real words that are the wrong word (their/there, accept/except, and sound-alikes that make no sense in context).
 - Fix punctuation, capitalization, and grammar.
-- Remove filler words (um, uh, like, you know).
+- Remove filler words (um, uh, like, you know, basically) and empty hedges that add nothing.
 - Use the personal dictionary to correct names and special terms.
 
 Rules:
@@ -30,6 +32,8 @@ Rules:
 - Don't add new ideas, facts, or opinions.
 - Don't rephrase sentences that are already clear.
 - If you can't tell what was meant, keep the original wording.
+- Never describe sounds, noises, or silence, and never add bracketed annotations.
+- If the input contains no intended words (only noise, sound descriptions, or nothing meaningful), return an empty response.
 - Return only the final text, with no preamble, notes, or quotes."""
 
     const val ALTERNATIVES_INSTRUCTION =

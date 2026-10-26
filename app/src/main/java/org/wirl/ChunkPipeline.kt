@@ -6,7 +6,15 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 /** One chunk's transcription. [text] is empty and [error] set if it failed. */
-data class ChunkResult(val seq: Int, val text: String, val error: String?, val transcribeMs: Long, val samples: Int)
+data class ChunkResult(
+    val seq: Int,
+    val text: String,
+    val error: String?,
+    val transcribeMs: Long,
+    val samples: Int,
+    /** Set when the model's text was dropped as a sound annotation or silence, so nothing is inserted for it. */
+    val dropReason: String? = null,
+)
 
 /**
  * Joins chunk texts in the order they were spoken. Each chunk number counts once: a result that arrives twice is ignored,
@@ -53,6 +61,7 @@ class ChunkPipeline(
     private val assembler = ChunkAssembler()
     private val results = mutableListOf<ChunkResult>()
     private var nextSeq = 0
+    private var cancelled = false
 
     /** Chunks queued so far. */
     fun submittedCount(): Int = nextSeq
@@ -60,17 +69,35 @@ class ChunkPipeline(
     /** Chunks transcribed so far. Chunks finished during recording stay done; stop doesn't redo them. */
     fun completedCount(): Int = synchronized(lock) { results.size }
 
-    /** Queues one chunk of 16 kHz mono samples. Called from the recording thread. */
+    /** Queues one chunk of 16 kHz mono samples. Called from the recording thread. Ignored after [cancel]. */
     fun submit(pcm: FloatArray) {
-        val seq = nextSeq++
-        worker.execute { run(seq, pcm) }
+        synchronized(lock) {
+            if (cancelled) return
+            val seq = nextSeq++
+            worker.execute { run(seq, pcm) }
+        }
+    }
+
+    /**
+     * Drops every chunk not yet transcribed, and anything submitted later. Used when a recording is cancelled: nothing
+     * is transcribed or inserted. A chunk already being transcribed finishes in the background and its text is thrown away.
+     */
+    fun cancel() {
+        synchronized(lock) {
+            cancelled = true
+            worker.shutdown()
+        }
     }
 
     private fun run(seq: Int, pcm: FloatArray) {
+        if (synchronized(lock) { cancelled }) return
         val started = now()
         val result = try {
             val transcriber = model() ?: throw IOException("The Whisper model isn't loaded")
-            ChunkResult(seq, transcriber.transcribe(pcm, language, prompt), null, now() - started, pcm.size)
+            val raw = transcriber.transcribe(pcm, language, prompt)
+            val spoken = TranscriptFilter.clean(raw)
+            val dropped = if (raw.isNotBlank() && spoken.isBlank()) "sound or silence only" else null
+            ChunkResult(seq, spoken, null, now() - started, pcm.size, dropped)
         } catch (e: Throwable) {
             ChunkResult(seq, "", e.message ?: e.javaClass.simpleName, now() - started, pcm.size)
         }

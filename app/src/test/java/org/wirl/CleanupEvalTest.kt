@@ -64,7 +64,7 @@ class CleanupEvalTest {
         val user = "Spoken input:\n${case.input}\n\nExpected meaning:\n${case.expected}\n\nActual output:\n$output"
         val body = JSONObject()
             .put("model", ClaudeApi.MODEL)
-            .put("max_tokens", 200)
+            .put("max_tokens", 400)
             .put("system", JUDGE_SYSTEM)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", user)))
             .toString()

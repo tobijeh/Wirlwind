@@ -175,5 +175,17 @@
     "category": "line-breaks",
     "input": "Here are the steps new line first open the app new line second tap save",
     "expected": "'Here are the steps:' then 'First, open the app.' then 'Second, tap save.' Each step is on its own line, so there are line breaks between them."
+  },
+  {
+    "id": "noise-only-empty",
+    "category": "silence",
+    "input": "(static) [noise] *sighs*",
+    "expected": "Empty: the input holds no intended words, only sound descriptions. The reply must be empty, with no annotation and no description of sound."
+  },
+  {
+    "id": "beep-annotation-see-you",
+    "category": "sound-annotation",
+    "input": "[beep] see you at 6",
+    "expected": "See you at 6. The [beep] annotation is removed, and nothing is added about the sound."
   }
 ]

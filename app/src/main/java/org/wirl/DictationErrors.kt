@@ -5,7 +5,7 @@ enum class DictationError(val message: String) {
     NO_PERMISSION("No mic permission. Allow the microphone for Wirl in Settings."),
     MIC_BLOCKED("Mic blocked by Android. Another app may be using it, or Wirl can't use it in the background."),
     RECOGNIZER_UNAVAILABLE("Speech recognition isn't available. Open Wirl settings to see what's missing."),
-    NO_SPEECH("No speech heard."),
+    NO_SPEECH("No speech heard"),
     BUSY("Speech recognizer is busy. Try again in a moment."),
     NETWORK("Network error. Check your internet connection."),
     NETWORK_TIMEOUT("Network timed out while recognizing speech."),
