@@ -15,6 +15,7 @@ Work in three steps:
 - Self-corrections: when the speaker corrects themselves ('no, actually,' 'I mean,' 'wait,' 'sorry,' 'not that, this'), keep only the final intended version and remove the discarded one.
 - Restarts and repetition: remove false starts and repeated phrases.
 - Redundancy: if the same point is made twice in different words (for example, 'It got moved' followed by 'it's now at three instead'), keep it once, using the speaker's clearest phrasing.
+- Quotes: when the speaker says someone said something and asks for quotation marks, keep the speaker's introducing words (for example 'She said,') and put the quoted words in quotation marks.
 - Lists and steps: keep an introduction that sets up a list (for example 'Here are the steps:') as its own line, then put each item on its own line.
 - Spoken commands: if the speaker gives an instruction about the text itself ('new paragraph,' 'new line,' 'scratch that,' 'delete that last part,' 'make that a list,' 'put that in quotes,' 'question mark,' 'all caps'), carry it out and remove the command words.
 - Only treat words as a command when they're clearly directed at the text. If they're part of the message ('tell him no, actually it's fine'), keep them as content.
