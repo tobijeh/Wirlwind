@@ -66,13 +66,7 @@ class CleanupEvalTest {
             .put("model", ClaudeApi.MODEL)
             .put("max_tokens", 400)
             .put("system", JUDGE_SYSTEM)
-            .put(
-                "messages",
-                JSONArray()
-                    .put(JSONObject().put("role", "user").put("content", user))
-                    // Start the judge's reply with "{" so it's always JSON, even when it would otherwise add prose.
-                    .put(JSONObject().put("role", "assistant").put("content", "{")),
-            )
+            .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", user)))
             .toString()
         val request = Request.Builder()
             .url(ClaudeApi.ENDPOINT)
@@ -87,9 +81,8 @@ class CleanupEvalTest {
             val text = JSONObject(raw).optJSONArray("content")?.let { content ->
                 (0 until content.length()).joinToString("") { content.getJSONObject(it).optString("text") }
             }.orEmpty()
-            // The reply continues the "{" the request started with, so the object is everything up to the last "}".
             val verdict = runCatching {
-                JSONObject("{" + text.substring(0, text.lastIndexOf('}') + 1))
+                JSONObject(text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1))
             }.getOrNull() ?: return false to "judge reply unreadable"
             return verdict.optString("verdict").equals("PASS", ignoreCase = true) to verdict.optString("reason")
         }
