@@ -126,6 +126,15 @@ class MainActivity : AppCompatActivity() {
         },
     )
 
+    /** The model's plain name for the home summary, without the file name or the language note. */
+    private fun shortModelName(model: WhisperModel): String = getString(
+        when (model) {
+            WhisperModel.FAST -> R.string.model_name_fast
+            WhisperModel.ACCURATE -> R.string.model_name_accurate
+            WhisperModel.MULTILINGUAL -> R.string.model_name_multilingual
+        },
+    )
+
     private val nativeLoads: Boolean by lazy { WhisperLibrary.loads }
 
     /** Each settings card gets its icon tile, a title, and one line about what it controls. */
@@ -197,7 +206,7 @@ class MainActivity : AppCompatActivity() {
         )
         binding.dictationSummary.text = getString(
             R.string.summary_dictation,
-            modelLabel(prefs.whisperModel),
+            shortModelName(prefs.whisperModel),
             DictationLanguages.labelFor(prefs.dictationLanguage),
         )
         binding.cleanupSummary.text = when {
