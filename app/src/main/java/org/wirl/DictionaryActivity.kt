@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.PopupMenu
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -52,8 +53,8 @@ class DictionaryActivity : AppCompatActivity() {
 
         binding.search.doAfterTextChanged { model.query.value = it?.toString().orEmpty() }
         binding.add.setOnClickListener { showEditor(null) }
-        binding.importButton.setOnClickListener { importLauncher.launch(arrayOf("*/*")) }
-        binding.exportButton.setOnClickListener { exportLauncher.launch("wirl-dictionary.json") }
+        binding.addFirst.setOnClickListener { showEditor(null) }
+        binding.more.setOnClickListener { showMoreMenu() }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -71,6 +72,22 @@ class DictionaryActivity : AppCompatActivity() {
     private fun render(state: DictionaryUiState) {
         adapter.submit(state.entries)
         binding.empty.visibility = if (state.total == 0) View.VISIBLE else View.GONE
+        binding.noMatch.visibility = if (state.total > 0 && state.entries.isEmpty()) View.VISIBLE else View.GONE
+        binding.noMatch.text = getString(R.string.no_match, state.query)
+    }
+
+    private fun showMoreMenu() {
+        PopupMenu(this, binding.more).apply {
+            inflate(R.menu.dictionary_more)
+            setOnMenuItemClickListener {
+                when (it.itemId) {
+                    R.id.menu_import -> importLauncher.launch(arrayOf("*/*"))
+                    R.id.menu_export -> exportLauncher.launch("wirl-dictionary.json")
+                }
+                true
+            }
+            show()
+        }
     }
 
     private fun showEditor(existing: DictionaryEntry?) {
