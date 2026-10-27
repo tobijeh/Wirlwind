@@ -102,10 +102,17 @@ class SetupActivity : AppCompatActivity() {
         }
     }
 
+    /** A green check when the item is done, an amber warning when it still needs attention. */
     private fun row(item: SetupChecklist.Item, status: Map<SetupChecklist.Item, Boolean>, view: android.widget.TextView) {
         val done = status[item] == true
-        view.text = (if (done) "✓ " else "○ ") + getString(labelFor(item))
-        view.setTextColor(getColor(if (done) R.color.bubble_green else R.color.brand_dark))
+        view.text = getString(labelFor(item))
+        view.setCompoundDrawablesRelativeWithIntrinsicBounds(
+            if (done) R.drawable.ic_done_setup else R.drawable.ic_warning_settings,
+            0,
+            0,
+            0,
+        )
+        view.setTextColor(getColor(R.color.ink))
     }
 
     private fun labelFor(item: SetupChecklist.Item): Int = when (item) {
