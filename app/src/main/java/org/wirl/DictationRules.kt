@@ -26,18 +26,49 @@ object WirlTileLogic {
     }
 }
 
-/** The bottom-centre target that cancels a recording when the bubble is dragged onto it. */
-data class CancelTarget(val centerX: Int, val centerY: Int, val radius: Int) {
-    /** True when a point (the bubble's centre) is over the target. */
-    fun contains(x: Int, y: Int): Boolean {
-        val dx = (x - centerX).toLong()
-        val dy = (y - centerY).toLong()
-        return dx * dx + dy * dy <= radius.toLong() * radius
+/** Which way the slide-to-cancel track extends from the bubble. */
+enum class SlideDirection { LEFT, RIGHT }
+
+/**
+ * Slide-to-cancel rules, free of Android so they can be tested. While recording, the bubble is the knob of a short track:
+ * it moves only along that track, from its resting x toward the far end. Sliding past the threshold cancels.
+ */
+object SlideToCancel {
+    /** Share of the track the knob must reach before releasing cancels. Past it, the track turns red. */
+    const val ARM_FRACTION = 0.6f
+
+    /** A flick this fast toward the far end (px/s) cancels too, once the knob has moved a little. */
+    const val FLICK_PX_PER_SEC = 1500f
+
+    /** A flick only counts after the knob has moved at least this share of the track. */
+    const val MIN_FLICK_FRACTION = 0.1f
+
+    /** The bubble can only be repositioned when it isn't recording. While recording, only the slide moves it. */
+    fun repositionAllowed(recording: Boolean): Boolean = !recording
+
+    /** The track extends left unless there isn't [reachPx] of room to the left of the bubble. */
+    fun directionFor(restX: Int, reachPx: Int): SlideDirection =
+        if (restX - reachPx >= 0) SlideDirection.LEFT else SlideDirection.RIGHT
+
+    /** The knob's x, kept between its rest position and the far end of the track. */
+    fun clampX(x: Int, restX: Int, travelPx: Int, direction: SlideDirection): Int {
+        val (min, max) = bounds(restX, travelPx, direction)
+        return x.coerceIn(min, max)
     }
 
-    companion object {
-        /** Centred horizontally, with its middle [bottomOffset] pixels above the bottom edge. */
-        fun bottomCentre(screenWidth: Int, screenHeight: Int, radius: Int, bottomOffset: Int): CancelTarget =
-            CancelTarget(screenWidth / 2, screenHeight - bottomOffset, radius)
+    /** How far along the track the knob is: 0 at rest, 1 at the far end. */
+    fun progress(x: Int, restX: Int, travelPx: Int, direction: SlideDirection): Float {
+        if (travelPx <= 0) return 0f
+        val moved = if (direction == SlideDirection.LEFT) restX - x else x - restX
+        return (moved.toFloat() / travelPx).coerceIn(0f, 1f)
     }
+
+    fun armed(progress: Float): Boolean = progress >= ARM_FRACTION
+
+    /** Releasing cancels when armed, or on a fast flick toward the far end. [velocityTowardFarEnd] is px/s, positive toward it. */
+    fun cancelsOnRelease(progress: Float, velocityTowardFarEnd: Float): Boolean =
+        armed(progress) || (progress >= MIN_FLICK_FRACTION && velocityTowardFarEnd >= FLICK_PX_PER_SEC)
+
+    private fun bounds(restX: Int, travelPx: Int, direction: SlideDirection): Pair<Int, Int> =
+        if (direction == SlideDirection.LEFT) (restX - travelPx) to restX else restX to (restX + travelPx)
 }

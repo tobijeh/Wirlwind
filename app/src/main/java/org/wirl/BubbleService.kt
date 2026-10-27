@@ -10,9 +10,9 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.content.res.Configuration
-import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.animation.ValueAnimator
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
@@ -26,6 +26,7 @@ import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.HapticFeedbackConstants
+import android.view.VelocityTracker
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -45,6 +46,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.hypot
 
 /**
@@ -55,6 +57,8 @@ class BubbleService : AccessibilityService() {
     private companion object {
         /** How long a pause may last before the recognizer decides the speaker has finished. */
         const val SILENCE_HINT_MS = 10_000L
+        /** How far the knob slides from rest to the far end of the cancel track. */
+        const val SLIDE_TRAVEL_DP = 150
         const val TAG = "Wirl"
     }
 
@@ -79,8 +83,15 @@ class BubbleService : AccessibilityService() {
 
     private var state = State.IDLE
     private var job: Job? = null
-    private var cancelShown = false
-    private var cancelView: TextView? = null
+    /** The track the bubble slides along to cancel a recording. Shown only while recording. */
+    private var slideTrack: TextView? = null
+    private var slideShown = false
+    private val slideTrackBackground = GradientDrawable()
+    private var slideDirection = SlideDirection.LEFT
+    /** The bubble's resting x while recording, and how far the knob can slide from it. */
+    private var slideRestX = 0
+    private var slideTravelPx = 0
+    private var slideAnimator: ValueAnimator? = null
 
     /** Text before the last cleanup, and what we replaced it with (for undo). */
     private var undoOriginal: String? = null
@@ -1059,7 +1070,7 @@ class BubbleService : AccessibilityService() {
     private fun setState(newState: State) {
         state = newState
         handler.removeCallbacks(resetDoneRunnable)
-        if (newState == State.RECORDING) showCancelTarget() else hideCancelTarget()
+        if (newState == State.RECORDING) showSlideTrack() else hideSlideTrack()
         circle.setState(
             when (newState) {
                 State.IDLE -> BubbleView.State.IDLE
@@ -1083,57 +1094,90 @@ class BubbleService : AccessibilityService() {
         PixelFormat.TRANSLUCENT,
     ).apply { gravity = Gravity.TOP or Gravity.LEFT }
 
-    /** The X at the bottom of the screen. Shown only while recording: dragging the bubble onto it cancels the dictation. */
-    private fun showCancelTarget() {
-        if (cancelShown) return
-        val target = cancelTarget()
-        val view = cancelView ?: TextView(this).apply {
-            text = "✕"
-            gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            textSize = 22f
-            contentDescription = getString(R.string.cancel_target)
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(getColor(R.color.bubble_record))
-            }
-        }.also { cancelView = it }
-        val size = dp(56)
+    /**
+     * Recording started: a pill slides out beside the bubble, and the bubble becomes its knob. The knob moves only along the
+     * track. The track extends to the right when there isn't room on the left.
+     */
+    private fun showSlideTrack() {
+        if (slideShown || !bubbleShown) return
+        slideRestX = bubbleParams.x
+        slideTravelPx = dp(SLIDE_TRAVEL_DP)
+        val trackWidth = slideTravelPx + bubbleSizePx
+        // The track's rest end sits under the knob's centre.
+        val centreOffset = shadowPadPx + bubbleSizePx / 2
+        slideDirection = SlideToCancel.directionFor(slideRestX + centreOffset, trackWidth)
+        val track = slideTrack ?: buildSlideTrack().also { slideTrack = it }
+        val left = if (slideDirection == SlideDirection.LEFT) slideRestX + centreOffset - trackWidth else slideRestX + centreOffset
+        track.text = if (slideDirection == SlideDirection.LEFT) "‹  ${getString(R.string.slide_cancel)}" else "${getString(R.string.slide_cancel)}  ›"
+        track.gravity = Gravity.CENTER_VERTICAL or if (slideDirection == SlideDirection.LEFT) Gravity.START else Gravity.END
+        val knobSide = bubbleSizePx / 2 + dp(8)
+        track.setPadding(
+            if (slideDirection == SlideDirection.LEFT) dp(16) else knobSide,
+            0,
+            if (slideDirection == SlideDirection.LEFT) knobSide else dp(16),
+            0,
+        )
+        slideTrackBackground.cornerRadius = bubbleSizePx / 2f
+        setTrackArmed(false)
+        track.pivotX = if (slideDirection == SlideDirection.LEFT) trackWidth.toFloat() else 0f
+        track.scaleX = 0f
         val params = overlayParams(touchable = false).apply {
-            width = size
-            height = size
-            x = target.centerX - size / 2
-            y = target.centerY - size / 2
+            width = trackWidth
+            height = bubbleSizePx
+            x = left
+            y = bubbleParams.y + shadowPadPx
         }
-        runCatching { wm.addView(view, params) }.onSuccess { cancelShown = true }
-    }
-
-    private fun hideCancelTarget() {
-        cancelView?.apply {
-            scaleX = 1f
-            scaleY = 1f
+        runCatching { wm.removeView(track) }
+        runCatching { wm.addView(track, params) }.onSuccess {
+            slideShown = true
+            track.animate().scaleX(1f).setDuration(180).start()
+            // Windows stack in the order they were added, so the bubble is re-added to stay on top of the track.
+            if (bubbleShown) {
+                runCatching { wm.removeView(bubbleRoot) }
+                wm.addView(bubbleRoot, bubbleParams)
+            }
         }
-        if (!cancelShown) return
-        runCatching { wm.removeView(cancelView) }
-        cancelShown = false
     }
 
-    /** The X's hit area: the bubble's centre over it counts as dropping on it. */
-    private fun cancelTarget(): CancelTarget =
-        CancelTarget.bottomCentre(screenWidth(), screenHeight(), radius = dp(44), bottomOffset = dp(96))
-
-    /** True when the bubble is dragged over the X while it's shown. */
-    private fun overCancelTarget(): Boolean {
-        if (!cancelShown) return false
-        val half = windowSize() / 2
-        return cancelTarget().contains(bubbleParams.x + half, bubbleParams.y + half)
+    /** Recording ended: the track retracts, and the bubble is free to move again. */
+    private fun hideSlideTrack() {
+        val track = slideTrack ?: return
+        if (!slideShown) return
+        slideShown = false
+        track.animate().scaleX(0f).setDuration(150).withEndAction {
+            if (!slideShown) runCatching { wm.removeView(track) }
+        }.start()
     }
 
-    private fun highlightCancelTarget(over: Boolean) {
-        val scale = if (over) 1.25f else 1f
-        cancelView?.apply {
-            scaleX = scale
-            scaleY = scale
+    private fun buildSlideTrack(): TextView = TextView(this).apply {
+        textSize = 15f
+        background = slideTrackBackground
+        contentDescription = getString(R.string.slide_cancel_desc)
+    }
+
+    /** Armed: the track turns red, to show that releasing will cancel. */
+    private fun setTrackArmed(armed: Boolean) {
+        slideTrackBackground.setColor(getColor(if (armed) R.color.bubble_record else R.color.brand_light))
+        slideTrack?.setTextColor(getColor(if (armed) R.color.white else R.color.brand))
+    }
+
+    /** Ends a slide. A release past the threshold, or a fast flick, cancels. Either way the knob springs back to rest. */
+    private fun endSlide(cancel: Boolean) {
+        setTrackArmed(false)
+        if (cancel) discardDictation("cancelled by sliding the bubble to Cancel")
+        springBack()
+    }
+
+    /** Moves the knob back to its resting x, the same place a recording started from. */
+    private fun springBack() {
+        slideAnimator?.cancel()
+        slideAnimator = ValueAnimator.ofInt(bubbleParams.x, slideRestX).apply {
+            duration = 200
+            addUpdateListener {
+                bubbleParams.x = it.animatedValue as Int
+                if (bubbleShown) wm.updateViewLayout(bubbleRoot, bubbleParams)
+            }
+            start()
         }
     }
 
@@ -1184,6 +1228,7 @@ class BubbleService : AccessibilityService() {
     }
 
     private fun hideBubble() {
+        hideSlideTrack()
         if (!bubbleShown) return
         runCatching { wm.removeView(bubbleRoot) }
         bubbleShown = false
@@ -1195,8 +1240,12 @@ class BubbleService : AccessibilityService() {
         private var downY = 0f
         private var startX = 0
         private var startY = 0
+        private var moved = false
         private var dragging = false
         private var longFired = false
+        private var sliding = false
+        private var sliderArmed = false
+        private var velocity: VelocityTracker? = null
         private val longPress = Runnable {
             longFired = true
             onHold()
@@ -1205,19 +1254,42 @@ class BubbleService : AccessibilityService() {
         override fun onTouch(v: View, e: MotionEvent): Boolean {
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    // A spring-back still running would move the bubble away from its rest position: stop it there.
+                    if (slideAnimator?.isRunning == true) {
+                        slideAnimator?.cancel()
+                        bubbleParams.x = slideRestX
+                        if (bubbleShown) wm.updateViewLayout(bubbleRoot, bubbleParams)
+                    }
+                    velocity?.recycle()
+                    velocity = VelocityTracker.obtain().also { it.addMovement(e) }
                     downX = e.rawX
                     downY = e.rawY
                     startX = bubbleParams.x
                     startY = bubbleParams.y
+                    moved = false
                     dragging = false
                     longFired = false
+                    sliding = false
+                    sliderArmed = false
                     handler.postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
                     v.animate().scaleX(0.92f).scaleY(0.92f).setDuration(80).start()
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    velocity?.addMovement(e)
                     val dx = e.rawX - downX
                     val dy = e.rawY - downY
-                    if (!dragging && !longFired && hypot(dx, dy) > slop) {
+                    if (!moved && hypot(dx, dy) > slop) moved = true
+                    if (!SlideToCancel.repositionAllowed(recording = state == State.RECORDING)) {
+                        // Recording: the bubble holds still, except to slide along the cancel track.
+                        if (!sliding && !longFired && abs(dx) > slop && abs(dx) > abs(dy) && slideShown) {
+                            sliding = true
+                            handler.removeCallbacks(longPress)
+                            hideLabel()
+                        }
+                        if (sliding) slideTo(startX + dx.toInt())
+                        return true
+                    }
+                    if (!dragging && !longFired && moved) {
                         dragging = true
                         handler.removeCallbacks(longPress)
                         hideLabel()
@@ -1227,26 +1299,44 @@ class BubbleService : AccessibilityService() {
                         bubbleParams.y = startY + dy.toInt()
                         clampBubble()
                         wm.updateViewLayout(bubbleRoot, bubbleParams)
-                        highlightCancelTarget(overCancelTarget())
                     }
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     handler.removeCallbacks(longPress)
                     v.animate().scaleX(1f).scaleY(1f).setDuration(80).start()
-                    if (dragging && overCancelTarget()) {
-                        // Dropped on the X: nothing is processed, and the bubble goes back to where it was before the drag.
-                        bubbleParams.x = startX
-                        bubbleParams.y = startY
-                        if (bubbleShown) wm.updateViewLayout(bubbleRoot, bubbleParams)
-                        discardDictation("cancelled by dragging the bubble to the X")
+                    if (sliding) {
+                        velocity?.computeCurrentVelocity(1000)
+                        val xVelocity = velocity?.xVelocity ?: 0f
+                        val towardFarEnd = if (slideDirection == SlideDirection.LEFT) -xVelocity else xVelocity
+                        val progress = SlideToCancel.progress(bubbleParams.x, slideRestX, slideTravelPx, slideDirection)
+                        val cancel = e.actionMasked == MotionEvent.ACTION_UP &&
+                            SlideToCancel.cancelsOnRelease(progress, towardFarEnd)
+                        sliding = false
+                        sliderArmed = false
+                        endSlide(cancel)
                     } else if (dragging) {
                         prefs.bubblePosition = bubbleParams.x to bubbleParams.y
-                    } else if (!longFired && e.actionMasked == MotionEvent.ACTION_UP) {
+                    } else if (!moved && !longFired && e.actionMasked == MotionEvent.ACTION_UP) {
+                        // A tap stops the recording and processes it, even while the track is shown.
                         onTap()
                     }
+                    velocity?.recycle()
+                    velocity = null
                 }
             }
             return true
+        }
+
+        /** Moves the knob along the track, and buzzes once when it crosses the threshold. */
+        private fun slideTo(x: Int) {
+            bubbleParams.x = SlideToCancel.clampX(x, slideRestX, slideTravelPx, slideDirection)
+            if (bubbleShown) wm.updateViewLayout(bubbleRoot, bubbleParams)
+            val armedNow = SlideToCancel.armed(SlideToCancel.progress(bubbleParams.x, slideRestX, slideTravelPx, slideDirection))
+            if (armedNow != sliderArmed) {
+                sliderArmed = armedNow
+                setTrackArmed(armedNow)
+                circle.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+            }
         }
     }
 

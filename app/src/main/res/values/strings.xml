@@ -109,7 +109,8 @@
     <string name="whisper_failed">Whisper couldn\'t transcribe the dictation: %1$s</string>
     <string name="transcribing">Transcribing…</string>
     <string name="no_speech_heard">No speech heard</string>
-    <string name="cancel_target">Drag here to cancel</string>
+    <string name="slide_cancel">Cancel</string>
+    <string name="slide_cancel_desc">Slide the bubble to cancel the recording</string>
     <string name="tile_label">Wirl</string>
     <string name="tile_on">On</string>
     <string name="tile_off">Off</string>
