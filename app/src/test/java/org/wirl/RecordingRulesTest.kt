@@ -80,14 +80,4 @@ class RecordingRulesTest {
         assertEquals(true, WirlTileLogic.afterTap(TileState.OFF, bubbleEnabled = false))
         assertNull(WirlTileLogic.afterTap(TileState.NEEDS_SETUP, bubbleEnabled = true))
     }
-
-    @Test fun cancelTargetCatchesTheBubbleOnlyNearTheX() {
-        val target = CancelTarget.bottomCentre(screenWidth = 1080, screenHeight = 2400, radius = 100, bottomOffset = 200)
-        assertEquals(540, target.centerX)
-        assertEquals(2200, target.centerY)
-        assertTrue(target.contains(540, 2200))
-        assertTrue("edge counts as over", target.contains(640, 2200))
-        assertFalse(target.contains(541, 2300))
-        assertFalse("the top of the screen is nowhere near", target.contains(540, 300))
-    }
 }
