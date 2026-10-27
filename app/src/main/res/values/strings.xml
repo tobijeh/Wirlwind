@@ -39,7 +39,9 @@
     <string name="dictionary_button">Dictionary · %1$d terms</string>
     <string name="dictionary_search">Search terms</string>
     <string name="dictionary_empty">No terms yet. Add names or words Wirl often gets wrong.</string>
-    <string name="dictionary_add">Add</string>
+    <string name="add_first_term">Add your first term</string>
+    <string name="more_options">More options</string>
+    <string name="no_match">No terms match “%1$s”</string>
     <string name="dictionary_import">Import</string>
     <string name="dictionary_export">Export</string>
     <string name="dictionary_entry_term">Correct spelling</string>
