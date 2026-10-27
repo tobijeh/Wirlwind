@@ -30,11 +30,14 @@
         <item name="android:layout_marginBottom">4dp</item>
     </style>
 
+    <!-- The body of a settings card: 20dp inside, with the same 12dp gap between every item. -->
     <style name="Wirl_CardBody">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:orientation">vertical</item>
-        <item name="android:padding">18dp</item>
+        <item name="android:padding">20dp</item>
+        <item name="android:showDividers">middle</item>
+        <item name="android:divider">@drawable/space_12</item>
     </style>
 
     <!-- A switch row inside a card. -->
@@ -62,19 +65,37 @@
         <item name="android:statusBarColor">@color/settings_bg</item>
         <item name="android:navigationBarColor">@color/settings_bg</item>
         <item name="textAppearanceTitleLarge">@style/Wirl.TextAppearance.Title</item>
-        <item name="textAppearanceTitleMedium">@style/Wirl.TextAppearance.Title</item>
+        <item name="textAppearanceTitleMedium">@style/Wirl.TextAppearance.TitleMedium</item>
         <item name="textAppearanceBodyLarge">@style/Wirl.TextAppearance.Body</item>
-        <item name="textAppearanceBodyMedium">@style/Wirl.TextAppearance.Body</item>
-        <item name="textAppearanceBodySmall">@style/Wirl.TextAppearance.Body</item>
-        <item name="textAppearanceLabelLarge">@style/Wirl.TextAppearance.Body</item>
+        <item name="textAppearanceBodyMedium">@style/Wirl.TextAppearance.BodyMedium</item>
+        <item name="textAppearanceBodySmall">@style/Wirl.TextAppearance.Caption</item>
+        <item name="textAppearanceLabelLarge">@style/Wirl.TextAppearance.BodyMedium</item>
     </style>
 
+    <!-- Type scale for Settings: sizes are kept small enough that a line of text fits on one row on a phone. -->
     <style name="Wirl.TextAppearance.Title" parent="TextAppearance.Material3.TitleLarge">
         <item name="android:fontFamily">@font/manrope</item>
+        <item name="android:textSize">22sp</item>
+    </style>
+
+    <style name="Wirl.TextAppearance.TitleMedium" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:fontFamily">@font/manrope</item>
+        <item name="android:textSize">17sp</item>
     </style>
 
     <style name="Wirl.TextAppearance.Body" parent="TextAppearance.Material3.BodyLarge">
         <item name="android:fontFamily">@font/manrope</item>
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <style name="Wirl.TextAppearance.BodyMedium" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:fontFamily">@font/manrope</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <style name="Wirl.TextAppearance.Caption" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:fontFamily">@font/manrope</item>
+        <item name="android:textSize">13sp</item>
     </style>
 
     <!-- A settings card: dark surface with a 1dp border, rounded. -->
