@@ -170,6 +170,9 @@
     <string name="section_dictionary_sub">Names to get right, and permissions</string>
     <string name="section_developer">Developer</string>
     <string name="section_developer_sub">Diagnostics for debugging on a phone</string>
+    <string name="model_name_fast">Fast</string>
+    <string name="model_name_accurate">Accurate</string>
+    <string name="model_name_multilingual">Multilingual</string>
     <string name="chevron">›</string>
     <string name="page_dictation">Dictation</string>
     <string name="page_cleanup">AI cleanup</string>
