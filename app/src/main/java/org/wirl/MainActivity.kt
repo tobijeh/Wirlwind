@@ -89,8 +89,6 @@ class MainActivity : AppCompatActivity() {
 
         binding.dictationCleanup.isChecked = prefs.dictationCleanup
         binding.dictationCleanup.setOnCheckedChangeListener { _, checked -> prefs.dictationCleanup = checked }
-        binding.silenceBeeps.isChecked = prefs.silenceBeeps
-        binding.silenceBeeps.setOnCheckedChangeListener { _, checked -> prefs.silenceBeeps = checked }
         binding.dictationLanguage.setAdapter(
             ArrayAdapter(this, android.R.layout.simple_list_item_1, DictationLanguages.options.map { it.second }),
         )

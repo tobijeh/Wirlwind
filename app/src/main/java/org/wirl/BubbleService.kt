@@ -372,7 +372,7 @@ class BubbleService : AccessibilityService() {
         val audio = getSystemService(AudioManager::class.java)
         pendingSoundLines = DictationSound.restoreLeftovers(AndroidStreamMuter(audio), prefs.mutedStreams)
         dictationSound = DictationSound(
-            enabled = prefs.silenceBeeps,
+            enabled = true,
             focus = AndroidAudioFocus(audio),
             muter = AndroidStreamMuter(audio),
             store = prefs.mutedStreams,
