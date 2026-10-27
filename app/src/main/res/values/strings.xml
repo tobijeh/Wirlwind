@@ -170,6 +170,11 @@
     <string name="section_dictionary_sub">Names to get right, and permissions</string>
     <string name="section_developer">Developer</string>
     <string name="section_developer_sub">Diagnostics for debugging on a phone</string>
+    <string name="chevron">›</string>
+    <string name="page_dictation">Dictation</string>
+    <string name="page_cleanup">AI cleanup</string>
+    <string name="page_bubble">Bubble</string>
+    <string name="page_about">About</string>
     <string name="settings_back">‹ Back</string>
     <string name="settings_tagline">Speak it. Get clean text.</string>
     <string name="status_on">Wirl is on</string>
