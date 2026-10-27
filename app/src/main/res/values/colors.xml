@@ -11,6 +11,8 @@
     <color name="well">#F2EFE8</color>
     <color name="stroke">#E4E1D8</color>
     <color name="bubble_green">#1F7A4D</color>
+    <color name="bubble_green_light">#E6F4EC</color>
+    <color name="bubble_amber">#B26A00</color>
     <color name="bubble_record">#D32F2F</color>
     <color name="label_bg">#E6202124</color>
     <color name="white">#FFFFFF</color>
