@@ -27,7 +27,7 @@
             android:padding="16dp"
             android:text="@string/setup_all_set"
             android:textAppearance="?attr/textAppearanceTitleMedium"
-            android:textColor="#1F7A4D"
+            android:textColor="@color/bubble_green"
             android:visibility="gone" />
 
         <LinearLayout
