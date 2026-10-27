@@ -1,482 +1,157 @@
-<?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/paper"
-    android:fillViewport="true"
-    android:fitsSystemWindows="true">
+<?xml version='1.0' encoding='UTF-8'?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:layout_width="match_parent" android:layout_height="match_parent">
+  <ScrollView android:id="@+id/pageHome" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="@color/settings_bg">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="4dp" android:paddingBottom="16dp">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingStart="16dp"
-        android:paddingTop="20dp"
-        android:paddingEnd="16dp"
-        android:paddingBottom="32dp">
+            <ImageView android:layout_width="56dp" android:layout_height="56dp" android:contentDescription="@null" android:src="@drawable/ux_logo_tile"/>
 
-        <!-- Header -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="4dp"
-            android:paddingBottom="16dp">
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="14dp" android:layout_weight="1" android:orientation="vertical">
 
-            <ImageView
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:contentDescription="@null"
-                android:src="@drawable/ux_logo_tile" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/app_name" android:textAppearance="?attr/textAppearanceHeadlineMedium" android:textStyle="bold"/>
 
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/app_name"
-                    android:textAppearance="?attr/textAppearanceHeadlineMedium"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/header_tagline"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="?android:attr/textColorSecondary" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/header_tagline" android:textAppearance="?attr/textAppearanceBodyMedium" android:textColor="?android:attr/textColorSecondary"/>
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Shown until a speech model is downloaded -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/modelBanner"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:visibility="gone"
-            app:cardBackgroundColor="@color/brand"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp">
+        <com.google.android.material.card.MaterialCardView android:id="@+id/modelBanner" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp" android:visibility="gone" app:cardBackgroundColor="@color/brand" app:cardCornerRadius="20dp" app:cardElevation="0dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="18dp">
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="18dp">
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/speech_banner_title"
-                    android:textAppearance="?attr/textAppearanceTitleMedium"
-                    android:textColor="@color/white"
-                    android:textStyle="bold" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/speech_banner_title" android:textAppearance="?attr/textAppearanceTitleMedium" android:textColor="@color/white" android:textStyle="bold"/>
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/speech_banner_body"
-                    android:textAppearance="?attr/textAppearanceBodyMedium"
-                    android:textColor="@color/white" />
+                <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="@string/speech_banner_body" android:textAppearance="?attr/textAppearanceBodyMedium" android:textColor="@color/white"/>
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/bannerDownload"
-                    style="@style/Widget.Material3.Button"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:backgroundTint="@color/white"
-                    android:text="@string/speech_banner_title"
-                    android:textColor="@color/brand_dark" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/bannerDownload" style="@style/Widget.Material3.Button" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:backgroundTint="@color/white" android:text="@string/speech_banner_title" android:textColor="@color/brand_dark"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Claude cleanup -->
-        <include
-            android:id="@+id/cardClaude"
-            layout="@layout/section_header"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+        <com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp" android:cardBackgroundColor="@color/settings_card" android:cardCornerRadius="20dp" android:cardElevation="0dp" android:strokeColor="@color/settings_border" android:strokeWidth="1dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="18dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical"><LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical"><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:id="@+id/statusTitle" android:textSize="22sp" android:textColor="@color/settings_text" android:textStyle="bold"/><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:id="@+id/statusSubtitle" android:textSize="13sp" android:textColor="@color/settings_text_secondary"/></LinearLayout><com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/bubbleToggle" style="@style/Wirl_Row" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/bubble_toggle"/>
 
-        <com.google.android.material.card.MaterialCardView style="@style/Widget.Wirl.Card">
+                </LinearLayout><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:id="@+id/healthLine" android:textSize="14sp" android:textColor="@color/settings_text_secondary" android:layout_marginTop="12dp"/></LinearLayout></com.google.android.material.card.MaterialCardView><com.google.android.material.card.MaterialCardView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="12dp" android:cardBackgroundColor="@color/settings_card" android:cardCornerRadius="20dp" android:cardElevation="0dp" android:strokeColor="@color/settings_border" android:strokeWidth="1dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="0dp"><LinearLayout android:id="@+id/rowDictation" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:minHeight="72dp" android:padding="14dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground"><ImageView android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/ux_mic" android:contentDescription="@null"/><LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="14dp"><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/row_dictation" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/settings_text"/><TextView android:id="@+id/dictationSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="13sp" android:textColor="@color/settings_text_secondary"/></LinearLayout><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="›" android:textSize="22sp" android:textColor="@color/settings_text_secondary"/></LinearLayout><LinearLayout android:id="@+id/rowCleanup" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:minHeight="72dp" android:padding="14dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground"><ImageView android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/ux_wand" android:contentDescription="@null"/><LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="14dp"><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/row_cleanup" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/settings_text"/><TextView android:id="@+id/cleanupSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="13sp" android:textColor="@color/settings_text_secondary"/></LinearLayout><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="›" android:textSize="22sp" android:textColor="@color/settings_text_secondary"/></LinearLayout><LinearLayout android:id="@+id/rowDictionary" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:minHeight="72dp" android:padding="14dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground"><ImageView android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/ux_text" android:contentDescription="@null"/><LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="14dp"><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/row_dictionary" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/settings_text"/><TextView android:id="@+id/dictionarySummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="13sp" android:textColor="@color/settings_text_secondary"/></LinearLayout><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="›" android:textSize="22sp" android:textColor="@color/settings_text_secondary"/></LinearLayout><LinearLayout android:id="@+id/rowBubble" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:minHeight="72dp" android:padding="14dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground"><ImageView android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/ux_send" android:contentDescription="@null"/><LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="14dp"><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/row_bubble" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/settings_text"/><TextView android:id="@+id/bubbleSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="13sp" android:textColor="@color/settings_text_secondary"/></LinearLayout><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="›" android:textSize="22sp" android:textColor="@color/settings_text_secondary"/></LinearLayout><LinearLayout android:id="@+id/rowSetup" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:minHeight="72dp" android:padding="14dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground"><ImageView android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/ux_keyboard" android:contentDescription="@null"/><LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="14dp"><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/row_setup" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/settings_text"/><TextView android:id="@+id/setupSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="13sp" android:textColor="@color/settings_text_secondary"/></LinearLayout><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="›" android:textSize="22sp" android:textColor="@color/settings_text_secondary"/></LinearLayout><LinearLayout android:id="@+id/rowAbout" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:minHeight="72dp" android:padding="14dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackground"><ImageView android:layout_width="40dp" android:layout_height="40dp" android:src="@drawable/ux_refresh" android:contentDescription="@null"/><LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:paddingStart="14dp"><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/row_about" android:textSize="16sp" android:textStyle="bold" android:textColor="@color/settings_text"/><TextView android:id="@+id/aboutSummary" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="13sp" android:textColor="@color/settings_text_secondary"/></LinearLayout><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="›" android:textSize="22sp" android:textColor="@color/settings_text_secondary"/></LinearLayout></LinearLayout></com.google.android.material.card.MaterialCardView></LinearLayout>
+  </ScrollView>
+  <ScrollView android:id="@+id/pageDictation" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="@color/settings_bg" android:visibility="gone">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:paddingBottom="12dp"><TextView android:id="@+id/backDictation" android:text="@string/settings_back" android:minHeight="48dp" android:gravity="center_vertical" android:paddingEnd="12dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackgroundBorderless" android:textColor="@color/settings_accent" android:textSize="16sp"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Dictation" android:textSize="24sp" android:textStyle="bold" android:textColor="@color/settings_text"/></LinearLayout><include android:id="@+id/cardDictation" layout="@layout/section_header" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+
+        <com.google.android.material.card.MaterialCardView style="@style/Widget.Wirl.Settings.Card">
             <LinearLayout style="@style/Wirl_CardBody">
 
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/dictationCleanup"
-                    style="@style/Wirl_Row"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/dictation_cleanup_toggle" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/micButton" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content"/>
 
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/apiKeyLayout"
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="@string/api_key_label"
-                    app:endIconMode="password_toggle"
-                    app:placeholderText="@string/api_key_hint">
+                <com.google.android.material.button.MaterialButton android:id="@+id/testDictation" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/test_dictation"/>
 
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/apiKey"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="monospace"
-                        android:importantForAutofill="no"
-                        android:inputType="textPassword"
-                        android:singleLine="true" />
+                <TextView android:id="@+id/testResults" style="@style/Wirl_Caption" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+
+                <com.google.android.material.textfield.TextInputLayout style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="@string/dictation_language">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/dictationLanguage" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <TextView
-                    android:id="@+id/apiKeyStatus"
-                    style="@style/Wirl_Caption"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
+                <TextView android:id="@+id/packStatus" style="@style/Wirl_Caption" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"/>
 
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:hint="@string/style_notes_label">
+                <com.google.android.material.button.MaterialButton android:id="@+id/downloadPack" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/download_speech_pack" android:visibility="gone"/>
 
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/styleNotes"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:minLines="2"
-                        android:inputType="textMultiLine|textCapSentences" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/silenceBeeps" style="@style/Wirl_Row" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/silence_beeps_toggle"/>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <include android:id="@+id/cardSpeech" layout="@layout/section_header" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+
+        <com.google.android.material.card.MaterialCardView style="@style/Widget.Wirl.Settings.Card">
+            <LinearLayout style="@style/Wirl_CardBody">
+
+                <TextView android:id="@+id/speechEngine" style="@style/Wirl_Caption" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+
+                <com.google.android.material.button.MaterialButton android:id="@+id/openVoiceSettings" style="@style/Widget.Material3.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/open_voice_settings" android:visibility="gone"/>
+
+                <com.google.android.material.textfield.TextInputLayout style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="@string/whisper_engine_title">
+
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/engineChoice" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/save"
-                    style="@style/Widget.Material3.Button"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="@string/save" />
+                <TextView android:id="@+id/engineStatus" style="@style/Wirl_Caption" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"/>
 
-                <TextView
-                    android:id="@+id/lastResult"
-                    style="@style/Wirl_Caption"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp" />
+                <include android:id="@+id/modelFast" layout="@layout/item_whisper_model"/>
+
+                <include android:id="@+id/modelAccurate" layout="@layout/item_whisper_model"/>
+
+                <include android:id="@+id/modelMultilingual" layout="@layout/item_whisper_model"/>
+
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/mobileDataSwitch" style="@style/Wirl_Row" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="@string/allow_mobile_data_toggle"/>
+
+                <TextView style="@style/Wirl_Caption" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/download_wifi_only"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Dictation -->
-        <include
-            android:id="@+id/cardDictation"
-            layout="@layout/section_header"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+        </LinearLayout>
+  </ScrollView>
+  <ScrollView android:id="@+id/pageCleanup" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="@color/settings_bg" android:visibility="gone">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:paddingBottom="12dp"><TextView android:id="@+id/backCleanup" android:text="@string/settings_back" android:minHeight="48dp" android:gravity="center_vertical" android:paddingEnd="12dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackgroundBorderless" android:textColor="@color/settings_accent" android:textSize="16sp"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="AI cleanup" android:textSize="24sp" android:textStyle="bold" android:textColor="@color/settings_text"/></LinearLayout><include android:id="@+id/cardClaude" layout="@layout/section_header" android:layout_width="match_parent" android:layout_height="wrap_content"/>
 
-        <com.google.android.material.card.MaterialCardView style="@style/Widget.Wirl.Card">
+        <com.google.android.material.card.MaterialCardView style="@style/Widget.Wirl.Settings.Card">
             <LinearLayout style="@style/Wirl_CardBody">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/micButton"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/dictationCleanup" style="@style/Wirl_Row" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/dictation_cleanup_toggle"/>
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/testDictation"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/test_dictation" />
+                <com.google.android.material.textfield.TextInputLayout android:id="@+id/apiKeyLayout" style="@style/Widget.Material3.TextInputLayout.OutlinedBox" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:hint="@string/api_key_label" app:endIconMode="password_toggle" app:placeholderText="@string/api_key_hint">
 
-                <TextView
-                    android:id="@+id/testResults"
-                    style="@style/Wirl_Caption"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:hint="@string/dictation_language">
-
-                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                        android:id="@+id/dictationLanguage"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="none" />
+                    <com.google.android.material.textfield.TextInputEditText android:id="@+id/apiKey" android:layout_width="match_parent" android:layout_height="wrap_content" android:fontFamily="monospace" android:importantForAutofill="no" android:inputType="textPassword" android:singleLine="true"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <TextView
-                    android:id="@+id/packStatus"
-                    style="@style/Wirl_Caption"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp" />
+                <TextView android:id="@+id/apiKeyStatus" style="@style/Wirl_Caption" android:layout_width="match_parent" android:layout_height="wrap_content"/>
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/downloadPack"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/download_speech_pack"
-                    android:visibility="gone" />
+                <com.google.android.material.textfield.TextInputLayout style="@style/Widget.Material3.TextInputLayout.OutlinedBox" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="@string/style_notes_label">
 
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/silenceBeeps"
-                    style="@style/Wirl_Row"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/silence_beeps_toggle" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Speech engine -->
-        <include
-            android:id="@+id/cardSpeech"
-            layout="@layout/section_header"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <com.google.android.material.card.MaterialCardView style="@style/Widget.Wirl.Card">
-            <LinearLayout style="@style/Wirl_CardBody">
-
-                <TextView
-                    android:id="@+id/speechEngine"
-                    style="@style/Wirl_Caption"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/openVoiceSettings"
-                    style="@style/Widget.Material3.Button.TextButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/open_voice_settings"
-                    android:visibility="gone" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:hint="@string/whisper_engine_title">
-
-                    <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                        android:id="@+id/engineChoice"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="none" />
+                    <com.google.android.material.textfield.TextInputEditText android:id="@+id/styleNotes" android:layout_width="match_parent" android:layout_height="wrap_content" android:minLines="2" android:inputType="textMultiLine|textCapSentences"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <TextView
-                    android:id="@+id/engineStatus"
-                    style="@style/Wirl_Caption"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp" />
-
-                <include
-                    android:id="@+id/modelFast"
-                    layout="@layout/item_whisper_model" />
-
-                <include
-                    android:id="@+id/modelAccurate"
-                    layout="@layout/item_whisper_model" />
-
-                <include
-                    android:id="@+id/modelMultilingual"
-                    layout="@layout/item_whisper_model" />
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/mobileDataSwitch"
-                    style="@style/Wirl_Row"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="@string/allow_mobile_data_toggle" />
-
-                <TextView
-                    style="@style/Wirl_Caption"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/download_wifi_only" />
-            </LinearLayout>
+                </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Bubble -->
-        <include
-            android:id="@+id/cardBubble"
-            layout="@layout/section_header"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+        </LinearLayout>
+  </ScrollView>
+  <ScrollView android:id="@+id/pageBubble" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="@color/settings_bg" android:visibility="gone">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:paddingBottom="12dp"><TextView android:id="@+id/backBubble" android:text="@string/settings_back" android:minHeight="48dp" android:gravity="center_vertical" android:paddingEnd="12dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackgroundBorderless" android:textColor="@color/settings_accent" android:textSize="16sp"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Bubble" android:textSize="24sp" android:textStyle="bold" android:textColor="@color/settings_text"/></LinearLayout><include android:id="@+id/cardBubble" layout="@layout/section_header" android:layout_width="match_parent" android:layout_height="wrap_content"/>
 
-        <com.google.android.material.card.MaterialCardView style="@style/Widget.Wirl.Card">
+        <com.google.android.material.card.MaterialCardView style="@style/Widget.Wirl.Settings.Card">
             <LinearLayout style="@style/Wirl_CardBody">
 
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/bubbleToggle"
-                    style="@style/Wirl_Row"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/bubble_toggle" />
+                <TextView style="@style/Wirl_Caption" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/bubble_toggle_summary"/>
 
-                <TextView
-                    style="@style/Wirl_Caption"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/bubble_toggle_summary" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/doneCheckToggle" style="@style/Wirl_Row" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/done_check_toggle"/>
 
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/doneCheckToggle"
-                    style="@style/Wirl_Row"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/done_check_toggle" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/doneMessageToggle" style="@style/Wirl_Row" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/done_message_toggle"/>
 
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/doneMessageToggle"
-                    style="@style/Wirl_Row"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/done_message_toggle" />
+                <TextView android:id="@+id/bubbleSizeLabel" style="@style/Wirl_Caption" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp"/>
 
-                <TextView
-                    android:id="@+id/bubbleSizeLabel"
-                    style="@style/Wirl_Caption"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp" />
+                <com.google.android.material.slider.Slider android:id="@+id/bubbleSize" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="40" android:valueTo="80" android:stepSize="1"/>
 
-                <com.google.android.material.slider.Slider
-                    android:id="@+id/bubbleSize"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:valueFrom="40"
-                    android:valueTo="80"
-                    android:stepSize="1" />
+                <TextView android:id="@+id/bubbleOpacityLabel" style="@style/Wirl_Caption" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"/>
 
-                <TextView
-                    android:id="@+id/bubbleOpacityLabel"
-                    style="@style/Wirl_Caption"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp" />
+                <com.google.android.material.slider.Slider android:id="@+id/bubbleOpacity" android:layout_width="match_parent" android:layout_height="wrap_content" android:valueFrom="30" android:valueTo="100" android:stepSize="1"/>
 
-                <com.google.android.material.slider.Slider
-                    android:id="@+id/bubbleOpacity"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:valueFrom="30"
-                    android:valueTo="100"
-                    android:stepSize="1" />
+                <FrameLayout android:id="@+id/bubblePreview" android:layout_width="match_parent" android:layout_height="96dp" android:layout_marginTop="8dp" android:background="@drawable/preview_well"/>
 
-                <FrameLayout
-                    android:id="@+id/bubblePreview"
-                    android:layout_width="match_parent"
-                    android:layout_height="96dp"
-                    android:layout_marginTop="8dp"
-                    android:background="@drawable/preview_well" />
+                <TextView style="@style/Wirl_Caption" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="@string/accessibility_title"/>
 
-                <TextView
-                    style="@style/Wirl_Caption"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:text="@string/accessibility_title" />
+                <TextView android:id="@+id/accessibilityStatus" style="@style/Wirl_Caption" android:layout_width="match_parent" android:layout_height="wrap_content"/>
 
-                <TextView
-                    android:id="@+id/accessibilityStatus"
-                    style="@style/Wirl_Caption"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/openAccessibility"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/open_settings" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/openAccessibility" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/open_settings"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Dictionary and setup -->
-        <include
-            android:id="@+id/cardDictionary"
-            layout="@layout/section_header"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <com.google.android.material.card.MaterialCardView style="@style/Widget.Wirl.Card">
+        </LinearLayout>
+  </ScrollView>
+  <ScrollView android:id="@+id/pageAbout" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="@color/settings_bg" android:visibility="gone">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="16dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:paddingBottom="12dp"><TextView android:id="@+id/backAbout" android:text="@string/settings_back" android:minHeight="48dp" android:gravity="center_vertical" android:paddingEnd="12dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackgroundBorderless" android:textColor="@color/settings_accent" android:textSize="16sp"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="About" android:textSize="24sp" android:textStyle="bold" android:textColor="@color/settings_text"/></LinearLayout><TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:id="@+id/appVersion" android:textSize="16sp" android:textColor="@color/settings_text" android:layout_marginTop="4dp" android:clickable="true" android:focusable="true"/><com.google.android.material.button.MaterialButton android:id="@+id/resetDefaults" style="@style/Widget.Material3.Button.TextButton" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center_horizontal" android:layout_marginTop="16dp" android:text="@string/reset_defaults"/>
+    <com.google.android.material.card.MaterialCardView style="@style/Widget.Wirl.Settings.Card" android:id="@+id/developerCard" android:visibility="gone">
             <LinearLayout style="@style/Wirl_CardBody">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/openDictionary"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/developerOptions" style="@style/Wirl_Row" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/developer_options_toggle"/>
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/openSetup"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/open_setup"
-                    android:visibility="gone" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/openDiagnostics" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/diagnostics_button"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Developer options: off by default, and the Diagnostics button only shows when it's on -->
-        <include
-            android:id="@+id/cardDeveloper"
-            layout="@layout/section_header"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
-
-        <com.google.android.material.card.MaterialCardView style="@style/Widget.Wirl.Card">
-            <LinearLayout style="@style/Wirl_CardBody">
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/developerOptions"
-                    style="@style/Wirl_Row"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/developer_options_toggle" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/openDiagnostics"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:text="@string/diagnostics_button" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/resetDefaults"
-            style="@style/Widget.Material3.Button.TextButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="16dp"
-            android:text="@string/reset_defaults" />
-    </LinearLayout>
-</ScrollView>
+        </LinearLayout>
+  </ScrollView>
+</FrameLayout>

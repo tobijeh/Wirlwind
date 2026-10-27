@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The Settings screen is always dark, whatever the phone's theme. -->
+    <color name="settings_bg">#111116</color>
+    <color name="settings_card">#1C1B24</color>
+    <color name="settings_border">#2C2A38</color>
+    <color name="settings_text">#F2F1F7</color>
+    <color name="settings_text_secondary">#A9A7B8</color>
+    <color name="settings_accent">#8C7CF7</color>
+    <color name="settings_success">#7DDCAE</color>
+    <color name="settings_warning">#F2B66B</color>
+</resources>

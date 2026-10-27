@@ -11,6 +11,8 @@ import android.text.TextUtils
 import android.text.format.Formatter
 import android.view.Gravity
 import android.view.View
+import android.view.inputmethod.EditorInfo
+import androidx.activity.OnBackPressedCallback
 import android.widget.ArrayAdapter
 import android.widget.FrameLayout
 import android.widget.Toast
@@ -36,7 +38,10 @@ class MainActivity : AppCompatActivity() {
 
         binding.styleNotes.setText(prefs.styleNotes)
         binding.bubbleToggle.isChecked = prefs.bubbleEnabled
-        binding.bubbleToggle.setOnCheckedChangeListener { _, checked -> prefs.bubbleEnabled = checked }
+        binding.bubbleToggle.setOnCheckedChangeListener { _, checked ->
+            prefs.bubbleEnabled = checked
+            refreshHome()
+        }
         binding.doneCheckToggle.isChecked = prefs.showDoneCheck
         binding.doneCheckToggle.setOnCheckedChangeListener { _, checked -> prefs.showDoneCheck = checked }
         binding.doneMessageToggle.isChecked = prefs.showDoneMessage
@@ -44,6 +49,17 @@ class MainActivity : AppCompatActivity() {
 
         setUpBubbleAppearance()
 
+        setupNavigation()
+        binding.styleNotes.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) saveStyleNotes() }
+        binding.apiKey.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) saveApiKey() }
+        binding.apiKey.setOnEditorActionListener { _, action, _ ->
+            if (action == EditorInfo.IME_ACTION_DONE) saveApiKey()
+            false
+        }
+        binding.appVersion.setOnClickListener {
+            // Like Android's build number: seven taps reveal the developer options.
+            if (++versionTaps >= 7) refreshDeveloperOptions()
+        }
         binding.openAccessibility.setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
@@ -57,10 +73,7 @@ class MainActivity : AppCompatActivity() {
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
         }
-        binding.openSetup.setOnClickListener { startActivity(Intent(this, SetupActivity::class.java)) }
         if (!prefs.setupShown) startActivity(Intent(this, SetupActivity::class.java))
-        binding.save.setOnClickListener { save() }
-        binding.openDictionary.setOnClickListener { startActivity(Intent(this, DictionaryActivity::class.java)) }
         binding.micButton.setOnClickListener { micPermission.launch(Manifest.permission.RECORD_AUDIO) }
         binding.openVoiceSettings.setOnClickListener { openVoiceSettings() }
         binding.openDiagnostics.setOnClickListener { startActivity(Intent(this, DiagnosticsActivity::class.java)) }
@@ -121,8 +134,6 @@ class MainActivity : AppCompatActivity() {
         section(binding.cardDictation, R.drawable.ux_mic, R.string.section_dictation, R.string.section_dictation_sub)
         section(binding.cardSpeech, R.drawable.ux_waves, R.string.section_speech, R.string.section_speech_sub)
         section(binding.cardBubble, R.drawable.ux_send, R.string.section_bubble, R.string.section_bubble_sub)
-        section(binding.cardDictionary, R.drawable.ux_text, R.string.section_dictionary, R.string.section_dictionary_sub)
-        section(binding.cardDeveloper, R.drawable.ux_refresh, R.string.section_developer, R.string.section_developer_sub)
     }
 
     private fun section(header: SectionHeaderBinding, icon: Int, title: Int, subtitle: Int) {
@@ -131,9 +142,99 @@ class MainActivity : AppCompatActivity() {
         header.sectionSubtitle.setText(subtitle)
     }
 
-    /** Diagnostics is hidden unless Developer options is on. The log itself is kept either way. */
+    /**
+     * Diagnostics is hidden unless Developer options is on. The log itself is kept either way. The Developer card shows
+     * once the version has been tapped seven times, or when the option is already on.
+     */
     private fun refreshDeveloperOptions() {
         binding.openDiagnostics.visibility = if (prefs.developerOptions) View.VISIBLE else View.GONE
+        binding.developerCard.visibility = if (prefs.developerOptions || versionTaps >= 7) View.VISIBLE else View.GONE
+    }
+
+    private var versionTaps = 0
+
+    /** Each home row opens its page. Dictionary and Setup have their own screens, so they open those. */
+    private fun setupNavigation() {
+        val pages = listOf(binding.pageHome, binding.pageDictation, binding.pageCleanup, binding.pageBubble, binding.pageAbout)
+        fun show(page: View) = pages.forEach { it.visibility = if (it === page) View.VISIBLE else View.GONE }
+        binding.rowDictation.setOnClickListener { show(binding.pageDictation) }
+        binding.rowCleanup.setOnClickListener { show(binding.pageCleanup) }
+        binding.rowBubble.setOnClickListener { show(binding.pageBubble) }
+        binding.rowAbout.setOnClickListener { show(binding.pageAbout) }
+        binding.rowDictionary.setOnClickListener { startActivity(Intent(this, DictionaryActivity::class.java)) }
+        binding.rowSetup.setOnClickListener { startActivity(Intent(this, SetupActivity::class.java)) }
+        binding.backDictation.setOnClickListener { show(binding.pageHome) }
+        binding.backCleanup.setOnClickListener { show(binding.pageHome) }
+        binding.backBubble.setOnClickListener { show(binding.pageHome) }
+        binding.backAbout.setOnClickListener { show(binding.pageHome) }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (binding.pageHome.visibility == View.VISIBLE) {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                } else {
+                    show(binding.pageHome)
+                }
+            }
+        })
+        binding.appVersion.text = getString(R.string.version_label, appVersionName())
+    }
+
+    private fun appVersionName(): String = packageManager.getPackageInfo(packageName, 0).versionName.orEmpty()
+
+    /** The home screen: the on/off line, the health line, and each row's current value. */
+    private fun refreshHome() {
+        binding.statusTitle.setText(if (prefs.bubbleEnabled) R.string.status_on else R.string.status_off)
+        binding.statusSubtitle.setText(R.string.status_subtitle)
+        val missing = HomeSummary.needingAttention(SetupActivity.status(this))
+        binding.healthLine.text = if (missing == 0) {
+            getString(R.string.health_ok)
+        } else {
+            resources.getQuantityString(R.plurals.health_attention, missing, missing)
+        }
+        binding.healthLine.setTextColor(
+            getColor(if (missing == 0) R.color.settings_success else R.color.settings_warning),
+        )
+        binding.dictationSummary.text = getString(
+            R.string.summary_dictation,
+            modelLabel(prefs.whisperModel),
+            DictationLanguages.labelFor(prefs.dictationLanguage),
+        )
+        binding.cleanupSummary.text = when {
+            !prefs.dictationCleanup -> getString(R.string.summary_cleanup_off)
+            prefs.styleNotes.isNotBlank() -> getString(R.string.summary_cleanup_notes, getString(R.string.summary_cleanup_on))
+            else -> getString(R.string.summary_cleanup_on)
+        }
+        val terms = prefs.dictionary.size
+        binding.dictionarySummary.text = resources.getQuantityString(R.plurals.summary_dictionary, terms, terms)
+        binding.bubbleSummary.setText(R.string.summary_bubble)
+        if (missing == 0) {
+            binding.setupSummary.text = getString(R.string.summary_setup_all_set)
+            binding.setupSummary.setTextColor(getColor(R.color.settings_success))
+        } else {
+            binding.setupSummary.text = resources.getQuantityString(R.plurals.summary_setup_attention, missing, missing)
+            binding.setupSummary.setTextColor(getColor(R.color.settings_warning))
+        }
+        binding.aboutSummary.text = getString(R.string.summary_about, appVersionName())
+    }
+
+    private fun saveApiKey() {
+        val key = binding.apiKey.text?.toString().orEmpty().trim()
+        if (key.isNotEmpty()) {
+            prefs.apiKey = key
+            binding.apiKey.setText("")
+            refreshStatus()
+        }
+    }
+
+    private fun saveStyleNotes() {
+        prefs.styleNotes = binding.styleNotes.text?.toString().orEmpty()
+    }
+
+    override fun onPause() {
+        // Style notes save as the screen leaves, even if the field still has focus.
+        saveStyleNotes()
+        super.onPause()
     }
 
     private fun setupWhisperSettings() {
@@ -261,8 +362,7 @@ class MainActivity : AppCompatActivity() {
         refreshStatus()
         refreshWhisper()
         refreshDeveloperOptions()
-        // The Setup button goes away once every checklist item is done.
-        binding.openSetup.visibility = if (SetupChecklist.allDone(SetupActivity.status(this))) View.GONE else View.VISIBLE
+        refreshHome()
     }
 
     /** Size and opacity sliders. Values save as you drag, so the floating bubble updates live. */
@@ -328,18 +428,6 @@ class MainActivity : AppCompatActivity() {
         refreshStatus()
     }
 
-    private fun save() {
-        val key = binding.apiKey.text?.toString().orEmpty().trim()
-        if (key.isNotEmpty()) {
-            prefs.apiKey = key
-            binding.apiKey.setText("")
-        }
-        prefs.styleNotes = binding.styleNotes.text?.toString().orEmpty()
-        binding.styleNotes.setText(prefs.styleNotes)
-        refreshStatus()
-        Toast.makeText(this, R.string.saved, Toast.LENGTH_SHORT).show()
-    }
-
     private fun refreshStatus() {
         val key = prefs.apiKey
         binding.apiKeyStatus.text = if (key.isEmpty()) {
@@ -347,8 +435,6 @@ class MainActivity : AppCompatActivity() {
         } else {
             "${getString(R.string.api_key_saved)}: …${key.takeLast(4)}"
         }
-        binding.lastResult.text = "Last cleanup: ${prefs.lastResult}"
-        binding.openDictionary.text = getString(R.string.dictionary_button, prefs.dictionary.size)
         val micAllowed = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
         binding.micButton.text = "${getString(R.string.mic_title)}: " +

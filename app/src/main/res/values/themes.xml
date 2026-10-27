@@ -49,4 +49,43 @@
         <item name="android:textAppearance">?attr/textAppearanceBodySmall</item>
         <item name="android:textColor">?android:attr/textColorSecondary</item>
     </style>
+
+    <!-- Settings: a dark screen in Manrope. The rest of the app keeps the light theme. -->
+    <style name="Theme.Wirl.Settings" parent="Theme.Wirl">
+        <item name="colorPrimary">@color/settings_accent</item>
+        <item name="colorOnPrimary">@color/settings_bg</item>
+        <item name="colorSecondary">@color/settings_accent</item>
+        <item name="colorSurface">@color/settings_bg</item>
+        <item name="colorOnSurface">@color/settings_text</item>
+        <item name="colorOnSurfaceVariant">@color/settings_text_secondary</item>
+        <item name="android:colorBackground">@color/settings_bg</item>
+        <item name="android:statusBarColor">@color/settings_bg</item>
+        <item name="android:navigationBarColor">@color/settings_bg</item>
+        <item name="textAppearanceTitleLarge">@style/Wirl.TextAppearance.Title</item>
+        <item name="textAppearanceTitleMedium">@style/Wirl.TextAppearance.Title</item>
+        <item name="textAppearanceBodyLarge">@style/Wirl.TextAppearance.Body</item>
+        <item name="textAppearanceBodyMedium">@style/Wirl.TextAppearance.Body</item>
+        <item name="textAppearanceBodySmall">@style/Wirl.TextAppearance.Body</item>
+        <item name="textAppearanceLabelLarge">@style/Wirl.TextAppearance.Body</item>
+    </style>
+
+    <style name="Wirl.TextAppearance.Title" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:fontFamily">@font/manrope</item>
+    </style>
+
+    <style name="Wirl.TextAppearance.Body" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:fontFamily">@font/manrope</item>
+    </style>
+
+    <!-- A settings card: dark surface with a 1dp border, rounded. -->
+    <style name="Widget.Wirl.Settings.Card" parent="Widget.Material3.CardView.Filled">
+        <item name="cardBackgroundColor">@color/settings_card</item>
+        <item name="strokeColor">@color/settings_border</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="cardCornerRadius">20dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginBottom">12dp</item>
+    </style>
 </resources>
