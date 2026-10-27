@@ -136,7 +136,7 @@
     <string name="test_needs_mic">Allow the microphone first, then run the test again.</string>
     <string name="nothing_to_clean">Nothing to clean</string>
     <string name="style_notes_label">Personal style notes (optional)</string>
-    <string name="style_notes_helper">For example: \"I write casually, no em-dashes\"</string>
+    <string name="style_notes_helper">Optional. Saved automatically.</string>
     <string name="reset_defaults">Reset to defaults</string>
     <string name="reset_defaults_confirm">Reset all settings to their defaults? Your API key and dictionary are kept.</string>
     <string name="open_setup">Setup checklist</string>
@@ -162,8 +162,8 @@
     <string name="section_claude_sub">Tidies what you dictate and what you select</string>
     <string name="section_dictation">Dictation</string>
     <string name="section_dictation_sub">Microphone, language, and sounds</string>
-    <string name="section_speech">Speech engine</string>
-    <string name="section_speech_sub">On-device Whisper, or Google\'s recognizer</string>
+    <string name="section_speech">Speech quality</string>
+    <string name="section_speech_sub">Fast, accurate, or multilingual</string>
     <string name="section_bubble">Bubble</string>
     <string name="section_bubble_sub">The floating button, and how it looks</string>
     <string name="section_dictionary">Dictionary and setup</string>
@@ -210,4 +210,19 @@
     </plurals>
     <string name="version_label">Version %1$s</string>
     <string name="summary_about">Version %1$s · Reset</string>
+    <string name="advanced_toggle">Advanced</string>
+    <string name="mic_allow_button">Allow microphone</string>
+    <string name="quality_fast_desc">Quickest. Great for everyday texts.</string>
+    <string name="quality_accurate_desc">Better with names and long messages</string>
+    <string name="quality_multilingual_desc">For languages other than English</string>
+    <string name="model_size">%1$s</string>
+    <string name="cleanup_subtitle">Polish dictation before it's inserted</string>
+    <string name="what_it_does_title">What it does</string>
+    <string name="what_1">Fixes misheard words using context</string>
+    <string name="what_2">Drops self-corrections, repeats, and filler</string>
+    <string name="what_3">Follows spoken commands like “new paragraph”</string>
+    <string name="example_title">Example</string>
+    <string name="example_before">“um let's meet at five no actually six at the uh usual place”</string>
+    <string name="example_after">Let's meet at six at the usual place.</string>
+    <string name="style_notes_placeholder">e.g. I write casually. No em-dashes.</string>
 </resources>
