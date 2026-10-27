@@ -48,7 +48,11 @@ Wirl is a personal Android app (Kotlin, min SDK 26) that cleans up dictated text
 
 - **Palette** (`values/colors.xml`, with night values in `values-night/`): `brand` purple (the icon tile), `brand_dark`, `brand_light`, `ink`, `paper` (page background), `card` (settings cards). Use these tokens, not hex values. Teal is gone.
 - **Icons** are the tiles from the icon set, in `drawable-nodpi/ux_*.png`, with transparent rounded corners. `ux_logo_tile` is the app mark and `ic_wirl_glyph` is the white swirl for the bubble and the notification. The launcher is the swirl on the ink background.
-- **Settings** is a stack of cards. Each card opens with `section_header.xml` (icon tile, title, one line). Controls inside use the `Wirl_Row` and `Wirl_Caption` styles. Style names must not contain dots, or Android reads them as children of the part before the dot.
+- **Settings** is a home screen plus pages, all in `activity_main.xml` (`MainActivity` switches between them). Home has the on/off status card (the bubble toggle, kept in step with the Quick Settings tile), a health line, and a row per area: Dictation, AI cleanup, Dictionary, Bubble, Setup & permissions, About. Each row shows a current value. Dictionary and Setup open their own screens. The rest open pages with a "‹ Back" line at the top. Back on a page returns home.
+- **Settings is dark.** It uses `Theme.Wirl.Settings` and the `settings_*` colors in `values/settings_colors.xml`, not the light palette. Its text is Manrope (`res/font/manrope_regular.ttf` and `manrope_bold.ttf`, static cuts generated from the variable font). The rest of the app keeps the light theme.
+- **Settings saves as you go.** There's no Save button. The API key saves when its field is done, and style notes save when the field loses focus or the screen pauses.
+- **Developer options** are hidden. Seven taps on the version in About reveal them (`developerCard`), and they stay shown once the option is on.
+- Every view ID in Settings is kept, because the Robolectric tests bind to them. Style names must not contain dots, or Android reads them as children of the part before the dot.
 
 ## Insertion and field text
 
