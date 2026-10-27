@@ -46,7 +46,6 @@
                     <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/dictationLanguage" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none"/>
                 </com.google.android.material.textfield.TextInputLayout>
 
-                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/silenceBeeps" style="@style/Wirl_Row" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/silence_beeps_toggle"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

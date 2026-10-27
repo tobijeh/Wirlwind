@@ -78,7 +78,6 @@
     <string name="mic_allowed">Allowed</string>
     <string name="mic_tap_to_allow">Tap to allow</string>
     <string name="dictation_cleanup_toggle">Clean up dictation with AI</string>
-    <string name="silence_beeps_toggle">Silence beeps during dictation</string>
     <string name="whisper_engine_title">Speech engine</string>
     <string name="speech_engine_section">Speech engine and model</string>
     <string name="whisper_engine_whisper">Whisper (on-device, recommended)</string>
