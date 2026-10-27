@@ -75,6 +75,9 @@ class MainActivity : AppCompatActivity() {
         }
         if (!prefs.setupShown) startActivity(Intent(this, SetupActivity::class.java))
         binding.micButton.setOnClickListener { micPermission.launch(Manifest.permission.RECORD_AUDIO) }
+        binding.advancedToggle.setOnClickListener {
+            binding.advancedBody.visibility = if (binding.advancedBody.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        }
         binding.openVoiceSettings.setOnClickListener { openVoiceSettings() }
         binding.openDiagnostics.setOnClickListener { startActivity(Intent(this, DiagnosticsActivity::class.java)) }
         binding.developerOptions.isChecked = prefs.developerOptions
@@ -253,6 +256,7 @@ class MainActivity : AppCompatActivity() {
         binding.engineChoice.setOnItemClickListener { _, _, position, _ ->
             prefs.dictationEngine = engines[position]
             refreshWhisper()
+            refreshStatus()
         }
         bindModelRow(binding.modelFast, WhisperModel.FAST)
         bindModelRow(binding.modelAccurate, WhisperModel.ACCURATE)
@@ -264,16 +268,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun bindModelRow(row: ItemWhisperModelBinding, model: WhisperModel) {
-        row.select.text = getString(
-            R.string.model_row_title,
-            modelLabel(model),
-            Formatter.formatShortFileSize(this, model.sizeBytes),
+        row.select.text = shortModelName(model)
+        row.description.text = getString(
+            when (model) {
+                WhisperModel.FAST -> R.string.quality_fast_desc
+                WhisperModel.ACCURATE -> R.string.quality_accurate_desc
+                WhisperModel.MULTILINGUAL -> R.string.quality_multilingual_desc
+            },
         )
         row.select.setOnClickListener {
             prefs.whisperModel = model
-            if (!WhisperApp.store(this).isReady(model.spec)) {
-                Toast.makeText(this, getString(R.string.selection_not_downloaded, modelLabel(model)), Toast.LENGTH_LONG).show()
-            }
+            // Choosing a model that isn't downloaded starts its download, with progress shown on its card.
+            if (!WhisperApp.store(this).isReady(model.spec)) downloadModel(model)
             refreshWhisper()
         }
         row.download.setOnClickListener { downloadModel(model) }
@@ -311,7 +317,7 @@ class MainActivity : AppCompatActivity() {
             ModelState.Ready -> getString(R.string.model_status_ready)
             is ModelState.Downloading -> getString(R.string.model_status_downloading, state.percent)
             is ModelState.Partial -> getString(R.string.model_status_partial, state.percent)
-            ModelState.NotDownloaded -> getString(R.string.model_status_not_downloaded)
+            ModelState.NotDownloaded -> getString(R.string.model_size, Formatter.formatShortFileSize(this, model.sizeBytes))
         }
         val downloading = state is ModelState.Downloading
         row.progress.visibility = if (downloading) View.VISIBLE else View.GONE
@@ -409,7 +415,9 @@ class MainActivity : AppCompatActivity() {
         val first = order.firstOrNull()?.label
         binding.speechEngine.text = "${getString(R.string.speech_engine_title)}: " +
             (first ?: SpeechEngine.describe(detection, onDevicePackInstalled = false))
-        binding.openVoiceSettings.visibility = if (order.isEmpty()) View.VISIBLE else View.GONE
+        val google = prefs.dictationEngine == DictationEngine.GOOGLE
+        binding.speechEngine.visibility = if (google) View.VISIBLE else View.GONE
+        binding.openVoiceSettings.visibility = if (google && order.isEmpty()) View.VISIBLE else View.GONE
     }
 
     private var tester: EngineTester? = null
@@ -446,9 +454,13 @@ class MainActivity : AppCompatActivity() {
         }
         val micAllowed = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
-        binding.micButton.text = "${getString(R.string.mic_title)}: " +
-            getString(if (micAllowed) R.string.mic_allowed else R.string.mic_tap_to_allow)
-        binding.micButton.isEnabled = !micAllowed
+        // The button shows only when the microphone still needs allowing.
+        binding.micButton.visibility = if (micAllowed) View.GONE else View.VISIBLE
+        binding.micButton.text = getString(R.string.mic_allow_button)
+
+        // The speech-pack controls only apply to Google's recognizer, so they show only when it's in use.
+        val google = prefs.dictationEngine == DictationEngine.GOOGLE
+        binding.packStatus.visibility = if (google) View.VISIBLE else View.GONE
 
         val language = DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag())
         val tag = LanguageTag.format(language)
@@ -462,7 +474,7 @@ class MainActivity : AppCompatActivity() {
             ).joinToString("\n")
             // Offer the download unless the pack is confirmed installed.
             binding.downloadPack.visibility =
-                if (status == DictationLanguage.PackStatus.INSTALLED) View.GONE else View.VISIBLE
+                if (google && status != DictationLanguage.PackStatus.INSTALLED) View.VISIBLE else View.GONE
         }
 
         refreshEngineRow()
