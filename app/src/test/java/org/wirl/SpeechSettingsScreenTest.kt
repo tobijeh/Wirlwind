@@ -57,7 +57,8 @@ class SpeechSettingsScreenTest {
             assertEquals(View.VISIBLE, fast.download.visibility)
             assertEquals(View.GONE, fast.delete.visibility)
             assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.modelBanner).visibility)
-            assertEquals("Not downloaded", fast.status.text.toString())
+            // A model that isn't downloaded shows its size on its card, as the Dictation page spec asks.
+            assertEquals("60 MB", fast.status.text.toString())
         }
     }
 
