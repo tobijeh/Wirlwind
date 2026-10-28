@@ -107,7 +107,7 @@ class BubbleService : AccessibilityService() {
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         when (key) {
             Prefs.KEY_BUBBLE_ENABLED -> onBubbleEnabledChanged()
-            Prefs.KEY_BUBBLE_SIZE, Prefs.KEY_BUBBLE_OPACITY -> applyAppearance()
+            Prefs.KEY_BUBBLE_SIZE, Prefs.KEY_BUBBLE_OPACITY, Prefs.KEY_BUBBLE_ICON -> applyAppearance()
         }
     }
 
@@ -1208,6 +1208,7 @@ class BubbleService : AccessibilityService() {
     private fun applyAppearance(update: Boolean = true) {
         hideLabel()
         circle.setDiameter(dp(prefs.bubbleSizeDp))
+        circle.setIcon(BubbleIcons.find(prefs.bubbleIcon).drawable)
         bubbleRoot.alpha = prefs.bubbleOpacity / 100f
         if (!update) return
         clampBubble()

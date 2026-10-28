@@ -2,6 +2,7 @@ package org.wirl
 
 import android.animation.ValueAnimator
 import android.content.Context
+import androidx.annotation.DrawableRes
 import android.content.res.ColorStateList
 import android.graphics.PorterDuff
 import android.graphics.drawable.GradientDrawable
@@ -30,12 +31,12 @@ class BubbleView(context: Context) : FrameLayout(context) {
         }
         visibility = View.GONE
     }
-    private val glyph = ImageView(context).apply {
-        setImageResource(R.drawable.ic_wirl_glyph)
+    internal val glyph = ImageView(context).apply {
+        setImageResource(R.drawable.bubble_icon_swirl)
         scaleType = ImageView.ScaleType.FIT_CENTER
         contentDescription = context.getString(R.string.bubble_desc)
     }
-    private val check = ImageView(context).apply {
+    internal val check = ImageView(context).apply {
         setImageResource(R.drawable.ic_check)
         visibility = View.GONE
     }
@@ -74,6 +75,11 @@ class BubbleView(context: Context) : FrameLayout(context) {
         check.layoutParams = LayoutParams((px * 0.5f).toInt(), (px * 0.5f).toInt(), Gravity.CENTER)
         spinner.layoutParams = LayoutParams((px * 0.54f).toInt(), (px * 0.54f).toInt(), Gravity.CENTER)
         requestLayout()
+    }
+
+    /** Shows a different glyph. The size and state are kept, so it scales and animates like the swirl. */
+    fun setIcon(@DrawableRes icon: Int) {
+        glyph.setImageResource(icon)
     }
 
     fun setState(state: State) {

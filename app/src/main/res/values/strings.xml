@@ -226,4 +226,25 @@
     <string name="example_before">“um let\'s meet at five no actually six at the uh usual place”</string>
     <string name="example_after">Let\'s meet at six at the usual place.</string>
     <string name="style_notes_placeholder">e.g. I write casually. No em-dashes.</string>
+    <string name="icon_swirl">Wirl swirl icon</string>
+    <string name="icon_mic">Microphone icon</string>
+    <string name="icon_book">Book icon</string>
+    <string name="icon_text">Letter T icon</string>
+    <string name="icon_plane">Paper plane icon</string>
+    <string name="icon_keyboard">Keyboard icon</string>
+    <string name="icon_cloud">Cloud icon</string>
+    <string name="icon_sprout">Sprout icon</string>
+    <string name="icon_paw">Paw print icon</string>
+    <string name="icon_palette">Palette icon</string>
+    <string name="icon_laptop">Laptop icon</string>
+    <string name="icon_heart">Heart icon</string>
+    <string name="icon_bolt">Lightning bolt icon</string>
+    <string name="icon_sparkles">Sparkles icon</string>
+    <string name="icon_wave">Wave icon</string>
+    <string name="bubble_preview_title">Preview</string>
+    <string name="section_icon">Icon</string>
+    <string name="section_icon_sub">The look of the floating button</string>
+    <string name="section_appearance">Appearance</string>
+    <string name="section_appearance_sub">Size, opacity, and feedback</string>
+    <string name="icon_selected">%1$s, selected</string>
 </resources>
