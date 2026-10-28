@@ -15,7 +15,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 
 /**
- * The round Wirl bubble. The face is the chosen icon, a full circle image. While recording, a red tint and a pulsing red
+ * The round Wirl bubble. The face is the chosen icon, a full circle image. While recording, a white tint and a pulsing white
  * ring sit on top of it. While processing, a dark scrim and spinner sit on top. When done, a green scrim and check sit
  * on top. Used by the overlay and the settings preview.
  */
@@ -25,11 +25,11 @@ class BubbleView(context: Context) : FrameLayout(context) {
 
     private val background = GradientDrawable().apply { shape = GradientDrawable.OVAL }
 
-    // A pulsing red ring behind the bubble, shown while dictating.
+    // A pulsing white ring behind the bubble, shown while dictating.
     internal val ring = View(context).apply {
         background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setStroke((3 * resources.displayMetrics.density).toInt(), ContextCompat.getColor(context, R.color.bubble_red))
+            setStroke((3 * resources.displayMetrics.density).toInt(), ContextCompat.getColor(context, R.color.white))
         }
         visibility = View.GONE
     }
@@ -40,11 +40,11 @@ class BubbleView(context: Context) : FrameLayout(context) {
         contentDescription = context.getString(R.string.bubble_desc)
     }
 
-    // A red tint over the face while recording.
+    // A white tint over the face while recording.
     internal val tint = View(context).apply {
         background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(ColorUtils.setAlphaComponent(ContextCompat.getColor(context, R.color.bubble_red), 90))
+            setColor(ColorUtils.setAlphaComponent(ContextCompat.getColor(context, R.color.white), 90))
         }
         visibility = View.GONE
     }
@@ -70,7 +70,7 @@ class BubbleView(context: Context) : FrameLayout(context) {
 
     init {
         setBackground(background)
-        background.setColor(ContextCompat.getColor(context, R.color.brand))
+        background.setColor(ContextCompat.getColor(context, R.color.bubble_fill))
         outlineProvider = ViewOutlineProvider.BACKGROUND
         clipChildren = false
         elevation = 6 * resources.displayMetrics.density
