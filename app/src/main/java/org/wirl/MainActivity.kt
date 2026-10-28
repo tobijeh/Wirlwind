@@ -422,9 +422,9 @@ class MainActivity : AppCompatActivity() {
     private fun setUpIconPicker() {
         val density = resources.displayMetrics.density
         val cellPx = (52 * density).roundToInt()
-        val glyphPx = (28 * density).roundToInt()
         val badgePx = (18 * density).roundToInt()
         val badgePad = (3 * density).roundToInt()
+        val ringPx = (3 * density).roundToInt()
         binding.iconGrid.removeAllViews()
         iconCells.clear()
         BubbleIcons.ALL.chunked(5).forEach { rowIcons ->
@@ -446,7 +446,17 @@ class MainActivity : AppCompatActivity() {
                     }
                     addView(ImageView(this@MainActivity).apply {
                         setImageResource(icon.drawable)
-                        layoutParams = FrameLayout.LayoutParams(glyphPx, glyphPx, Gravity.CENTER)
+                        scaleType = ImageView.ScaleType.FIT_XY
+                        layoutParams = FrameLayout.LayoutParams(cellPx, cellPx, Gravity.CENTER)
+                    })
+                    addView(View(this@MainActivity).apply {
+                        tag = "ring"
+                        background = GradientDrawable().apply {
+                            shape = GradientDrawable.OVAL
+                            setStroke(ringPx, ContextCompat.getColor(this@MainActivity, R.color.settings_accent))
+                        }
+                        visibility = View.GONE
+                        layoutParams = FrameLayout.LayoutParams(cellPx, cellPx, Gravity.CENTER)
                     })
                     addView(ImageView(this@MainActivity).apply {
                         tag = "check"
@@ -470,17 +480,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshIconPicker() {
         val selected = BubbleIcons.find(prefs.bubbleIcon).id
-        val brand = ContextCompat.getColor(this, R.color.brand)
-        val accent = ContextCompat.getColor(this, R.color.settings_accent)
-        val ringPx = (3 * resources.displayMetrics.density).roundToInt()
         for (icon in BubbleIcons.ALL) {
             val circle = iconCells[icon.id] ?: continue
             val on = icon.id == selected
-            circle.background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(brand)
-                if (on) setStroke(ringPx, accent)
-            }
+            circle.findViewWithTag<View>("ring").visibility = if (on) View.VISIBLE else View.GONE
             circle.findViewWithTag<View>("check").visibility = if (on) View.VISIBLE else View.GONE
             val label = getString(icon.label)
             circle.contentDescription = if (on) getString(R.string.icon_selected, label) else label

@@ -6,7 +6,6 @@ import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -25,7 +24,7 @@ class BubbleIconsTest {
         )
     }
 
-    @Test fun everyIconLoadsAsAVector() {
+    @Test fun everyIconLoads() {
         for (icon in BubbleIcons.ALL) {
             assertNotNull(icon.id, ContextCompat.getDrawable(context, icon.drawable))
         }
@@ -52,28 +51,69 @@ class BubbleIconsTest {
             val bubble = BubbleView(context)
             bubble.setIcon(icon.drawable)
             bubble.setDiameter(100)
-            assertEquals(icon.id, 56, bubble.glyph.layoutParams.width)
+            assertEquals(icon.id, 100, bubble.face.layoutParams.width)
+            assertEquals(icon.id, 100, bubble.face.layoutParams.height)
         }
     }
 
-    @Test fun everyStateRendersWithEveryIcon() {
+    @Test fun theChosenIconIsTheFaceInEveryState() {
         for (icon in BubbleIcons.ALL) {
             val bubble = BubbleView(context)
             bubble.setIcon(icon.drawable)
+            for (state in BubbleView.State.values()) {
+                bubble.setState(state)
+                assertNotNull(icon.id, bubble.face.drawable)
+                assertEquals(icon.id, View.VISIBLE, bubble.face.visibility)
+            }
+        }
+    }
 
+    @Test fun recordingShowsTheRedTintAndRing() {
+        for (icon in BubbleIcons.ALL) {
+            val bubble = BubbleView(context)
+            bubble.setIcon(icon.drawable)
             bubble.setState(BubbleView.State.RECORDING)
-            assertNotNull(icon.id, bubble.glyph.colorFilter)
-            assertEquals(icon.id, View.VISIBLE, bubble.glyph.visibility)
+            assertEquals(icon.id, View.VISIBLE, bubble.tint.visibility)
+            assertEquals(icon.id, View.VISIBLE, bubble.ring.visibility)
+            assertEquals(icon.id, View.GONE, bubble.scrim.visibility)
+            assertEquals(icon.id, View.GONE, bubble.spinner.visibility)
+            assertEquals(icon.id, View.GONE, bubble.check.visibility)
+        }
+    }
 
+    @Test fun processingShowsTheScrimAndSpinnerOverTheIcon() {
+        for (icon in BubbleIcons.ALL) {
+            val bubble = BubbleView(context)
+            bubble.setIcon(icon.drawable)
             bubble.setState(BubbleView.State.BUSY)
-            assertEquals(icon.id, View.GONE, bubble.glyph.visibility)
+            assertEquals(icon.id, View.VISIBLE, bubble.scrim.visibility)
+            assertEquals(icon.id, View.VISIBLE, bubble.spinner.visibility)
+            assertEquals(icon.id, View.GONE, bubble.tint.visibility)
+            assertEquals(icon.id, View.GONE, bubble.ring.visibility)
+        }
+    }
 
+    @Test fun doneShowsTheGreenScrimAndCheckOverTheIcon() {
+        for (icon in BubbleIcons.ALL) {
+            val bubble = BubbleView(context)
+            bubble.setIcon(icon.drawable)
             bubble.setState(BubbleView.State.DONE)
+            assertEquals(icon.id, View.VISIBLE, bubble.scrim.visibility)
             assertEquals(icon.id, View.VISIBLE, bubble.check.visibility)
+            assertEquals(icon.id, View.GONE, bubble.spinner.visibility)
+        }
+    }
 
+    @Test fun idleShowsOnlyTheIcon() {
+        for (icon in BubbleIcons.ALL) {
+            val bubble = BubbleView(context)
+            bubble.setIcon(icon.drawable)
             bubble.setState(BubbleView.State.IDLE)
-            assertNull(icon.id, bubble.glyph.colorFilter)
-            assertEquals(icon.id, View.VISIBLE, bubble.glyph.visibility)
+            assertEquals(icon.id, View.GONE, bubble.tint.visibility)
+            assertEquals(icon.id, View.GONE, bubble.ring.visibility)
+            assertEquals(icon.id, View.GONE, bubble.scrim.visibility)
+            assertEquals(icon.id, View.GONE, bubble.spinner.visibility)
+            assertEquals(icon.id, View.GONE, bubble.check.visibility)
         }
     }
 }
