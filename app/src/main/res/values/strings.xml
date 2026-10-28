@@ -232,13 +232,9 @@
     <string name="icon_text">Letter T icon</string>
     <string name="icon_plane">Paper plane icon</string>
     <string name="icon_keyboard">Keyboard icon</string>
-    <string name="icon_cloud">Cloud icon</string>
     <string name="icon_sprout">Sprout icon</string>
     <string name="icon_paw">Paw print icon</string>
     <string name="icon_palette">Palette icon</string>
-    <string name="icon_laptop">Laptop icon</string>
-    <string name="icon_heart">Heart icon</string>
-    <string name="icon_bolt">Lightning bolt icon</string>
     <string name="icon_sparkles">Sparkles icon</string>
     <string name="icon_wave">Wave icon</string>
     <string name="bubble_preview_title">Preview</string>
@@ -247,4 +243,18 @@
     <string name="section_appearance">Appearance</string>
     <string name="section_appearance_sub">Size, opacity, and feedback</string>
     <string name="icon_selected">%1$s, selected</string>
+    <string name="icon_chat">Chat bubble icon</string>
+    <string name="icon_mountains">Mountains icon</string>
+    <string name="icon_tree">Pine tree icon</string>
+    <string name="icon_butterfly">Butterfly icon</string>
+    <string name="icon_bee">Bee icon</string>
+    <string name="icon_hummingbird">Hummingbird icon</string>
+    <string name="icon_dolphin">Dolphin icon</string>
+    <string name="icon_seahorse">Seahorse icon</string>
+    <string name="icon_jellyfish">Jellyfish icon</string>
+    <string name="icon_whale">Whale icon</string>
+    <string name="icon_turtle">Turtle icon</string>
+    <string name="icon_bird">Bird icon</string>
+    <string name="icon_rocket">Rocket icon</string>
+    <string name="icon_pizza">Pizza slice icon</string>
 </resources>

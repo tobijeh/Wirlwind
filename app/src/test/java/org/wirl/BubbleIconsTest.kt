@@ -16,10 +16,9 @@ import org.robolectric.annotation.Config
 class BubbleIconsTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
 
-    @Test fun thePickerHasFifteenIconsInThePickerOrder() {
+    @Test fun thePickerHasTwentyFiveIconsInThePickerOrder() {
         assertEquals(
-            listOf("swirl", "mic", "book", "text", "plane", "keyboard", "cloud", "sprout",
-                "paw", "palette", "laptop", "heart", "bolt", "sparkles", "wave"),
+            listOf("swirl", "mic", "book", "text", "plane", "keyboard", "chat", "sparkles", "sprout", "paw", "palette", "wave", "mountains", "tree", "butterfly", "bee", "hummingbird", "dolphin", "seahorse", "jellyfish", "whale", "turtle", "bird", "rocket", "pizza"),
             BubbleIcons.ALL.map { it.id },
         )
     }
@@ -33,6 +32,17 @@ class BubbleIconsTest {
     @Test fun aMissingOrUnknownIdFallsBackToTheSwirl() {
         assertEquals("swirl", BubbleIcons.find(null).id)
         assertEquals("swirl", BubbleIcons.find("no-such-icon").id)
+    }
+
+    @Test fun aRemovedIconFallsBackToTheSwirl() {
+        for (removed in listOf("cloud", "laptop", "heart", "bolt")) {
+            assertEquals(removed, "swirl", BubbleIcons.find(removed).id)
+        }
+    }
+
+    @Test fun aSavedRemovedIconReadsAsTheSwirl() {
+        Prefs(context).bubbleIcon = "heart"
+        assertEquals("swirl", Prefs(context).bubbleIcon)
     }
 
     @Test fun theChosenIconIsSavedAcrossRestarts() {
