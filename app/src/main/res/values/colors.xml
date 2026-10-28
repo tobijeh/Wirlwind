@@ -13,7 +13,7 @@
     <color name="bubble_green">#1F7A4D</color>
     <color name="bubble_green_light">#E6F4EC</color>
     <color name="bubble_amber">#B26A00</color>
-    <color name="bubble_red">#E5484D</color>
+    <color name="bubble_fill">#5733DB</color>
     <color name="bubble_record">#D32F2F</color>
     <color name="label_bg">#E6202124</color>
     <color name="white">#FFFFFF</color>
