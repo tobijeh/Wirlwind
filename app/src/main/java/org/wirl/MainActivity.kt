@@ -1,5 +1,9 @@
 package org.wirl
 
+import android.graphics.drawable.GradientDrawable
+import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.LinearLayout
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
@@ -144,6 +148,8 @@ class MainActivity : AppCompatActivity() {
         section(binding.cardDictation, R.drawable.ux_mic, R.string.section_dictation, R.string.section_dictation_sub)
         section(binding.cardSpeech, R.drawable.ux_waves, R.string.section_speech, R.string.section_speech_sub)
         section(binding.cardBubble, R.drawable.ux_send, R.string.section_bubble, R.string.section_bubble_sub)
+        section(binding.cardIcon, R.drawable.ux_logo_tile, R.string.section_icon, R.string.section_icon_sub)
+        section(binding.cardAppearance, R.drawable.ux_wand, R.string.section_appearance, R.string.section_appearance_sub)
     }
 
     private fun section(header: SectionHeaderBinding, icon: Int, title: Int, subtitle: Int) {
@@ -378,32 +384,108 @@ class MainActivity : AppCompatActivity() {
         refreshHome()
     }
 
-    /** Size and opacity sliders. Values save as you drag, so the floating bubble updates live. */
-    private fun setUpBubbleAppearance() {
-        val preview = BubbleView(this)
-        binding.bubblePreview.addView(preview)
-        preview.layoutParams = FrameLayout.LayoutParams(0, 0, Gravity.CENTER)
+    private lateinit var bubblePreviewView: BubbleView
+    private val iconCells = mutableMapOf<String, FrameLayout>()
 
-        fun render() {
-            val size = prefs.bubbleSizeDp
-            val opacity = prefs.bubbleOpacity
-            binding.bubbleSizeLabel.text = getString(R.string.bubble_size_value, size)
-            binding.bubbleOpacityLabel.text = getString(R.string.bubble_opacity_value, opacity)
-            preview.setDiameter((size * resources.displayMetrics.density).roundToInt())
-            preview.alpha = opacity / 100f
-        }
+    /** Preview, icon, size and opacity. Each change saves as it happens, so the floating bubble updates live. */
+    private fun setUpBubbleAppearance() {
+        bubblePreviewView = BubbleView(this)
+        binding.bubblePreview.addView(bubblePreviewView)
+        bubblePreviewView.layoutParams = FrameLayout.LayoutParams(0, 0, Gravity.CENTER)
+        setUpIconPicker()
 
         binding.bubbleSize.value = prefs.bubbleSizeDp.toFloat()
         binding.bubbleOpacity.value = prefs.bubbleOpacity.toFloat()
         binding.bubbleSize.addOnChangeListener { _, value, _ ->
             prefs.bubbleSizeDp = value.roundToInt()
-            render()
+            renderBubbleAppearance()
         }
         binding.bubbleOpacity.addOnChangeListener { _, value, _ ->
             prefs.bubbleOpacity = value.roundToInt()
-            render()
+            renderBubbleAppearance()
         }
-        render()
+        renderBubbleAppearance()
+    }
+
+    private fun renderBubbleAppearance() {
+        val size = prefs.bubbleSizeDp
+        val opacity = prefs.bubbleOpacity
+        binding.bubbleSizeLabel.text = getString(R.string.bubble_size_value, size)
+        binding.bubbleOpacityLabel.text = getString(R.string.bubble_opacity_value, opacity)
+        bubblePreviewView.setIcon(BubbleIcons.find(prefs.bubbleIcon).drawable)
+        bubblePreviewView.setDiameter((size * resources.displayMetrics.density).roundToInt())
+        bubblePreviewView.alpha = opacity / 100f
+        refreshIconPicker()
+    }
+
+    /** Five circles per row. Tapping one saves it. The chosen one gets an accent ring and a check badge. */
+    private fun setUpIconPicker() {
+        val density = resources.displayMetrics.density
+        val cellPx = (52 * density).roundToInt()
+        val glyphPx = (28 * density).roundToInt()
+        val badgePx = (18 * density).roundToInt()
+        val badgePad = (3 * density).roundToInt()
+        binding.iconGrid.removeAllViews()
+        iconCells.clear()
+        BubbleIcons.ALL.chunked(5).forEach { rowIcons ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            }
+            rowIcons.forEach { icon ->
+                val slot = FrameLayout(this).apply {
+                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+                }
+                val circle = FrameLayout(this).apply {
+                    layoutParams = FrameLayout.LayoutParams(cellPx, cellPx, Gravity.CENTER)
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener {
+                        prefs.bubbleIcon = icon.id
+                        renderBubbleAppearance()
+                    }
+                    addView(ImageView(this@MainActivity).apply {
+                        setImageResource(icon.drawable)
+                        layoutParams = FrameLayout.LayoutParams(glyphPx, glyphPx, Gravity.CENTER)
+                    })
+                    addView(ImageView(this@MainActivity).apply {
+                        tag = "check"
+                        setImageResource(R.drawable.ic_check)
+                        setPadding(badgePad, badgePad, badgePad, badgePad)
+                        background = GradientDrawable().apply {
+                            shape = GradientDrawable.OVAL
+                            setColor(ContextCompat.getColor(this@MainActivity, R.color.settings_success))
+                        }
+                        layoutParams = FrameLayout.LayoutParams(badgePx, badgePx, Gravity.BOTTOM or Gravity.END)
+                    })
+                }
+                slot.addView(circle)
+                row.addView(slot)
+                iconCells[icon.id] = circle
+            }
+            binding.iconGrid.addView(row)
+        }
+        refreshIconPicker()
+    }
+
+    private fun refreshIconPicker() {
+        val selected = BubbleIcons.find(prefs.bubbleIcon).id
+        val brand = ContextCompat.getColor(this, R.color.brand)
+        val accent = ContextCompat.getColor(this, R.color.settings_accent)
+        val ringPx = (3 * resources.displayMetrics.density).roundToInt()
+        for (icon in BubbleIcons.ALL) {
+            val circle = iconCells[icon.id] ?: continue
+            val on = icon.id == selected
+            circle.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(brand)
+                if (on) setStroke(ringPx, accent)
+            }
+            circle.findViewWithTag<View>("check").visibility = if (on) View.VISIBLE else View.GONE
+            val label = getString(icon.label)
+            circle.contentDescription = if (on) getString(R.string.icon_selected, label) else label
+            circle.isSelected = on
+        }
     }
 
     private fun refreshEngineRow() {

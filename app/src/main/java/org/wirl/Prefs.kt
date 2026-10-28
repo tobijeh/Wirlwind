@@ -129,6 +129,11 @@ class Prefs(context: Context) {
         get() = plain.getInt(KEY_BUBBLE_OPACITY, DEFAULT_BUBBLE_OPACITY).coerceIn(MIN_BUBBLE_OPACITY, MAX_BUBBLE_OPACITY)
         set(value) = plain.edit().putInt(KEY_BUBBLE_OPACITY, value).apply()
 
+    /** Which glyph the floating bubble shows. Unknown values fall back to the Wirl swirl. */
+    var bubbleIcon: String
+        get() = BubbleIcons.find(plain.getString(KEY_BUBBLE_ICON, BubbleIcons.DEFAULT)).id
+        set(value) = plain.edit().putString(KEY_BUBBLE_ICON, value).apply()
+
     /** What the last cleanup did, shown on the settings screen so failures can be read later. */
     var lastResult: String
         get() = plain.getString(KEY_LAST_RESULT, "No cleanups yet").orEmpty()
@@ -179,6 +184,7 @@ class Prefs(context: Context) {
         const val KEY_BUBBLE_Y = "bubble_y"
         const val KEY_BUBBLE_SIZE = "bubble_size_dp"
         const val KEY_BUBBLE_OPACITY = "bubble_opacity"
+        const val KEY_BUBBLE_ICON = "bubble_icon"
         const val KEY_LAST_RESULT = "last_result"
         const val KEY_DICTIONARY = "dictionary"
         const val KEY_DICTATION_CLEANUP = "dictation_cleanup"
@@ -197,7 +203,7 @@ class Prefs(context: Context) {
 
         /** Settings reset by "Reset to defaults". The API key and the dictionary are kept. */
         val RESETTABLE_KEYS = listOf(
-            KEY_BUBBLE_ENABLED, KEY_BUBBLE_X, KEY_BUBBLE_Y, KEY_BUBBLE_SIZE, KEY_BUBBLE_OPACITY,
+            KEY_BUBBLE_ENABLED, KEY_BUBBLE_X, KEY_BUBBLE_Y, KEY_BUBBLE_SIZE, KEY_BUBBLE_OPACITY, KEY_BUBBLE_ICON,
             KEY_SHOW_DONE_CHECK, KEY_SHOW_DONE_MESSAGE, KEY_STYLE_NOTES, KEY_DICTATION_CLEANUP,
             KEY_DICTATION_LANGUAGE, KEY_PROMPT, KEY_DICTATION_ENGINE, KEY_WHISPER_MODEL, KEY_ALLOW_MOBILE_DATA,
             KEY_DEVELOPER_OPTIONS, KEY_WHISPER_THREADS,
