@@ -2,9 +2,7 @@ package org.wirl
 
 import android.animation.ValueAnimator
 import android.content.Context
-import androidx.annotation.DrawableRes
 import android.content.res.ColorStateList
-import android.graphics.PorterDuff
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
@@ -12,35 +10,54 @@ import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
+import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.ColorUtils
 
 /**
- * The round Wirl bubble: purple circle with the white glyph. While recording it turns white with a purple glyph and a
- * white pulse. Used by the overlay and the settings preview.
+ * The round Wirl bubble. The face is the chosen icon, a full circle image. While recording, a red tint and a pulsing red
+ * ring sit on top of it. While processing, a dark scrim and spinner sit on top. When done, a green scrim and check sit
+ * on top. Used by the overlay and the settings preview.
  */
 class BubbleView(context: Context) : FrameLayout(context) {
 
     enum class State { IDLE, RECORDING, BUSY, DONE }
 
     private val background = GradientDrawable().apply { shape = GradientDrawable.OVAL }
-    // A pulsing ring behind the bubble, shown while dictating.
-    private val ring = View(context).apply {
+
+    // A pulsing red ring behind the bubble, shown while dictating.
+    internal val ring = View(context).apply {
         background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setStroke((3 * resources.displayMetrics.density).toInt(), ContextCompat.getColor(context, R.color.white))
+            setStroke((3 * resources.displayMetrics.density).toInt(), ContextCompat.getColor(context, R.color.bubble_red))
         }
         visibility = View.GONE
     }
-    internal val glyph = ImageView(context).apply {
-        setImageResource(R.drawable.bubble_icon_swirl)
-        scaleType = ImageView.ScaleType.FIT_CENTER
+
+    // The chosen icon, as the whole bubble face.
+    internal val face = ImageView(context).apply {
+        scaleType = ImageView.ScaleType.FIT_XY
         contentDescription = context.getString(R.string.bubble_desc)
     }
+
+    // A red tint over the face while recording.
+    internal val tint = View(context).apply {
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(ColorUtils.setAlphaComponent(ContextCompat.getColor(context, R.color.bubble_red), 90))
+        }
+        visibility = View.GONE
+    }
+
+    // A dark scrim while processing, or a green scrim when done. The color is set by setState.
+    internal val scrim = View(context).apply { visibility = View.GONE }
+
     internal val check = ImageView(context).apply {
         setImageResource(R.drawable.ic_check)
         visibility = View.GONE
     }
-    private val spinner = ProgressBar(context).apply {
+
+    internal val spinner = ProgressBar(context).apply {
         isIndeterminate = true
         indeterminateTintList = ColorStateList.valueOf(ContextCompat.getColor(context, R.color.white))
         visibility = View.GONE
@@ -53,17 +70,21 @@ class BubbleView(context: Context) : FrameLayout(context) {
 
     init {
         setBackground(background)
+        background.setColor(ContextCompat.getColor(context, R.color.brand))
         outlineProvider = ViewOutlineProvider.BACKGROUND
         clipChildren = false
         elevation = 6 * resources.displayMetrics.density
         addView(ring)
-        addView(glyph)
+        addView(face)
+        addView(tint)
+        addView(scrim)
         addView(check)
         addView(spinner)
+        setIcon(R.drawable.bubble_icon_swirl)
         setState(State.IDLE)
     }
 
-    /** Resizes the circle and scales its contents to match. */
+    /** Resizes the circle. The face and overlays fill it, and the check and spinner scale with it. */
     fun setDiameter(px: Int) {
         diameterPx = px
         layoutParams = (layoutParams ?: LayoutParams(px, px)).apply {
@@ -71,32 +92,30 @@ class BubbleView(context: Context) : FrameLayout(context) {
             height = px
         }
         ring.layoutParams = LayoutParams(px, px)
-        glyph.layoutParams = LayoutParams((px * 0.56f).toInt(), (px * 0.56f).toInt(), Gravity.CENTER)
+        face.layoutParams = LayoutParams(px, px)
+        tint.layoutParams = LayoutParams(px, px)
+        scrim.layoutParams = LayoutParams(px, px)
         check.layoutParams = LayoutParams((px * 0.5f).toInt(), (px * 0.5f).toInt(), Gravity.CENTER)
         spinner.layoutParams = LayoutParams((px * 0.54f).toInt(), (px * 0.54f).toInt(), Gravity.CENTER)
         requestLayout()
     }
 
-    /** Shows a different glyph. The size and state are kept, so it scales and animates like the swirl. */
+    /** Shows a different icon as the face. The size and state are kept. */
     fun setIcon(@DrawableRes icon: Int) {
-        glyph.setImageResource(icon)
+        face.setImageResource(icon)
     }
 
     fun setState(state: State) {
-        val recording = state == State.RECORDING
-        val color = when (state) {
-            State.DONE -> R.color.bubble_green
-            State.RECORDING -> R.color.white
-            else -> R.color.brand
+        tint.visibility = if (state == State.RECORDING) View.VISIBLE else View.GONE
+        val scrimColor = when (state) {
+            State.DONE -> ColorUtils.setAlphaComponent(ContextCompat.getColor(context, R.color.bubble_green), 215)
+            else -> ColorUtils.setAlphaComponent(ContextCompat.getColor(context, R.color.ink), 128)
         }
-        background.setColor(ContextCompat.getColor(context, color))
-        // The white glyph becomes purple on the white bubble while recording.
-        if (recording) {
-            glyph.setColorFilter(ContextCompat.getColor(context, R.color.brand), PorterDuff.Mode.SRC_IN)
-        } else {
-            glyph.clearColorFilter()
+        scrim.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(scrimColor)
         }
-        glyph.visibility = if (state == State.BUSY || state == State.DONE) View.GONE else View.VISIBLE
+        scrim.visibility = if (state == State.BUSY || state == State.DONE) View.VISIBLE else View.GONE
         spinner.visibility = if (state == State.BUSY) View.VISIBLE else View.GONE
         check.visibility = if (state == State.DONE) View.VISIBLE else View.GONE
         if (state == State.RECORDING) startPulse() else stopPulse()
