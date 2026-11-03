@@ -141,9 +141,9 @@ class ClaudeApi(
         fun requestBody(systemPrompt: String, text: String): String = JSONObject()
             .put("model", MODEL)
             .put("max_tokens", MAX_TOKENS)
-            // Cleanup needs the text, not the reasoning: thinking added 3 to 4 seconds for about 100 tokens of output.
-            // Haiku 5.5 accepts "disabled" at the default effort (medium). Quality is checked by the cleanup eval set.
-            .put("thinking", JSONObject().put("type", "disabled"))
+            // Experiment: adaptive thinking at low effort, to measure the cleanup eval against the thinking-off result.
+            .put("thinking", JSONObject().put("type", "adaptive"))
+            .put("output_config", JSONObject().put("effort", "low"))
             .put("system", systemPrompt)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", text)))
             .toString()
