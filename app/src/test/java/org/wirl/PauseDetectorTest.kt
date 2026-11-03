@@ -10,7 +10,7 @@ class PauseDetectorTest {
     private val quiet = 0f
 
     @Test fun aChunkEndsAfterTheSilenceFollowingSpeech() {
-        val detector = PauseDetector(minSilenceFrames = 3, maxFrames = 100, minSpeechFrames = 1)
+        val detector = PauseDetector(minChunkFrames = 0, minSilenceFrames = 3, maxFrames = 100, minSpeechFrames = 1)
         assertFalse(detector.onFrame(loud))
         assertFalse(detector.onFrame(loud))
         assertFalse(detector.onFrame(quiet))
@@ -20,7 +20,7 @@ class PauseDetectorTest {
     }
 
     @Test fun silenceAloneNeverEndsAChunkBeforeTheMaximumAndHasNoSpeech() {
-        val detector = PauseDetector(minSilenceFrames = 2, maxFrames = 4, minSpeechFrames = 1)
+        val detector = PauseDetector(minChunkFrames = 0, minSilenceFrames = 2, maxFrames = 4, minSpeechFrames = 1)
         assertFalse(detector.onFrame(quiet))
         assertFalse(detector.onFrame(quiet))
         assertFalse(detector.onFrame(quiet))
@@ -29,7 +29,7 @@ class PauseDetectorTest {
     }
 
     @Test fun aLongMonologueIsCutAtTheMaximumEvenWithoutAPause() {
-        val detector = PauseDetector(minSilenceFrames = 20, maxFrames = 3, minSpeechFrames = 1)
+        val detector = PauseDetector(minChunkFrames = 0, minSilenceFrames = 20, maxFrames = 3, minSpeechFrames = 1)
         assertFalse(detector.onFrame(loud))
         assertFalse(detector.onFrame(loud))
         assertTrue(detector.onFrame(loud))
@@ -37,7 +37,7 @@ class PauseDetectorTest {
     }
 
     @Test fun resetStartsTheNextChunkFromZero() {
-        val detector = PauseDetector(minSilenceFrames = 2, maxFrames = 100, minSpeechFrames = 1)
+        val detector = PauseDetector(minChunkFrames = 0, minSilenceFrames = 2, maxFrames = 100, minSpeechFrames = 1)
         detector.onFrame(loud)
         detector.onFrame(quiet)
         detector.onFrame(quiet)
@@ -57,7 +57,7 @@ class PauseDetectorTest {
 
     @Test fun aSingleLoudFrameIsNotSpeech() {
         // One click or knock is not a word: the chunk is not transcribed.
-        val detector = PauseDetector(minSilenceFrames = 2, maxFrames = 100)
+        val detector = PauseDetector(minChunkFrames = 0, minSilenceFrames = 2, maxFrames = 100)
         detector.onFrame(loud)
         detector.onFrame(quiet)
         detector.onFrame(quiet)
@@ -65,10 +65,40 @@ class PauseDetectorTest {
     }
 
     @Test fun aChunkNeedsEnoughSpeechFramesToCount() {
-        val detector = PauseDetector(minSilenceFrames = 2, maxFrames = 100, minSpeechFrames = 6)
+        val detector = PauseDetector(minChunkFrames = 0, minSilenceFrames = 2, maxFrames = 100, minSpeechFrames = 6)
         repeat(5) { detector.onFrame(loud) }
         assertFalse(detector.reset())
         repeat(6) { detector.onFrame(loud) }
         assertTrue(detector.reset())
+    }
+
+    @Test fun aPauseBeforeTheMinimumLengthDoesNotEndTheChunk() {
+        val detector = PauseDetector(
+            minSilenceFrames = 2, maxFrames = 100, minSpeechFrames = 1, minChunkFrames = 6, softMaxFrames = 50, softPauseFrames = 1,
+        )
+        repeat(3) { detector.onFrame(loud) }
+        assertFalse("five frames is still short of the minimum", detector.onFrame(quiet))
+        assertFalse("the pause is too early to end the chunk", detector.onFrame(quiet))
+        assertTrue("once the chunk is long enough, the pause ends it", detector.onFrame(quiet))
+    }
+
+    @Test fun afterTheSoftMaximumAShorterPauseEndsTheChunk() {
+        val detector = PauseDetector(
+            minChunkFrames = 0, minSilenceFrames = 20, maxFrames = 100, minSpeechFrames = 1, softMaxFrames = 4, softPauseFrames = 1,
+        )
+        assertFalse(detector.onFrame(loud))
+        assertFalse(detector.onFrame(loud))
+        assertFalse(detector.onFrame(loud))
+        assertTrue("a short pause at the soft maximum ends the chunk", detector.onFrame(quiet))
+    }
+
+    @Test fun byDefaultAChunkIsAtLeastFiveSecondsBeforeAPauseEndsIt() {
+        val detector = PauseDetector()
+        var firstEnd = -1
+        for (frame in 1..400) {
+            val ended = detector.onFrame(if (frame <= 100) loud else quiet)
+            if (ended && firstEnd < 0) firstEnd = frame
+        }
+        assertEquals("the first pause that counts is at five seconds", 166, firstEnd)
     }
 }

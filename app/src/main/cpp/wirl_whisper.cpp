@@ -45,7 +45,7 @@ Java_org_wirl_WhisperNative_nativeFree(JNIEnv * /* env */, jobject /* thiz */, j
 // Transcribes 16 kHz mono float samples. Returns the text, or null if whisper.cpp reports an error.
 JNIEXPORT jstring JNICALL
 Java_org_wirl_WhisperNative_nativeTranscribe(JNIEnv *env, jobject /* thiz */, jlong handle, jfloatArray pcm,
-                                             jstring language, jstring prompt, jint threads) {
+                                             jstring language, jstring prompt, jint threads, jint audioCtx) {
     auto *ctx = reinterpret_cast<whisper_context *>(handle);
     if (ctx == nullptr) return nullptr;
 
@@ -54,6 +54,8 @@ Java_org_wirl_WhisperNative_nativeTranscribe(JNIEnv *env, jobject /* thiz */, jl
 
     whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
     params.n_threads = threads;
+    // The encoder window for this chunk's length. Zero would keep whisper's full 30-second window.
+    params.audio_ctx = audioCtx > 0 ? audioCtx : 0;
     params.language = lang;
     params.translate = false;
     // Each chunk stands alone: no timestamps, and no text carried over from earlier chunks.

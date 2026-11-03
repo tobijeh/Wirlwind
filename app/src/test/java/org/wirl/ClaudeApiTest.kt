@@ -201,4 +201,9 @@ class ClaudeApiTest {
         runBlocking { api.clean("key", "system", "hi", onTiming = { timings += it }) }
         assertTrue("the first cleanup reuses the warmed connection", timings[0].connectionReused)
     }
+
+    @Test fun cleanupRequestsTurnThinkingOff() {
+        val body = org.json.JSONObject(ClaudeApi.requestBody("system", "hi"))
+        assertEquals("disabled", body.getJSONObject("thinking").getString("type"))
+    }
 }
