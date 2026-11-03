@@ -65,6 +65,8 @@ class CleanupEvalTest {
         val body = JSONObject()
             .put("model", ClaudeApi.MODEL)
             .put("max_tokens", 400)
+            // The verdict is one short JSON object. Default thinking used the 400 tokens first and left no verdict to read.
+            .put("thinking", JSONObject().put("type", "disabled"))
             .put("system", JUDGE_SYSTEM)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", user)))
             .toString()
