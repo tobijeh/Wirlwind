@@ -143,7 +143,7 @@ class ClaudeApi(
             .put("max_tokens", MAX_TOKENS)
             // Experiment: adaptive thinking at low effort, to measure the cleanup eval against the thinking-off result.
             .put("thinking", JSONObject().put("type", "adaptive"))
-            .put("output_config", JSONObject().put("effort", "medium"))
+            .put("output_config", JSONObject().put("effort", "low"))
             .put("system", systemPrompt)
             .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", text)))
             .toString()
