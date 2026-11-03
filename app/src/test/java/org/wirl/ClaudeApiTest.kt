@@ -205,6 +205,6 @@ class ClaudeApiTest {
     @Test fun cleanupRequestsUseAdaptiveThinkingAtLowEffort() {
         val body = org.json.JSONObject(ClaudeApi.requestBody("system", "hi"))
         assertEquals("adaptive", body.getJSONObject("thinking").getString("type"))
-        assertEquals("low", body.getJSONObject("output_config").getString("effort"))
+        assertEquals("medium", body.getJSONObject("output_config").getString("effort"))
     }
 }
