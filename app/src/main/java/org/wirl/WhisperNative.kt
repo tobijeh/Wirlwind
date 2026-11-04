@@ -15,7 +15,14 @@ internal object WhisperNative {
     external fun nativeFree(handle: Long)
 
     /** Transcribes 16 kHz mono samples. Returns null if whisper.cpp reports an error. */
-    external fun nativeTranscribe(handle: Long, pcm: FloatArray, language: String, prompt: String?, threads: Int): String?
+    external fun nativeTranscribe(
+        handle: Long,
+        pcm: FloatArray,
+        language: String,
+        prompt: String?,
+        threads: Int,
+        audioCtx: Int,
+    ): String?
 
 }
 

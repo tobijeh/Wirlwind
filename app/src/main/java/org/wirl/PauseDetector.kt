@@ -4,8 +4,12 @@ import kotlin.math.sqrt
 
 /**
  * Finds where a chunk can end. Audio is read in frames of [SAMPLES_PER_FRAME] samples (30 ms at 16 kHz). A frame counts
- * as speech when its loudness is at least [threshold]. A chunk ends after [minSilenceFrames] of quiet that follows
- * speech, or after [maxFrames] whatever is happening, so one long monologue still gets transcribed as it goes.
+ * as speech when its loudness is at least [threshold].
+ *
+ * Whisper's cost is nearly the same for any chunk, so chunks are kept short: a chunk ends at a pause of
+ * [minSilenceFrames] once it is at least [minChunkFrames] long (about 5 s), and after [softMaxFrames] (about 10 s) it
+ * ends at a shorter pause of [softPauseFrames]. Whatever is happening, a chunk ends at [maxFrames] (about 20 s), so one
+ * long monologue still gets transcribed as it goes.
  */
 class PauseDetector(
     private val threshold: Float = DEFAULT_THRESHOLD,
@@ -13,6 +17,11 @@ class PauseDetector(
     private val maxFrames: Int = 20_000 / FRAME_MS,
     /** Frames of speech a chunk needs before it counts as speech. One loud frame is a click, not a word. */
     private val minSpeechFrames: Int = 6,
+    /** A chunk isn't ended at a pause before it is this long. */
+    private val minChunkFrames: Int = 5_000 / FRAME_MS,
+    /** From this length, a chunk ends at a shorter pause. */
+    private val softMaxFrames: Int = 10_000 / FRAME_MS,
+    private val softPauseFrames: Int = 300 / FRAME_MS,
 ) {
     private var frames = 0
     private var speechFrames = 0
@@ -27,7 +36,10 @@ class PauseDetector(
         } else {
             silentRun++
         }
-        val pauseAfterSpeech = hasSpeech() && silentRun >= minSilenceFrames
+        val pauseAfterSpeech = hasSpeech() && (
+            (frames >= minChunkFrames && silentRun >= minSilenceFrames) ||
+                (frames >= softMaxFrames && silentRun >= softPauseFrames)
+            )
         return pauseAfterSpeech || frames >= maxFrames
     }
 

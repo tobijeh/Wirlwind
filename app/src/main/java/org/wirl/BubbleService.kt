@@ -16,6 +16,7 @@ import android.animation.ValueAnimator
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelFileDescriptor
@@ -674,7 +675,7 @@ class BubbleService : AccessibilityService() {
             val soundLines = endSound()
             session = null
             dictationField = null
-            val timing = DictationTiming(whisper = whisperTiming, stopToInsertMs = stopToInsertMs())
+            val timing = DictationTiming(thermal = thermalNow(), whisper = whisperTiming, stopToInsertMs = stopToInsertMs())
             if (failure != null) {
                 val message = getString(R.string.whisper_failed, failure)
                 recordAttempt(message, null, null, attemptDetails(timing, listOf(section("TRANSCRIPT", listOf("(empty)"))), soundLines))
@@ -754,7 +755,7 @@ class BubbleService : AccessibilityService() {
         val spoken = SpeechGate.spokenWords(raw)
         if (raw.isBlank() && finish.error != null) {
             val message = DictationError.messageFor(finish.error, finish.errorCode)
-            val timing = DictationTiming(stopToInsertMs = stopToInsertMs())
+            val timing = DictationTiming(thermal = thermalNow(), stopToInsertMs = stopToInsertMs())
             recordAttempt(
                 message,
                 finish.errorCode,
@@ -785,7 +786,7 @@ class BubbleService : AccessibilityService() {
             ensureActive()
             if (SpeechGate.textToInsert(spoken, aiEnabled, cleaned) == null) {
                 // Claude replied with nothing, or only with a remark about the recording: nothing is inserted, and no message.
-                val timing = DictationTiming(claude = claude, stopToInsertMs = stopToInsertMs())
+                val timing = DictationTiming(thermal = thermalNow(), claude = claude, stopToInsertMs = stopToInsertMs())
                 recordAttempt(
                     DictationError.messageFor(DictationError.NO_SPEECH, null),
                     null,
@@ -813,7 +814,7 @@ class BubbleService : AccessibilityService() {
                 outcome is DictationOutcome.Cleaned -> "cleanup: ok"
                 else -> "cleanup: failed (${(outcome as DictationOutcome.Raw).reason})"
             }
-            val timing = DictationTiming(whisper = whisperTiming, claude = claude, insertMs = insertMs, stopToInsertMs = stopToInsertMs())
+            val timing = DictationTiming(thermal = thermalNow(), whisper = whisperTiming, claude = claude, insertMs = insertMs, stopToInsertMs = stopToInsertMs())
             recordAttempt(
                 note ?: "Inserted by ${insertion.method.name}",
                 finish.errorCode,
@@ -841,7 +842,7 @@ class BubbleService : AccessibilityService() {
 
     /** Nothing was said: logged to Diagnostics, with no message. Nothing is inserted. */
     private fun noSpeech(raw: String, summary: String, soundLines: List<String>, why: String) {
-        val timing = DictationTiming(stopToInsertMs = stopToInsertMs())
+        val timing = DictationTiming(thermal = thermalNow(), stopToInsertMs = stopToInsertMs())
         recordAttempt(
             DictationError.messageFor(DictationError.NO_SPEECH, null),
             null,
@@ -882,7 +883,7 @@ class BubbleService : AccessibilityService() {
         dictationField = null
         runCatching { stopService(Intent(this, DictationService::class.java)) }
         if (active) {
-            val timing = DictationTiming(stopToInsertMs = stopToInsertMs())
+            val timing = DictationTiming(thermal = thermalNow(), stopToInsertMs = stopToInsertMs())
             recordAttempt("Discarded: $reason", null, null, attemptDetails(timing, listOf(section("TRANSCRIPT", listOf(reason))), soundLines))
         }
         gestures.reset()
@@ -895,7 +896,7 @@ class BubbleService : AccessibilityService() {
         releaseRecognizer()
         ownAudio.stop()
         val soundLines = endSound()
-        recordAttempt(message, code, throwable, attemptDetails(DictationTiming(), listOf(section("ENGINE", dictationDetails.lines())), soundLines))
+        recordAttempt(message, code, throwable, attemptDetails(DictationTiming(thermal = thermalNow()), listOf(section("ENGINE", dictationDetails.lines())), soundLines))
         Log.e(TAG, "Dictation failed: $message (code $code)", throwable)
         session = null
         dictationField = null
@@ -1066,6 +1067,9 @@ class BubbleService : AccessibilityService() {
     private fun toast(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
+
+    /** The phone's thermal state now, for the Diagnostics timing lines. */
+    private fun thermalNow(): String = ThermalStatus.read(getSystemService(PowerManager::class.java))
 
     private fun setState(newState: State) {
         state = newState

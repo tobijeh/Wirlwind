@@ -16,7 +16,8 @@ class WhisperTranscriber private constructor(private var handle: Long, private v
     @Synchronized
     override fun transcribe(pcm: FloatArray, language: String, prompt: String?): String {
         check(handle != 0L) { "The model isn't loaded" }
-        return WhisperNative.nativeTranscribe(handle, pcm, language, prompt, threads)
+        val audioCtx = WhisperAudioContext.forSamples(pcm.size)
+        return WhisperNative.nativeTranscribe(handle, pcm, language, prompt, threads, audioCtx)
             ?: throw IOException("Whisper couldn't transcribe this audio")
     }
 

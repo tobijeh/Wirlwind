@@ -30,6 +30,8 @@ data class DictationTiming(
     val claude: ClaudeCallTiming? = null,
     val insertMs: Long? = null,
     val stopToInsertMs: Long? = null,
+    /** The phone's thermal state when this dictation finished. */
+    val thermal: String? = null,
 ) {
     fun lines(): List<String> = buildList {
         whisper?.let {
@@ -39,9 +41,11 @@ data class DictationTiming(
         }
         claude?.let {
             add("claude first byte: ${it.firstByteMs} ms, total: ${it.totalMs} ms, connection: ${if (it.connectionReused) "reused" else "new"}")
-            add("claude output tokens: ${it.outputTokens ?: "unknown"}, thinking: ${if (it.thinkingUsed) "used" else "not used"}")
+            val thinking = if (it.thinkingUsed) "used" else "not used"
+            add("claude output tokens: ${it.outputTokens ?: "unknown"}, thinking: adaptive at low effort, reply $thinking")
         }
         insertMs?.let { add("insert: $it ms") }
         stopToInsertMs?.let { add("stop to insert: $it ms") }
+        thermal?.let { add("thermal status: $it") }
     }
 }
