@@ -141,7 +141,7 @@ class ClaudeApi(
         fun requestBody(systemPrompt: String, text: String): String = JSONObject()
             .put("model", MODEL)
             .put("max_tokens", MAX_TOKENS)
-            // Experiment: adaptive thinking at low effort, to measure the cleanup eval against the thinking-off result.
+            // Cleanup uses adaptive thinking at low effort. Thinking off scored 82% on the cleanup eval, below the 90% bar.
             .put("thinking", JSONObject().put("type", "adaptive"))
             .put("output_config", JSONObject().put("effort", "low"))
             .put("system", systemPrompt)

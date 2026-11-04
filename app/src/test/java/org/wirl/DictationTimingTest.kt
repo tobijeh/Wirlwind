@@ -20,7 +20,7 @@ class DictationTimingTest {
         assertTrue(lines.any { it == "whisper final chunk: 420 ms" })
         assertTrue(lines.any { it == "whisper total: 900 ms, 3 chunks (2 during recording)" })
         assertTrue(lines.any { it == "claude first byte: 800 ms, total: 1100 ms, connection: reused" })
-        assertTrue(lines.any { it == "claude output tokens: 37, thinking: off (cleanup sends thinking disabled)" })
+        assertTrue(lines.any { it == "claude output tokens: 37, thinking: adaptive at low effort, reply not used" })
         assertTrue(lines.any { it == "insert: 35 ms" })
         assertTrue(lines.any { it == "stop to insert: 2050 ms" })
     }
@@ -37,7 +37,7 @@ class DictationTimingTest {
             claude = ClaudeCallTiming(firstByteMs = 1, totalMs = 2, connectionReused = false, outputTokens = null, thinkingUsed = true),
         ).lines()
         assertTrue(lines.any { it.endsWith("connection: new") })
-        assertTrue(lines.any { it == "claude output tokens: unknown, thinking: on (the reply contained thinking)" })
+        assertTrue(lines.any { it == "claude output tokens: unknown, thinking: adaptive at low effort, reply used" })
     }
 
     @Test fun theFinalChunkIsTheOneCutAtStop() {

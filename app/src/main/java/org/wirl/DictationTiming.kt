@@ -41,8 +41,8 @@ data class DictationTiming(
         }
         claude?.let {
             add("claude first byte: ${it.firstByteMs} ms, total: ${it.totalMs} ms, connection: ${if (it.connectionReused) "reused" else "new"}")
-            val thinking = if (it.thinkingUsed) "on (the reply contained thinking)" else "off (cleanup sends thinking disabled)"
-            add("claude output tokens: ${it.outputTokens ?: "unknown"}, thinking: $thinking")
+            val thinking = if (it.thinkingUsed) "used" else "not used"
+            add("claude output tokens: ${it.outputTokens ?: "unknown"}, thinking: adaptive at low effort, reply $thinking")
         }
         insertMs?.let { add("insert: $it ms") }
         stopToInsertMs?.let { add("stop to insert: $it ms") }

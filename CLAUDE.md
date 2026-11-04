@@ -19,7 +19,7 @@ Wirl is a personal Android app (Kotlin, min SDK 26) that cleans up dictated text
 - **Dictionary:** relevant entries are added by `DictionaryPrompt.forText`. Always apply the same rule.
 - **Alternatives:** only dictation sends recognizer alternatives (`CleanupPrompt.build(..., alternatives)`). Hold-to-clean never does.
 - **Dictation waits for Claude.** The text is inserted only after the reply. Raw text is inserted only when the call fails or cleanup is off, and it says "Raw: cleanup failed" with the reason.
-- **Thinking off for cleanup.** Cleanup requests send `thinking: {type: "disabled"}`. Thinking added 3 to 4 seconds for about 100 tokens of output. Haiku 5.5 accepts disabled at the default effort. The cleanup eval must stay at 90% or above with it. If it ever drops below, the fallback is adaptive thinking for transcripts over about 60 words, with the smallest budget that passes, and the pass rate for each option goes in the PR. Diagnostics logs whether thinking was on and why.
+- **Adaptive thinking at low effort for cleanup.** Cleanup requests send `thinking: {type: "adaptive"}` with `output_config.effort: "low"`. Thinking off scored 82% on the cleanup eval (23 of 28), below the 90% bar. Low effort scored above it, and medium scored 26 of 28. The cleanup eval must stay at 90% or above. If it drops below, the next step is medium effort, and the pass rate for each option goes in the PR. The eval judge sends thinking disabled, because its verdict needs the full 400-token budget. Diagnostics logs the thinking setting and whether the reply used thinking.
 - **Default on:** "Clean up dictation with AI" is on by default. Settings migrations must never leave it off for users who didn't turn it off.
 
 ## Dictation engines
