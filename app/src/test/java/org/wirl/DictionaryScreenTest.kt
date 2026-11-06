@@ -17,6 +17,15 @@ import android.view.View
 @Config(sdk = [34])
 class DictionaryScreenTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
+    private val savedFactory = Prefs.secureFactory
+
+    @org.junit.Before fun fakeSecureStore() {
+        Prefs.secureFactory = { app -> app.getSharedPreferences("test_secure", Context.MODE_PRIVATE) }
+    }
+
+    @org.junit.After fun restoreSecureStore() {
+        Prefs.secureFactory = savedFactory
+    }
 
     @Test fun savedEntriesAreDrawnInTheList() {
         Prefs(context).dictionary = listOf(DictionaryEntry("Sela", listOf("salad"), "web app"))

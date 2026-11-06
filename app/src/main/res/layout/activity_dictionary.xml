@@ -35,6 +35,14 @@
                 android:src="@drawable/ic_more_vert" />
         </LinearLayout>
 
+        <!-- One row per paired computer: "Synced with NAME 5 min ago", Pair again, Unpair. -->
+        <LinearLayout
+            android:id="@+id/syncStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone" />
+
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"

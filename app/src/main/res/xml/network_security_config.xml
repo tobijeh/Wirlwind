@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  No cleartext HTTP anywhere. Dictionary sync is the one exception, and it doesn't use this config: it goes through
+  LocalHttp, which only connects to IP addresses in private ranges (the payload is AES-GCM encrypted).
+  See docs/sync-protocol.md.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

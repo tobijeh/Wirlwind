@@ -117,6 +117,9 @@ class BubbleService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        // Runs at boot too: re-arms the Wi-Fi sync trigger, which doesn't survive a reboot. Never blocks dictation.
+        val app = applicationContext
+        Thread { SyncScheduler.ensureScheduled(app) }.start()
         prefs = Prefs(this)
         preloadWhisper()
         // A service killed mid-restart may have left a stream muted. Put it back before anything else.

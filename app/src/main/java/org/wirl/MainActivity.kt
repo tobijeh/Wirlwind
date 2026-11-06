@@ -221,7 +221,7 @@ class MainActivity : AppCompatActivity() {
             prefs.styleNotes.isNotBlank() -> getString(R.string.summary_cleanup_notes, getString(R.string.summary_cleanup_on))
             else -> getString(R.string.summary_cleanup_on)
         }
-        val terms = prefs.dictionary.size
+        val terms = DictionarySync.visible(prefs.dictionary).size
         binding.dictionarySummary.text = resources.getQuantityString(R.plurals.summary_dictionary, terms, terms)
         binding.bubbleSummary.setText(R.string.summary_bubble)
         if (missing == 0) {

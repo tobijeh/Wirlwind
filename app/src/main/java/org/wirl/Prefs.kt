@@ -30,6 +30,11 @@ class Prefs(context: Context) {
             // Version 3: the cleanup prompt is built in. Earlier custom prompts are discarded, not kept as style notes.
             plain.edit().remove(KEY_PROMPT).putInt(KEY_SETTINGS_VERSION, 3).apply()
         }
+        if (plain.getInt(KEY_SETTINGS_VERSION, 1) < 4) {
+            // Version 4: dictionary entries get sync ids and timestamps (docs/sync-protocol.md). The getter migrates.
+            plain.edit().putString(KEY_DICTIONARY, DictionaryJson.encode(dictionary))
+                .putInt(KEY_SETTINGS_VERSION, 4).apply()
+        }
     }
 
     /** Run the dictated text through the cleanup instructions. Off inserts exactly what was said. */
@@ -139,11 +144,31 @@ class Prefs(context: Context) {
         get() = plain.getString(KEY_LAST_RESULT, "No cleanups yet").orEmpty()
         set(value) = plain.edit().putString(KEY_LAST_RESULT, value).apply()
 
-    /** Personal dictionary, stored as JSON. Unreadable data reads as an empty dictionary. */
+    /**
+     * Personal dictionary in the sync entry format, tombstones included. Unreadable data reads as an empty
+     * dictionary. Entries saved before sync existed get an id and `updatedAt = now` the first time they're read.
+     */
     var dictionary: List<DictionaryEntry>
-        get() = runCatching { DictionaryJson.decode(plain.getString(KEY_DICTIONARY, "[]").orEmpty()) }
-            .getOrDefault(emptyList())
-        set(value) = plain.edit().putString(KEY_DICTIONARY, DictionaryJson.encode(value)).apply()
+        get() {
+            val stored = runCatching { DictionaryJson.decode(plain.getString(KEY_DICTIONARY, "[]").orEmpty()) }
+                .getOrDefault(emptyList())
+            val migrated = DictionarySync.migrate(stored, System.currentTimeMillis())
+            if (migrated != stored) plain.edit().putString(KEY_DICTIONARY, DictionaryJson.encode(migrated)).apply()
+            return migrated
+        }
+        set(value) = plain.edit()
+            .putString(KEY_DICTIONARY, DictionaryJson.encode(DictionarySync.migrate(value, System.currentTimeMillis())))
+            .apply()
+
+    /** This phone's sync id, a UUID made once and kept (docs/sync-protocol.md §4). */
+    val syncPhoneId: String
+        get() = plain.getString(KEY_SYNC_PHONE_ID, null)?.takeIf { DictionarySync.isUuid(it) }
+            ?: DictionarySync.newId().also { plain.edit().putString(KEY_SYNC_PHONE_ID, it).apply() }
+
+    /** Paired computers, with their pairing secrets. Kept in the encrypted store. */
+    var pairedComputers: List<PairedComputer>
+        get() = PairedComputer.decodeList(runCatching { secure.getString(KEY_PAIRED_COMPUTERS, "[]") }.getOrNull())
+        set(value) = secure.edit().putString(KEY_PAIRED_COMPUTERS, PairedComputer.encodeList(value)).apply()
 
     /** Saved bubble position, or null if the bubble has never been moved. */
     var bubblePosition: Pair<Int, Int>?
@@ -200,6 +225,8 @@ class Prefs(context: Context) {
         const val KEY_STYLE_NOTES = "style_notes"
         const val KEY_ENGINE_TEST_PASSED = "engine_test_passed"
         const val KEY_SETUP_SHOWN = "setup_shown"
+        const val KEY_SYNC_PHONE_ID = "sync_phone_id"
+        const val KEY_PAIRED_COMPUTERS = "paired_computers"
 
         /** Settings reset by "Reset to defaults". The API key and the dictionary are kept. */
         val RESETTABLE_KEYS = listOf(
