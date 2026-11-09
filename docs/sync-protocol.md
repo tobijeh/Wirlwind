@@ -173,27 +173,32 @@ How the Android app implements the phone side. Everything above is the contract;
 |---|---|
 | Entry format, migration, tombstones, purge, merge (§1, §7) | `DictionarySync` (`migrate`, `reconcile`, `purge`, `merge`, `pickWinner`, `canonicalJson`) |
 | Storage | `Prefs.dictionary`: the full list, tombstones included, in the §1 format. Settings version 4 migrates old entries (new UUID, `updatedAt` = now, sounds-like as a list). |
-| Pairing QR (§2) | `SyncProtocol.parsePairingQr`, scanned with zxing-android-embedded from *Dictionary › ⋮ › Pair with computer* |
-| Paired computers | `Prefs.pairedComputers` in EncryptedSharedPreferences: `deviceId`, `name`, `secret`, `port`, `hosts`, last working address, last sync time, and whether the computer answered 401 |
-| Discovery (§3) | `NsdDiscovery`: Android NSD, service type `_wirl._tcp`, TXT `id=<deviceId>`. Then the last address that worked, then the QR `hosts` with the QR `port`. |
+| Pairing QR (§2) | `SyncProtocol.parsePairingQr`, scanned with zxing-android-embedded from *Settings › Computer sync › Pair with a computer* (also *Dictionary › ⋮ › Pair with computer*). Both use `PairingFlow`. |
+| Paired computers | `Prefs.pairedComputers` in EncryptedSharedPreferences: `deviceId`, `name`, `secret`, `port`, `hosts`, last working address, last sync time, whether the computer answered 401, and why the last sync failed (phone-only, never sent) |
+| Discovery (§3) | `SyncClient`: first the last address that worked and the QR `hosts` with the QR `port`, all at once, using the first that answers. Only if none answers does `NsdDiscovery` run (Android NSD, service type `_wirl._tcp`, TXT `id=<deviceId>`), and then the address it finds is tried. The computer sees the same request either way. |
 | Request, response (§4, §6) | `SyncProtocol.buildRequest` / `readResponse`, sent by `SyncClient` |
 | Encryption (§5) | `SyncCrypto` (javax.crypto AES/GCM/NoPadding, HKDF-SHA256 by hand). `SyncCryptoTest` checks the test vector above. |
-| HTTP | `LocalHttp`: a minimal HTTP/1.1 client over a socket. It connects only to IP literals in private ranges (10/8, 172.16/12, 192.168/16, 169.254/16, loopback, IPv6 link-local and ULA) and never resolves host names. The app's network security config forbids cleartext everywhere else. |
+| HTTP | `LocalHttp`: a minimal HTTP/1.1 client over a socket. It connects only to IP literals in private ranges (10/8, 172.16/12, 192.168/16, 169.254/16, loopback, IPv6 link-local and ULA) and never resolves host names. The app's network security config forbids cleartext everywhere else. Timeouts suit a LAN: 2 s to connect, 10 s to read the answer. |
 
 **Applying the response.** The phone merges the returned list into its current list with the §7 rule (rather than overwriting it), then purges old tombstones. If nothing changed on the phone during the request, that is exactly the computer's list; if the user edited something meanwhile, the edit is kept and goes out with the next sync.
 
-**When the phone syncs** (`SyncScheduler`, WorkManager, unique work so bursts collapse):
+**When the phone syncs.** While the user is looking, right away: when the Dictionary or Computer sync screen opens, just after a QR code is scanned, and on **Sync now**. These run in a coroutine on `Dispatchers.IO` tied to the screen (`ForegroundSync`), not through WorkManager, and the screen shows "Syncing…" until the result. In the background, through WorkManager (`SyncScheduler`, unique work so bursts collapse):
 
-- when the Dictionary screen opens;
 - 3 seconds after any dictionary change (debounced);
 - when the phone joins Wi-Fi (`ConnectivityManager.registerNetworkCallback` with a PendingIntent to `WifiSyncReceiver`, re-armed when the accessibility service starts, which includes boot);
 - every 30 minutes on an unmetered network (periodic work).
 
-Nothing is scheduled while no computer is paired. Sync is silent: no notifications. A failed sync is logged in Diagnostics (`SYNC <computer>` entries) and retried with WorkManager's backoff; it never blocks dictation or cleanup.
+Foreground and background syncs both go through `DictionarySyncEngine.syncAll`, which holds one lock, so they never run at the same time. Nothing is scheduled while no computer is paired. Sync is silent: no notifications. A failed background sync is retried with WorkManager's backoff. Sync never blocks dictation or cleanup.
 
-**401.** The computer is marked as needing pairing. It's skipped by later syncs, and the Dictionary screen shows "*name* no longer accepts this phone" with **Pair again** (scan a new QR code from that computer) and **Unpair**.
+**When a sync fails.** The details go to Diagnostics (`SYNC <computer>` entries), and the computer's status line says what to do:
 
-**Status line.** The Dictionary screen shows one line per paired computer: "Synced with *name* 5 min ago", "Paired with *name* · not synced yet", or the 401 message.
+- No address answered, and none of the computer's addresses (the last that worked and the QR hosts) is on the same IPv4 subnet as any of the phone's addresses (interface address and prefix length, `SyncNetwork`): "Can't reach *name*. Your phone and computer seem to be on different Wi-Fi networks. Connect both to the same Wi-Fi."
+- No address answered, but they share a subnet: "Can't reach *name*. Make sure Wirl is running on the computer and allowed through Windows Firewall on Private networks."
+- The computer answered with an error, or a reply that didn't decrypt: "Couldn't sync with *name*. Wirl will try again in a moment."
+
+**401.** The computer is marked as needing pairing. It's skipped by later syncs, and its status line shows "*name* no longer accepts this phone" with **Pair again** (scan a new QR code from that computer) and **Unpair**.
+
+**Status lines.** The Computer sync screen (Settings home › Computer sync) shows one card per paired computer with its status, **Sync now**, **Pair again** when needed, and **Unpair**. The Dictionary screen shows the same status lines. They read "Syncing with *name*…", "Synced with *name* 5 min ago", "Paired with *name* · not synced yet", one of the messages above, or the 401 message. The Home row shows the computer that most needs attention, in amber when the user has something to do ("Can't reach *name*", "*name* needs pairing again").
 
 **Permissions.** `CAMERA` (asked by the scanner when it opens). `ACCESS_LOCAL_NETWORK` is declared and requested after pairing on Android versions that define it; older versions don't ask.
 

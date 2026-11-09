@@ -20,14 +20,9 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.wirl.databinding.ActivityDictionaryBinding
 import org.wirl.databinding.DialogEntryBinding
-import org.wirl.databinding.ItemPairedComputerBinding
 
 /**
  * The personal dictionary: list, search, add, edit, swipe to delete (with undo), import/export, and pairing with
@@ -46,12 +41,7 @@ class DictionaryActivity : AppCompatActivity() {
     private val importLauncher = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { readImport(it) }
     }
-    private val scanLauncher = registerForActivityResult(ScanContract()) { result ->
-        result.contents?.let { onScanned(it) }
-    }
-    private val localNetworkLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-        SyncScheduler.syncNow(this)
-    }
+    private val pairing = PairingFlow(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -75,93 +65,15 @@ class DictionaryActivity : AppCompatActivity() {
                 model.state.collect { render(it) }
             }
         }
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch { PairedComputers.list.collect { renderSync(it) } }
-                // Keep "5 min ago" current while the screen is open.
-                while (true) {
-                    delay(60_000)
-                    renderSync(PairedComputers.list.value)
-                }
-            }
-        }
+        pairing.observe { computers, syncing -> pairing.renderRows(binding.syncStatus, computers, syncing) }
     }
 
     override fun onStart() {
         super.onStart()
         // Quick add can save while this screen is in the background; pick up anything new.
         repository.reload()
-        // Opening the dictionary syncs with paired computers, in the background.
-        inBackground {
-            PairedComputers.load(applicationContext)
-            SyncScheduler.ensureScheduled(applicationContext)
-            SyncScheduler.syncNow(applicationContext)
-        }
-    }
-
-    /** Sync bookkeeping off the main thread. A failure here must never affect the dictionary screen. */
-    private fun inBackground(block: () -> Unit) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            runCatching(block).onFailure { android.util.Log.w("WirlSync", "sync setup failed", it) }
-        }
-    }
-
-    private fun renderSync(computers: List<PairedComputer>) {
-        val container = binding.syncStatus
-        container.removeAllViews()
-        container.visibility = if (computers.isEmpty()) View.GONE else View.VISIBLE
-        val now = System.currentTimeMillis()
-        for (computer in computers.sortedBy { it.name.lowercase() }) {
-            val row = ItemPairedComputerBinding.inflate(layoutInflater, container, false)
-            row.syncText.text = when {
-                computer.needsPairing -> getString(R.string.pairing_invalid, computer.name)
-                computer.lastSyncAt > 0 ->
-                    getString(R.string.synced_with, computer.name, TimeAgo.format(this, computer.lastSyncAt, now))
-                else -> getString(R.string.not_synced_yet, computer.name)
-            }
-            row.pairAgain.visibility = if (computer.needsPairing) View.VISIBLE else View.GONE
-            row.pairAgain.setOnClickListener { startPairing() }
-            row.unpair.setOnClickListener { confirmUnpair(computer) }
-            container.addView(row.root)
-        }
-    }
-
-    private fun startPairing() {
-        scanLauncher.launch(
-            ScanOptions()
-                .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                .setPrompt(getString(R.string.pair_scan_prompt))
-                .setBeepEnabled(false)
-                .setOrientationLocked(false),
-        )
-    }
-
-    private fun onScanned(text: String) {
-        val qr = SyncProtocol.parsePairingQr(text)
-        if (qr == null) {
-            say(getString(R.string.pair_invalid_code))
-            return
-        }
-        inBackground {
-            PairedComputers.pair(applicationContext, qr)
-            SyncScheduler.ensureScheduled(applicationContext)
-            SyncScheduler.syncNow(applicationContext)
-        }
-        say(getString(R.string.paired_with, qr.name))
-        if (LocalNetworkPermission.needsRequest(this)) localNetworkLauncher.launch(LocalNetworkPermission.NAME)
-    }
-
-    private fun confirmUnpair(computer: PairedComputer) {
-        MaterialAlertDialogBuilder(this)
-            .setMessage(getString(R.string.unpair_confirm, computer.name))
-            .setPositiveButton(R.string.unpair) { _, _ ->
-                inBackground {
-                    PairedComputers.unpair(applicationContext, computer.deviceId)
-                    SyncScheduler.ensureScheduled(applicationContext)
-                }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        // Opening the dictionary syncs with paired computers right away, while the user is looking.
+        pairing.syncNow()
     }
 
     private fun render(state: DictionaryUiState) {
@@ -176,7 +88,7 @@ class DictionaryActivity : AppCompatActivity() {
             inflate(R.menu.dictionary_more)
             setOnMenuItemClickListener {
                 when (it.itemId) {
-                    R.id.menu_pair -> startPairing()
+                    R.id.menu_pair -> pairing.startPairing()
                     R.id.menu_import -> importLauncher.launch(arrayOf("*/*"))
                     R.id.menu_export -> exportLauncher.launch("wirl-dictionary.json")
                 }

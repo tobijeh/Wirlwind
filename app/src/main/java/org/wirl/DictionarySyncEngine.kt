@@ -61,48 +61,79 @@ object PairedComputers {
     }
 }
 
-/** Runs a sync with every paired computer. Silent: failures go to Diagnostics, never to a notification. */
+/**
+ * Runs a sync with every paired computer. Silent: failures go to Diagnostics and to the computer's status line, never
+ * to a notification. The foreground sync (a screen is open) and the background worker both come through [syncAll],
+ * which holds one lock, so the two never run at the same time.
+ */
 object DictionarySyncEngine {
     private const val TAG = "WirlSync"
 
+    private val _running = MutableStateFlow(false)
+
+    /** True while a sync is running, foreground or background. Screens show "Syncing…" while it is. */
+    val running: StateFlow<Boolean> = _running.asStateFlow()
+
     /** Returns true if every computer that could be tried was synced (false means: try again later). */
-    fun syncAll(context: Context, client: SyncClient = SyncClient({ NsdDiscovery(context).find(it) })): Boolean =
-        synchronized(this) {
-            val app = context.applicationContext
-            val prefs = Prefs(app)
-            val repository = DictionaryRepository.get(app)
-            var allOk = true
-            for (computer in PairedComputers.load(app)) {
-                if (computer.needsPairing) continue
-                val result = try {
-                    client.sync(computer, prefs.syncPhoneId, phoneName(app), repository.all.value)
-                } catch (e: Exception) {
-                    SyncResult.Failed("sync error: ${e.message}", null, e)
+    fun syncAll(
+        context: Context,
+        client: SyncClient = SyncClient({ NsdDiscovery(context).find(it) }),
+        phoneAddresses: () -> List<PhoneAddress> = { SyncNetwork.phoneAddresses() },
+    ): Boolean = synchronized(this) {
+        _running.value = true
+        try {
+            syncLocked(context.applicationContext, client, phoneAddresses)
+        } finally {
+            _running.value = false
+        }
+    }
+
+    private fun syncLocked(app: Context, client: SyncClient, phoneAddresses: () -> List<PhoneAddress>): Boolean {
+        val prefs = Prefs(app)
+        val repository = DictionaryRepository.get(app)
+        var allOk = true
+        for (computer in PairedComputers.load(app)) {
+            if (computer.needsPairing) continue
+            val result = try {
+                client.sync(computer, prefs.syncPhoneId, phoneName(app), repository.all.value)
+            } catch (e: Exception) {
+                SyncResult.Failed("sync error: ${e.message}", null, e)
+            }
+            when (result) {
+                is SyncResult.Synced -> {
+                    repository.applyRemote(result.entries)
+                    PairedComputers.update(app, computer.deviceId) {
+                        it.copy(
+                            lastSyncAt = System.currentTimeMillis(),
+                            lastHost = result.endpoint.address.hostAddress.orEmpty(),
+                            lastPort = result.endpoint.port,
+                            needsPairing = false,
+                            lastError = "",
+                        )
+                    }
                 }
-                when (result) {
-                    is SyncResult.Synced -> {
-                        repository.applyRemote(result.entries)
-                        PairedComputers.update(app, computer.deviceId) {
-                            it.copy(
-                                lastSyncAt = System.currentTimeMillis(),
-                                lastHost = result.endpoint.address.hostAddress.orEmpty(),
-                                lastPort = result.endpoint.port,
-                                needsPairing = false,
-                            )
-                        }
-                    }
-                    SyncResult.NeedsPairing -> {
-                        PairedComputers.update(app, computer.deviceId) { it.copy(needsPairing = true) }
-                        log(prefs, computer, "Sync refused (401): pair again", 401, null)
-                    }
-                    is SyncResult.Failed -> {
-                        allOk = false
-                        log(prefs, computer, "Sync failed: ${result.reason}", result.code, result.error)
-                    }
+                SyncResult.NeedsPairing -> {
+                    PairedComputers.update(app, computer.deviceId) { it.copy(needsPairing = true, lastError = "") }
+                    log(prefs, computer, "Sync refused (401): pair again", 401, null)
+                }
+                is SyncResult.Failed -> {
+                    allOk = false
+                    val problem = problemFor(computer, result, phoneAddresses)
+                    PairedComputers.update(app, computer.deviceId) { it.copy(lastError = problem.id) }
+                    log(prefs, computer, "Sync failed (${problem.id}): ${result.reason}", result.code, result.error)
                 }
             }
-            allOk
         }
+        return allOk
+    }
+
+    /** Different networks, not answering, or failed. Only a sync that reached no address can be a network problem. */
+    fun problemFor(computer: PairedComputer, result: SyncResult.Failed, phoneAddresses: () -> List<PhoneAddress>): SyncProblem {
+        if (!result.unreachable) return SyncProblem.FAILED
+        val phone = runCatching(phoneAddresses).getOrDefault(emptyList())
+        val known = SyncNetwork.computerAddresses(computer)
+        return SyncNetwork.unreachableProblem(phone, known.ifEmpty { result.tried.map { it.address } })
+    }
 
     private fun log(prefs: Prefs, computer: PairedComputer, message: String, code: Int?, error: Throwable?) {
         Log.w(TAG, "${computer.name}: $message", error)
@@ -131,8 +162,10 @@ class DictionarySyncWorker(context: Context, params: WorkerParameters) : Worker(
 }
 
 /**
- * When sync runs: when the Dictionary screen opens, a few seconds after a dictionary change, when the phone joins
- * Wi-Fi, and every 30 minutes on an unmetered network. Nothing is scheduled while no computer is paired.
+ * Background syncs: a few seconds after a dictionary change, when the phone joins Wi-Fi, and every 30 minutes on an
+ * unmetered network. Syncs while a screen is open (opening the Dictionary or Computer sync screen, after a QR scan,
+ * Sync now) don't wait for WorkManager; they run right away through [ForegroundSync]. Nothing is scheduled while no
+ * computer is paired.
  */
 object SyncScheduler {
     private const val NOW = "wirl-sync-now"
@@ -151,11 +184,6 @@ object SyncScheduler {
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(NOW, policy, request)
         }
-    }
-
-    /** The Dictionary screen opened, or a computer was just paired. */
-    fun syncNow(context: Context) {
-        if (hasPaired(context)) enqueue(context, 0, ExistingWorkPolicy.REPLACE)
     }
 
     /** The dictionary changed. Debounced: a burst of edits makes one sync. */

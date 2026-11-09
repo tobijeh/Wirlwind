@@ -51,16 +51,20 @@ The Desktop column is taken from `FEATURES.md` in Wirl-Desktop. Update both file
 | | Import (sync format, old format, simple list) merged by term; export | ✅ | ✅ |
 | | Automatic migration to the sync format (ids, timestamps) | ✅ | ➖ (always used it) |
 | **Dictionary sync** | Protocol in `docs/sync-protocol.md` (AES-256-GCM, HKDF, per-id merge) | ✅ (test vector checked) | ✅ |
-| | Pairing by QR code | 🟢 phone scans | 🟢 computer shows the code |
+| | Pairing by QR code | 🟢 phone scans, from Settings › Computer sync | 🟢 computer shows the code |
+| | Computer sync screen and Home row (status in amber when action is needed) | ✅ / 🟢 | ➖ |
 | | Several paired devices, Unpair | ✅ storage / 🟢 screen | 🟢 |
 | | "Synced with *name* *time ago*" per paired device | 🟢 | 🟢 |
 | | 401 → "Pair again" | ✅ | ✅ |
-| | Discovery with mDNS `_wirl._tcp`, fallback to QR addresses | 🟢 NSD / ✅ fallback | 🟢 advertises |
+| | Last working address and QR addresses first (in parallel), then mDNS `_wirl._tcp` | ✅ order / 🟢 NSD | 🟢 advertises |
+| | Short LAN timeouts (2 s connect, 10 s read) | ✅ | ➖ |
+| | Plain errors: different Wi-Fi networks, or computer not answering (firewall) | ✅ | ➖ |
 | | Private networks only | ✅ | ✅ |
-| | Syncs on opening the dictionary, after changes, on joining Wi-Fi, every 30 min on unmetered networks | 🟢 | ➖ (the computer is the server) |
+| | Syncs right away when a sync screen opens, after pairing and on Sync now ("Syncing…" shown) | ✅ engine / 🟢 screen | ➖ (the computer is the server) |
+| | Background sync after changes, on joining Wi-Fi, every 30 min on unmetered networks | 🟢 | ➖ |
 | | Silent, failures logged in Diagnostics and retried | ✅ logging / 🟢 retry | 🟢 |
-| **App** | Settings home with pages (Dictation, AI cleanup, Dictionary, Bubble, Setup, About) | ✅ | 🟢 |
-| | Setup checklist on first run; Test dictation | 🟢 | 🟢 |
+| **App** | Settings home with pages (Dictation, AI cleanup, Dictionary, Computer sync, Bubble, Setup, About) | ✅ | 🟢 |
+| | Setup checklist on first run; Test dictation; optional "Sync with your computer" | 🟢 | 🟢 |
 | | Start with the system | 🟢 (accessibility service) | 🟢 |
 | | Reset to defaults (keeps key, dictionary, pairing) | ✅ | ✅ |
 | | Developer options (7 taps on the version) with Diagnostics | ✅ | 🟢 |
