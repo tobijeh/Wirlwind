@@ -70,7 +70,11 @@ data class PairedComputer(
     val lastSyncAt: Long = 0L,
     /** The computer answered 401: the pairing is no longer valid. */
     val needsPairing: Boolean = false,
+    /** Why the last sync failed ([SyncProblem.id]), or empty after a sync that worked. Kept on the phone only. */
+    val lastError: String = "",
 ) {
+    val problem: SyncProblem? get() = SyncProblem.fromId(lastError)
+
     fun toJson(): JSONObject = JSONObject()
         .put("deviceId", deviceId)
         .put("name", name)
@@ -81,6 +85,7 @@ data class PairedComputer(
         .put("lastPort", lastPort)
         .put("lastSyncAt", lastSyncAt)
         .put("needsPairing", needsPairing)
+        .put("lastError", lastError)
 
     companion object {
         fun fromQr(qr: SyncProtocol.PairingQr) = PairedComputer(qr.deviceId, qr.name, qr.secret, qr.port, qr.hosts)
@@ -97,6 +102,7 @@ data class PairedComputer(
                 lastPort = o.optInt("lastPort", 0),
                 lastSyncAt = o.optLong("lastSyncAt", 0L),
                 needsPairing = o.optBoolean("needsPairing", false),
+                lastError = o.optString("lastError"),
             )
         }
 

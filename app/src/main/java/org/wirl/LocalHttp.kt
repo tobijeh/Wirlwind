@@ -48,13 +48,26 @@ object LocalHttp {
         return null
     }
 
+    /** Connecting on the local network takes milliseconds; an address that doesn't answer in 2 s isn't there. */
+    const val CONNECT_TIMEOUT_MS = 2_000
+
+    /** Once connected, the computer has 10 s to merge and answer. */
+    const val READ_TIMEOUT_MS = 10_000
+
     /** POSTs [json] and returns the status and body. Throws [IOException] on network errors or a non-private address. */
-    fun postJson(address: InetAddress, port: Int, path: String, json: String, timeoutMs: Int = 10_000): Response {
+    fun postJson(
+        address: InetAddress,
+        port: Int,
+        path: String,
+        json: String,
+        connectTimeoutMs: Int = CONNECT_TIMEOUT_MS,
+        readTimeoutMs: Int = READ_TIMEOUT_MS,
+    ): Response {
         if (!isPrivate(address)) throw IOException("refusing non-private address ${address.hostAddress}")
         val body = json.toByteArray(Charsets.UTF_8)
         Socket().use { socket ->
-            socket.connect(InetSocketAddress(address, port), timeoutMs)
-            socket.soTimeout = timeoutMs
+            socket.connect(InetSocketAddress(address, port), connectTimeoutMs)
+            socket.soTimeout = readTimeoutMs
             val hostHeader = if (address is Inet6Address) "[${address.hostAddress}]:$port" else "${address.hostAddress}:$port"
             val head = "POST $path HTTP/1.1\r\n" +
                 "Host: $hostHeader\r\n" +

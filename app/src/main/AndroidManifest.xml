@@ -80,6 +80,12 @@
             android:label="@string/dictionary_title" />
 
         <activity
+            android:name=".ComputerSyncActivity"
+            android:exported="false"
+            android:label="@string/page_computer_sync"
+            android:theme="@style/Theme.Wirl.Settings" />
+
+        <activity
             android:name=".QuickAddActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|uiMode"
             android:excludeFromRecents="true"

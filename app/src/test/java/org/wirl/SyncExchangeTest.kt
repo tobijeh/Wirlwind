@@ -69,6 +69,8 @@ class SyncExchangeTest {
 
     @After fun stop() {
         server.shutdown()
+        Prefs(context).pairedComputers = emptyList()
+        PairedComputers.load(context)
         Prefs.secureFactory = savedFactory
     }
 
@@ -106,25 +108,128 @@ class SyncExchangeTest {
         assertEquals(SyncResult.NeedsPairing, result)
     }
 
-    @Test fun discoveredAddressIsTriedFirstThenQrHosts() {
-        val tried = mutableListOf<String>()
+    @Test fun knownAddressesAreTriedBeforeNsdAndNsdDoesNotRunWhenOneAnswers() {
+        var discovered = false
+        val client = SyncClient(discover = {
+            discovered = true
+            emptyList()
+        })
+        val result = client.sync(computer(), phoneId, "Pixel", emptyList())
+        assertTrue(result is SyncResult.Synced)
+        assertFalse("NSD only runs when the known addresses fail", discovered)
+    }
+
+    @Test fun lastWorkingAddressComesFirstThenQrHosts() {
+        val c = computer(hosts = listOf("192.168.1.23", "10.0.0.2")).copy(lastHost = "192.168.1.50", lastPort = 50000)
+        val order = SyncClient({ emptyList() }).knownEndpoints(c).map { "${it.address.hostAddress}:${it.port}" }
+        assertEquals(listOf("192.168.1.50:50000", "192.168.1.23:${server.port}", "10.0.0.2:${server.port}"), order)
+    }
+
+    @Test fun nsdRunsOnlyAfterEveryKnownAddressFailsAndItsAddressIsUsed() {
+        val tried = java.util.Collections.synchronizedList(mutableListOf<String>())
+        var discoveredAfter = emptyList<String>()
         val client = SyncClient(
-            discover = { listOf(SyncEndpoint(InetAddress.getByName("192.168.1.50"), 47913)) },
+            discover = {
+                discoveredAfter = tried.toList()
+                listOf(SyncEndpoint(loopback, server.port))
+            },
             transport = { ep, body ->
                 tried += ep.address.hostAddress!!
-                if (ep.address.hostAddress == "192.168.1.50") throw IOException("unreachable")
+                if (ep.address.hostAddress != "127.0.0.1") throw IOException("unreachable")
                 LocalHttp.postJson(ep.address, ep.port, SyncProtocol.PATH, body)
             },
         )
-        val result = client.sync(computer(), phoneId, "Pixel", emptyList())
+        val c = computer(hosts = listOf("192.168.1.23")).copy(lastHost = "192.168.1.50")
+        val result = client.sync(c, phoneId, "Pixel", emptyList())
         assertTrue(result is SyncResult.Synced)
-        assertEquals(listOf("192.168.1.50", "127.0.0.1"), tried)
+        assertEquals("127.0.0.1", (result as SyncResult.Synced).endpoint.address.hostAddress)
+        assertEquals("both known addresses were tried before NSD", setOf("192.168.1.50", "192.168.1.23"), discoveredAfter.toSet())
+    }
+
+    @Test fun anUnreachableFirstAddressTimesOutQuicklyAndTheNextIsUsed() {
+        // 10.255.255.1 is a private address nothing answers on: the connect either fails at once or times out in 2 s.
+        val c = computer(hosts = listOf("127.0.0.1")).copy(lastHost = "10.255.255.1", lastPort = server.port)
+        val started = System.currentTimeMillis()
+        val result = SyncClient({ emptyList() }).sync(c, phoneId, "Pixel", emptyList())
+        val took = System.currentTimeMillis() - started
+        assertTrue(result is SyncResult.Synced)
+        assertEquals("127.0.0.1", (result as SyncResult.Synced).endpoint.address.hostAddress)
+        assertTrue("took $took ms", took < 4_000)
+    }
+
+    @Test fun aSilentAddressGivesUpWithinTheConnectTimeout() {
+        val started = System.currentTimeMillis()
+        val error = runCatching {
+            LocalHttp.postJson(InetAddress.getByName("10.255.255.1"), 47913, SyncProtocol.PATH, "{}")
+        }.exceptionOrNull()
+        val took = System.currentTimeMillis() - started
+        assertTrue("an unreachable address throws IOException, got $error", error is IOException)
+        assertTrue("took $took ms, the connect timeout is ${LocalHttp.CONNECT_TIMEOUT_MS} ms", took < LocalHttp.CONNECT_TIMEOUT_MS + 1_500)
+    }
+
+    @Test fun aForegroundSyncRecordsTheTimeAndTheStatusSaysJustNow() {
+        val prefs = Prefs(context)
+        prefs.pairedComputers = listOf(computer().copy(lastError = SyncProblem.NOT_ANSWERING.id))
+        PairedComputers.load(context)
+
+        assertTrue(DictionarySyncEngine.syncAll(context, SyncClient({ emptyList() }), { emptyList() }))
+
+        val saved = Prefs(context).pairedComputers.single()
+        assertTrue(saved.lastSyncAt > 0)
+        assertEquals("a sync that works clears the old error", "", saved.lastError)
+        assertEquals("127.0.0.1", saved.lastHost)
+        assertFalse(DictionarySyncEngine.running.value)
+        val state = SyncStatus.of(PairedComputers.list.value.single(), DictionarySyncEngine.running.value)
+        assertEquals(
+            "Synced with DESKTOP-ABC just now",
+            SyncStatusText.line(context, saved, state, System.currentTimeMillis()),
+        )
+    }
+
+    private fun failingSync(phone: List<PhoneAddress>): PairedComputer {
+        Prefs(context).pairedComputers = listOf(computer(hosts = listOf("192.168.103.11")))
+        PairedComputers.load(context)
+        val client = SyncClient({ emptyList() }, { _, _ -> throw IOException("connect timed out") })
+        assertFalse(DictionarySyncEngine.syncAll(context, client, { phone }))
+        return Prefs(context).pairedComputers.single()
+    }
+
+    @Test fun differentNetworksAreExplained() {
+        val saved = failingSync(listOf(PhoneAddress(InetAddress.getByName("192.168.0.103") as java.net.Inet4Address, 24)))
+        assertEquals(SyncProblem.DIFFERENT_NETWORK, saved.problem)
+        assertEquals(
+            "Can't reach DESKTOP-ABC. Your phone and computer seem to be on different Wi-Fi networks. Connect both to the same Wi-Fi.",
+            SyncStatusText.line(context, saved, SyncStatus.of(saved, false), System.currentTimeMillis()),
+        )
+        assertTrue("details still go to Diagnostics", Prefs(context).diagnostics.first().engines.startsWith("SYNC"))
+    }
+
+    @Test fun sameNetworkButNoAnswerPointsAtWirlAndTheFirewall() {
+        val saved = failingSync(listOf(PhoneAddress(InetAddress.getByName("192.168.103.40") as java.net.Inet4Address, 24)))
+        assertEquals(SyncProblem.NOT_ANSWERING, saved.problem)
+        assertEquals(
+            "Can't reach DESKTOP-ABC. Make sure Wirl is running on the computer and allowed through Windows Firewall on Private networks.",
+            SyncStatusText.line(context, saved, SyncStatus.of(saved, false), System.currentTimeMillis()),
+        )
+    }
+
+    @Test fun a401StillAsksToPairAgain() {
+        Prefs(context).pairedComputers = listOf(computer(SyncCrypto.newSecret()))
+        PairedComputers.load(context)
+        DictionarySyncEngine.syncAll(context, SyncClient({ emptyList() }), { emptyList() })
+        val saved = Prefs(context).pairedComputers.single()
+        assertTrue(saved.needsPairing)
+        assertEquals(
+            "DESKTOP-ABC no longer accepts this phone",
+            SyncStatusText.line(context, saved, SyncStatus.of(saved, false), System.currentTimeMillis()),
+        )
     }
 
     @Test fun unreachableComputerFailsQuietlyForRetry() {
         server.shutdown()
         val result = SyncClient({ emptyList() }).sync(computer(), phoneId, "Pixel", emptyList())
         assertTrue(result is SyncResult.Failed)
+        assertTrue((result as SyncResult.Failed).unreachable)
     }
 
     @Test fun publicAddressesAreNeverContacted() {

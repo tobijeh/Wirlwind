@@ -52,6 +52,7 @@ class SetupActivity : AppCompatActivity() {
             )
         }
         binding.runTest.setOnClickListener { runTest() }
+        binding.openComputerSync.setOnClickListener { startActivity(Intent(this, ComputerSyncActivity::class.java)) }
     }
 
     override fun onResume() {
@@ -76,6 +77,26 @@ class SetupActivity : AppCompatActivity() {
         row(SetupChecklist.Item.BATTERY, status, binding.batteryStatus)
         row(SetupChecklist.Item.DICTATION_TEST, status, binding.testStatus)
         binding.batteryTip.text = getString(tipFor(Build.MANUFACTURER))
+        refreshSync()
+    }
+
+    /** The optional sync item: a check once a computer is paired, no warning when not (it's optional). */
+    private fun refreshSync() {
+        val app = applicationContext
+        Thread {
+            val computers = runCatching { PairedComputers.load(app) }.getOrDefault(emptyList())
+            runOnUiThread {
+                if (isDestroyed) return@runOnUiThread
+                val paired = computers.isNotEmpty()
+                binding.syncSetupStatus.setCompoundDrawablesRelativeWithIntrinsicBounds(
+                    if (paired) R.drawable.ic_done_setup else 0, 0, 0, 0,
+                )
+                binding.syncSetupStatus.setTextColor(getColor(R.color.ink))
+                binding.syncSetupDetail.text = SyncStatus.homePick(computers, DictionarySyncEngine.running.value)
+                    ?.let { (computer, state) -> SyncStatusText.line(this, computer, state, System.currentTimeMillis()) }
+                    ?: getString(R.string.setup_sync_desc)
+            }
+        }.start()
     }
 
     companion object {

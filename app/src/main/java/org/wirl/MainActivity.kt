@@ -23,6 +23,13 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.wirl.databinding.ActivityMainBinding
 import org.wirl.databinding.ItemWhisperModelBinding
@@ -54,6 +61,7 @@ class MainActivity : AppCompatActivity() {
         setUpBubbleAppearance()
 
         setupNavigation()
+        observeComputerSync()
         binding.styleNotes.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) saveStyleNotes() }
         binding.apiKey.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) saveApiKey() }
         binding.apiKey.setOnEditorActionListener { _, action, _ ->
@@ -178,6 +186,7 @@ class MainActivity : AppCompatActivity() {
         binding.rowBubble.setOnClickListener { show(binding.pageBubble) }
         binding.rowAbout.setOnClickListener { show(binding.pageAbout) }
         binding.rowDictionary.setOnClickListener { startActivity(Intent(this, DictionaryActivity::class.java)) }
+        binding.rowComputerSync.setOnClickListener { startActivity(Intent(this, ComputerSyncActivity::class.java)) }
         binding.rowSetup.setOnClickListener { startActivity(Intent(this, SetupActivity::class.java)) }
         binding.backDictation.setOnClickListener { show(binding.pageHome) }
         binding.backCleanup.setOnClickListener { show(binding.pageHome) }
@@ -223,6 +232,7 @@ class MainActivity : AppCompatActivity() {
         }
         val terms = DictionarySync.visible(prefs.dictionary).size
         binding.dictionarySummary.text = resources.getQuantityString(R.plurals.summary_dictionary, terms, terms)
+        refreshComputerSync(PairedComputers.list.value, DictionarySyncEngine.running.value)
         binding.bubbleSummary.setText(R.string.summary_bubble)
         if (missing == 0) {
             binding.setupSummary.text = getString(R.string.summary_setup_all_set)
@@ -232,6 +242,30 @@ class MainActivity : AppCompatActivity() {
             binding.setupSummary.setTextColor(getColor(R.color.settings_warning))
         }
         binding.aboutSummary.text = getString(R.string.summary_about, appVersionName())
+    }
+
+    /** The Computer sync row: "Pair with your computer", "Synced with … 2 min ago", or an amber problem. */
+    private fun refreshComputerSync(computers: List<PairedComputer>, syncing: Boolean) {
+        val (text, warning) = SyncStatusText.home(this, computers, syncing, System.currentTimeMillis())
+        binding.computerSyncSummary.text = text
+        binding.computerSyncSummary.setTextColor(getColor(if (warning) R.color.settings_warning else R.color.settings_text_secondary))
+    }
+
+    /** Keeps the Computer sync row in step with pairing changes and syncs that finish while Settings is open. */
+    private fun observeComputerSync() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch(Dispatchers.IO) { runCatching { PairedComputers.load(applicationContext) } }
+                launch {
+                    PairedComputers.list.combine(DictionarySyncEngine.running) { list, running -> list to running }
+                        .collect { (list, running) -> refreshComputerSync(list, running) }
+                }
+                while (true) {
+                    delay(60_000)
+                    refreshComputerSync(PairedComputers.list.value, DictionarySyncEngine.running.value)
+                }
+            }
+        }
     }
 
     private fun saveApiKey() {
