@@ -77,9 +77,12 @@ class DictionaryRepositoryTest {
         val removed = repo.entries.value[0]
 
         repo.update { list -> DictionaryEditor.delete(list, DictionaryEditor.indexOfEntry(list, removed)) }
-        repo.update { DictionaryEditor.merge(it, listOf(removed)) }
+        repo.update { DictionaryEditor.restore(it, removed) }
 
-        assertEquals(listOf(removed), repo.entries.value)
+        val restored = repo.entries.value.single()
+        assertEquals("undo keeps the id, so sync sees one entry", removed.id, restored.id)
+        assertEquals(removed.copy(updatedAt = restored.updatedAt), restored)
+        assertTrue(restored.updatedAt > removed.updatedAt)
     }
 
     @Test fun listIsSortedAlphabetically() {

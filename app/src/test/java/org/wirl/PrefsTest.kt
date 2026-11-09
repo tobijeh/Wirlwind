@@ -82,7 +82,7 @@ class PrefsTest {
     }
 
     @Test fun dictionaryPersists() {
-        val entries = listOf(DictionaryEntry("Sela", listOf("salad"), "web app"))
+        val entries = listOf(DictionaryEntry("Sela", listOf("salad"), "web app", "7d0f6b0e-3b1a-4c43-9a55-5d3c3c0a2f61", 5L))
         Prefs(context).dictionary = entries
         assertEquals(entries, Prefs(context).dictionary)
     }

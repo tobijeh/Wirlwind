@@ -3,12 +3,25 @@ package org.wirl
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** A word Wirl should get right: the correct spelling, the mishearings to watch for, and when they apply. */
+/**
+ * A word Wirl should get right: the correct spelling, the mishearings to watch for, and when they apply.
+ *
+ * [id], [updatedAt] and [deleted] are the sync fields (docs/sync-protocol.md). A blank [id] means "not saved
+ * yet": [DictionaryRepository] gives it a UUID and a timestamp when it's saved. Deleting keeps the entry as a
+ * tombstone ([deleted] = true) so the deletion reaches the computer.
+ */
 data class DictionaryEntry(
     val term: String,
     val soundsLike: List<String> = emptyList(),
     val note: String = "",
-)
+    val id: String = "",
+    val updatedAt: Long = 0L,
+    val deleted: Boolean = false,
+) {
+    /** Same term, mishearings and note. Ignores the sync fields. */
+    fun sameContent(other: DictionaryEntry): Boolean =
+        term == other.term && soundsLike == other.soundsLike && note == other.note
+}
 
 /** Picks the entries that might apply to a piece of text. When unsure, an entry is included. */
 object DictionaryMatcher {
@@ -106,14 +119,18 @@ object DictionaryEditor {
             .map { it.trim() }
             .filter { it.isNotEmpty() && !it.equals(term, ignoreCase = true) }
             .distinctBy { it.lowercase() }
-        return DictionaryEntry(term, sounds, entry.note.trim())
+        return entry.copy(term = term, soundsLike = sounds, note = entry.note.trim())
     }
 
     /** Alphabetical by term, ignoring case. */
     fun sorted(entries: List<DictionaryEntry>): List<DictionaryEntry> = entries.sortedBy { it.term.lowercase() }
 
-    /** Position of [entry] in [entries], or -1 if it's gone. */
-    fun indexOfEntry(entries: List<DictionaryEntry>, entry: DictionaryEntry?): Int = entries.indexOf(entry)
+    /** Position of [entry] in [entries] (by id once it has one, since a sync may have updated it), or -1 if it's gone. */
+    fun indexOfEntry(entries: List<DictionaryEntry>, entry: DictionaryEntry?): Int {
+        if (entry == null) return -1
+        if (entry.id.isNotEmpty()) return entries.indexOfFirst { it.id == entry.id }
+        return entries.indexOf(entry)
+    }
 
     fun indexOfTerm(entries: List<DictionaryEntry>, term: String): Int =
         entries.indexOfFirst { it.term.equals(term.trim(), ignoreCase = true) }
@@ -144,9 +161,25 @@ object DictionaryEditor {
         return replaceAt(withTerm, idx, updated)
     }
 
-    /** Folds an imported list into the existing one. */
+    /**
+     * Puts a just-deleted entry back (undo). It keeps its id, so the sync sees one entry that was deleted and
+     * restored. If the term was added again meanwhile, its details are merged into that entry instead.
+     */
+    fun restore(entries: List<DictionaryEntry>, entry: DictionaryEntry): List<DictionaryEntry> =
+        if (indexOfTerm(entries, entry.term) >= 0 || entries.any { it.id.isNotEmpty() && it.id == entry.id }) {
+            merge(entries, listOf(entry))
+        } else {
+            entries + entry.copy(deleted = false)
+        }
+
+    /** Folds an imported list into the existing one. If a term exists, new mishearings are added to it. */
     fun merge(existing: List<DictionaryEntry>, incoming: List<DictionaryEntry>): List<DictionaryEntry> =
         incoming.fold(existing) { acc, entry ->
+            // A new term keeps its id from the file (e.g. a computer's export), so a later sync doesn't duplicate it.
+            val clean = normalized(entry)
+            if (clean != null && clean.id.isNotEmpty() && indexOfTerm(acc, clean.term) < 0 && acc.none { it.id == clean.id }) {
+                return@fold acc + clean.copy(updatedAt = 0L, deleted = false)
+            }
             val withTerm = addTerm(acc, entry.term, entry.note)
             entry.soundsLike.fold(withTerm) { a, mishearing -> addMishearing(a, entry.term, mishearing) }
         }
@@ -154,7 +187,8 @@ object DictionaryEditor {
     /** Replaces the entry at [index]. Does nothing if the index is no longer valid (the list changed underneath). */
     fun replace(entries: List<DictionaryEntry>, index: Int, entry: DictionaryEntry): List<DictionaryEntry> {
         if (index !in entries.indices) return entries
-        val clean = normalized(entry) ?: return entries
+        // The edited entry keeps the id of the one it replaces, so sync sees an edit, not a delete and an add.
+        val clean = normalized(if (entry.id.isEmpty()) entry.copy(id = entries[index].id) else entry) ?: return entries
         return replaceAt(entries, index, clean)
     }
 
@@ -176,26 +210,70 @@ object DictionaryEditor {
         entries.toMutableList().also { it[index] = entry }
 }
 
-/** The dictionary as JSON, for storage and for import/export files. */
+/**
+ * The dictionary as JSON, in the sync entry format (docs/sync-protocol.md):
+ * `{"id", "term", "soundsLike": [..], "note", "updatedAt", "deleted"}`.
+ */
 object DictionaryJson {
-    fun encode(entries: List<DictionaryEntry>): String {
-        val array = JSONArray()
-        entries.forEach { entry ->
-            val sounds = JSONArray()
-            entry.soundsLike.forEach { sounds.put(it) }
-            array.put(JSONObject().put("term", entry.term).put("sounds_like", sounds).put("note", entry.note))
-        }
-        return array.toString(2)
+    fun toJson(entry: DictionaryEntry): JSONObject {
+        val sounds = JSONArray()
+        entry.soundsLike.forEach { sounds.put(it) }
+        return JSONObject()
+            .put("id", entry.id)
+            .put("term", entry.term)
+            .put("soundsLike", sounds)
+            .put("note", entry.note)
+            .put("updatedAt", entry.updatedAt)
+            .put("deleted", entry.deleted)
     }
 
-    /** Throws if [raw] isn't a JSON array. Entries without a term are skipped. */
-    fun decode(raw: String): List<DictionaryEntry> {
-        val array = JSONArray(raw)
-        return (0 until array.length()).mapNotNull { i ->
-            val obj = array.getJSONObject(i)
-            val sounds = obj.optJSONArray("sounds_like")
-            val soundsLike = if (sounds == null) emptyList() else (0 until sounds.length()).map { sounds.optString(it) }
-            DictionaryEditor.normalized(DictionaryEntry(obj.optString("term"), soundsLike, obj.optString("note")))
+    fun toJsonArray(entries: List<DictionaryEntry>): JSONArray =
+        JSONArray().also { array -> entries.forEach { array.put(toJson(it)) } }
+
+    /** Every entry, tombstones included. Used for storage and sync. */
+    fun encode(entries: List<DictionaryEntry>): String = toJsonArray(entries).toString(2)
+
+    /** The export file: live entries only, in the sync format. */
+    fun encodeExport(entries: List<DictionaryEntry>): String = encode(entries.filterNot { it.deleted })
+
+    /**
+     * Reads stored or synced entries, tombstones included. Accepts the sync format and the old format
+     * (`sounds_like`, no id). Entries without a term are skipped. Throws if [raw] isn't a list.
+     */
+    fun decode(raw: String): List<DictionaryEntry> = items(raw).mapNotNull { fromJson(it) }
+
+    /** Reads entries from a sync payload array. */
+    fun fromJsonArray(array: JSONArray): List<DictionaryEntry> =
+        (0 until array.length()).mapNotNull { i -> array.optJSONObject(i)?.let { fromJson(it) } }
+
+    /**
+     * Reads an import file: the sync format, the old format, or a simple list of `{"term", "soundsLike", "note"}`
+     * where soundsLike is a list or a comma-separated string. A `{"entries": [...]}` object is accepted too.
+     * Tombstones are skipped. Throws if [raw] isn't a list.
+     */
+    fun decodeImport(raw: String): List<DictionaryEntry> =
+        items(raw).mapNotNull { fromJson(it) }.filterNot { it.deleted }.map { it.copy(updatedAt = 0L) }
+
+    private fun items(raw: String): List<JSONObject> {
+        val trimmed = raw.trim()
+        val array = if (trimmed.startsWith("{")) JSONObject(trimmed).getJSONArray("entries") else JSONArray(trimmed)
+        return (0 until array.length()).mapNotNull { array.optJSONObject(it) }
+    }
+
+    private fun fromJson(obj: JSONObject): DictionaryEntry? {
+        val sounds: List<String> = when (val v = obj.opt("soundsLike") ?: obj.opt("sounds_like")) {
+            is JSONArray -> (0 until v.length()).map { v.optString(it) }
+            is String -> DictionaryEditor.parseSoundsLike(v)
+            else -> emptyList()
         }
+        val entry = DictionaryEntry(
+            term = obj.optString("term"),
+            soundsLike = sounds,
+            note = if (obj.isNull("note")) "" else obj.optString("note"),
+            id = obj.optString("id").trim().takeIf { DictionarySync.isUuid(it) }.orEmpty(),
+            updatedAt = obj.optLong("updatedAt", 0L),
+            deleted = obj.optBoolean("deleted", false),
+        )
+        return DictionaryEditor.normalized(entry)
     }
 }

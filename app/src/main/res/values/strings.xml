@@ -257,4 +257,27 @@
     <string name="icon_bird">Bird icon</string>
     <string name="icon_rocket">Rocket icon</string>
     <string name="icon_pizza">Pizza slice icon</string>
+    <string name="pair_with_computer">Pair with computer</string>
+    <string name="pair_scan_prompt">On your computer, open Wirl › Dictionary › Pair with phone, then scan the code.</string>
+    <string name="pair_invalid_code">That isn\'t a Wirl pairing code</string>
+    <string name="paired_with">Paired with %1$s</string>
+    <string name="synced_with">Synced with %1$s %2$s</string>
+    <string name="not_synced_yet">Paired with %1$s · not synced yet</string>
+    <string name="pairing_invalid">%1$s no longer accepts this phone</string>
+    <string name="pair_again">Pair again</string>
+    <string name="unpair">Unpair</string>
+    <string name="unpair_confirm">Stop syncing with %1$s? Your dictionary stays on this phone.</string>
+    <string name="time_just_now">just now</string>
+    <plurals name="time_minutes_ago">
+        <item quantity="one">%d min ago</item>
+        <item quantity="other">%d min ago</item>
+    </plurals>
+    <plurals name="time_hours_ago">
+        <item quantity="one">%d hour ago</item>
+        <item quantity="other">%d hours ago</item>
+    </plurals>
+    <plurals name="time_days_ago">
+        <item quantity="one">%d day ago</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
 </resources>

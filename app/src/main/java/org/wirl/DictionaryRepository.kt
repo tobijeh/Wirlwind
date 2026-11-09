@@ -8,23 +8,51 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 
 /**
- * The one copy of the dictionary in the app. The Dictionary screen, quick add, and cleanup all read and
+ * The one copy of the dictionary in the app. The Dictionary screen, quick add, cleanup, and sync all read and
  * write through here, so they always agree.
+ *
+ * [all] is the full list in the sync format, tombstones included. [entries] is the live entries only, which is
+ * what everything except sync uses. Edits work on [entries]; [DictionarySync.reconcile] turns them into ids,
+ * timestamps and tombstones.
  */
-class DictionaryRepository(private val prefs: Prefs) {
-    private val _entries = MutableStateFlow(prefs.dictionary)
+class DictionaryRepository(private val prefs: Prefs, private val clock: () -> Long = System::currentTimeMillis) {
+    private val _all = MutableStateFlow(prefs.dictionary)
+    val all: StateFlow<List<DictionaryEntry>> = _all.asStateFlow()
+
+    private val _entries = MutableStateFlow(DictionarySync.visible(_all.value))
     val entries: StateFlow<List<DictionaryEntry>> = _entries.asStateFlow()
 
-    /** Applies [change] to the current list and saves the result. */
+    /** Called after every local change (not after a sync). The app uses it to schedule a sync. */
+    @Volatile var onLocalChange: (() -> Unit)? = null
+
+    /** Applies [change] to the live entries and saves the result. */
     fun update(change: (List<DictionaryEntry>) -> List<DictionaryEntry>) {
-        val updated = change(_entries.value)
-        prefs.dictionary = updated
-        _entries.value = updated
+        val changed = synchronized(this) {
+            val before = _all.value
+            val updated = DictionarySync.reconcile(before, change(_entries.value), clock())
+            if (updated == before) return@synchronized false
+            store(updated)
+            true
+        }
+        if (changed) onLocalChange?.invoke()
+    }
+
+    /** Merges a dictionary received from a computer (per-id, newest wins) and saves it. Doesn't trigger a sync. */
+    fun applyRemote(remote: List<DictionaryEntry>) = synchronized(this) {
+        store(DictionarySync.purge(DictionarySync.merge(_all.value, remote), clock()))
     }
 
     /** Re-reads storage, in case it was changed outside this repository. */
-    fun reload() {
-        _entries.value = prefs.dictionary
+    fun reload() = synchronized(this) {
+        val stored = prefs.dictionary
+        _all.value = stored
+        _entries.value = DictionarySync.visible(stored)
+    }
+
+    private fun store(list: List<DictionaryEntry>) {
+        prefs.dictionary = list
+        _all.value = list
+        _entries.value = DictionarySync.visible(list)
     }
 
     companion object {
@@ -35,7 +63,9 @@ class DictionaryRepository(private val prefs: Prefs) {
         fun get(context: Context): DictionaryRepository = synchronized(this) {
             val app = context.applicationContext
             if (instance == null || instanceContext !== app) {
-                instance = DictionaryRepository(Prefs(app))
+                instance = DictionaryRepository(Prefs(app)).also { repo ->
+                    repo.onLocalChange = { SyncScheduler.afterChange(app) }
+                }
                 instanceContext = app
             }
             instance!!
