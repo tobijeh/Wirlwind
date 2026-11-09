@@ -1,6 +1,6 @@
 # Wirl dictionary sync protocol (v1)
 
-Wirl for Windows and Wirl for Android keep the personal dictionary in sync over the local Wi-Fi network. There is no server and no cloud account. **Both apps must follow this document exactly.** This file is kept identical in both repositories (`tobijeh/Wirl-Desktop` and `tobijeh/Wirlwind`), apart from the "Wirl for Android" section at the end. The desktop reference implementation is `crates/wirl-core/src/sync.rs` (crypto, merge) and `src-tauri/src/sync_server.rs` (HTTP, mDNS, pairing).
+Wirl for Windows and Wirl for Android keep the personal dictionary in sync over the local Wi-Fi network. There is no server and no cloud account. **Both apps must follow this document exactly.** The reference implementation is `crates/wirl-core/src/sync.rs` (crypto, merge) and `src-tauri/src/sync_server.rs` (HTTP, mDNS, pairing).
 
 ## Roles
 
