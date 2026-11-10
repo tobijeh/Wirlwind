@@ -126,6 +126,19 @@ class PrefsTest {
         assertTrue(Prefs(context).showDoneMessage)
     }
 
+    @Test fun settingsVersionSixForgetsTheOldEngineChoice() {
+        context.getSharedPreferences("wirl", Context.MODE_PRIVATE).edit()
+            .clear()
+            .putInt(Prefs.KEY_SETTINGS_VERSION, 5)
+            .putString(Prefs.KEY_DICTATION_ENGINE, "google")
+            .putString(Prefs.KEY_WHISPER_MODEL, "ACCURATE")
+            .commit()
+        assertEquals(WhisperModel.ACCURATE, Prefs(context).whisperModel)
+        val plain = context.getSharedPreferences("wirl", Context.MODE_PRIVATE)
+        assertFalse(plain.contains(Prefs.KEY_DICTATION_ENGINE))
+        assertTrue(plain.getInt(Prefs.KEY_SETTINGS_VERSION, 0) >= 6)
+    }
+
     @Test fun dictationDefaults() {
         val prefs = Prefs(context)
         assertTrue(prefs.dictationCleanup)

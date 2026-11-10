@@ -46,17 +46,17 @@ class Prefs(context: Context) {
                 java.io.File(app.filesDir, "whisper/$REMOVED_MULTILINGUAL_FILE.part").delete()
             }
         }
+        if (plain.getInt(KEY_SETTINGS_VERSION, 1) < 6) {
+            // Version 6: Google's recognizer is no longer a choice, only the backup. Anyone who chose it goes back to
+            // the model on the phone.
+            plain.edit().remove(KEY_DICTATION_ENGINE).putInt(KEY_SETTINGS_VERSION, 6).apply()
+        }
     }
 
     /** Run the dictated text through the cleanup instructions. Off inserts exactly what was said. */
     var dictationCleanup: Boolean
         get() = plain.getBoolean(KEY_DICTATION_CLEANUP, true)
         set(value) = plain.edit().putBoolean(KEY_DICTATION_CLEANUP, value).apply()
-
-    /** Which engine turns speech into text. Whisper by default, with Google's recognizer as the fallback. */
-    var dictationEngine: DictationEngine
-        get() = DictationEngine.fromKey(plain.getString(KEY_DICTATION_ENGINE, null))
-        set(value) = plain.edit().putString(KEY_DICTATION_ENGINE, value.key).apply()
 
     /** The Whisper model. Fast (base.en) by default. */
     var whisperModel: WhisperModel

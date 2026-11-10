@@ -9,7 +9,7 @@ The Desktop column is taken from `FEATURES.md` in Wirl-Desktop. Update both file
 | Area | Feature | Android | Desktop |
 |---|---|---|---|
 | **Dictation** | Local Whisper transcription (whisper.cpp) | 🟢 on-phone, arm64 | 🟢 sidecar process |
-| | Google speech recognizer as fallback engine | 🟢 | ➖ |
+| | Google speech recognizer as fallback engine (automatic backup, not a setting; Advanced shows the engine in use) | 🟢 | ➖ |
 | | GPU acceleration (Vulkan) with CPU fallback | ➖ CPU only | 🟢 |
 | | Crash isolation for Whisper, restart, reason logged | ➖ in-process | 🟢 |
 | | Background chunking at natural pauses (5–10 s) | ✅ | ✅ |

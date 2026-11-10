@@ -127,10 +127,6 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun engineLabel(engine: DictationEngine): String = getString(
-        if (engine == DictationEngine.WHISPER) R.string.whisper_engine_whisper else R.string.whisper_engine_google,
-    )
-
     private fun modelLabel(model: WhisperModel): String = getString(
         when (model) {
             WhisperModel.FAST -> R.string.whisper_model_fast
@@ -315,14 +311,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupWhisperSettings() {
-        val engines = DictationEngine.entries
-        binding.engineChoice.setAdapter(ArrayAdapter(this, android.R.layout.simple_list_item_1, engines.map(::engineLabel)))
-        binding.engineChoice.setText(engineLabel(prefs.dictationEngine), false)
-        binding.engineChoice.setOnItemClickListener { _, _, position, _ ->
-            prefs.dictationEngine = engines[position]
-            refreshWhisper()
-            refreshStatus()
-        }
         modelRows.forEach { (model, row) -> bindModelRow(row, model) }
         binding.mobileDataSwitch.isChecked = prefs.allowMobileData
         binding.mobileDataSwitch.setOnCheckedChangeListener { _, checked -> prefs.allowMobileData = checked }
@@ -361,15 +349,22 @@ class MainActivity : AppCompatActivity() {
         val selectedReady = store.isReady(selected.spec)
         val anyReady = WhisperModel.entries.any { store.isReady(it.spec) }
         binding.modelBanner.visibility = if (anyReady) View.GONE else View.VISIBLE
-        binding.engineStatus.text = engineStatusText(
-            EngineChoice.use(prefs.dictationEngine, selectedReady, nativeLoads(selected)),
-            selected,
-        )
+        binding.engineStatus.text = engineStatusText(currentEngine(), selected)
         modelRows.forEach { (model, row) -> refreshRow(row, model, selected) }
     }
 
+    /**
+     * The engine dictation uses right now: the chosen model on this phone, or Google's recognizer as the backup while
+     * that model isn't downloaded or its engine won't load. There's no setting for it.
+     */
+    private fun currentEngine(): EngineUse {
+        val selected = prefs.whisperModel
+        return EngineChoice.use(DictationEngine.WHISPER, WhisperApp.store(this).isReady(selected.spec), nativeLoads(selected))
+    }
+
+    private fun googleInUse(): Boolean = currentEngine().engine == DictationEngine.GOOGLE
+
     private fun engineStatusText(use: EngineUse, selected: WhisperModel): String = when {
-        prefs.dictationEngine == DictationEngine.GOOGLE -> getString(R.string.engine_using_google)
         use.engine == DictationEngine.WHISPER -> getString(
             if (selected.engine == ModelEngine.SENSE_VOICE) R.string.engine_using_sensevoice else R.string.engine_using_whisper,
             modelLabel(selected),
@@ -598,7 +593,7 @@ class MainActivity : AppCompatActivity() {
         val first = order.firstOrNull()?.label
         binding.speechEngine.text = "${getString(R.string.speech_engine_title)}: " +
             (first ?: SpeechEngine.describe(detection, onDevicePackInstalled = false))
-        val google = prefs.dictationEngine == DictationEngine.GOOGLE
+        val google = googleInUse()
         binding.speechEngine.visibility = if (google) View.VISIBLE else View.GONE
         binding.openVoiceSettings.visibility = if (google && order.isEmpty()) View.VISIBLE else View.GONE
     }
@@ -647,8 +642,8 @@ class MainActivity : AppCompatActivity() {
         binding.micState.text = getString(R.string.mic_state_needed)
         binding.micState.setTextColor(getColor(R.color.settings_warning))
 
-        // The speech-pack controls only apply to Google's recognizer, so they show only when it's in use.
-        val google = prefs.dictationEngine == DictationEngine.GOOGLE
+        // The speech-pack controls only apply to Google's recognizer, so they show only while it's the backup in use.
+        val google = googleInUse()
         binding.packStatus.visibility = if (google) View.VISIBLE else View.GONE
 
         val tag = googleLanguage()
