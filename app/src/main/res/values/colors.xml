@@ -1,20 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Brand palette from the icon set: the purple tile, ink, cream, and paper. -->
-    <color name="brand">#6355ED</color>
-    <color name="brand_dark">#4B3DC9</color>
-    <color name="brand_light">#ECE9FF</color>
+    <!--
+      One color scheme for the whole app: dark, the same as Settings (values/settings_colors.xml). It doesn't follow the
+      phone's light or dark mode, so there are no values-night colors. Use these tokens, not hex values.
+    -->
+    <color name="brand">#8C7FFF</color>
+    <color name="brand_dark">#B3A9FF</color>
+    <color name="brand_light">#2A2650</color>
+    <!-- The launcher background and the bubble's processing scrim. Not a text color. -->
     <color name="ink">#12171B</color>
-    <color name="cream">#F2EFE8</color>
-    <color name="paper">#F7F6F1</color>
-    <color name="card">#FFFFFF</color>
-    <color name="well">#F2EFE8</color>
-    <color name="stroke">#E4E1D8</color>
-    <color name="bubble_green">#1F7A4D</color>
-    <color name="bubble_green_light">#E6F4EC</color>
-    <color name="bubble_amber">#B26A00</color>
+    <color name="cream">@color/settings_card</color>
+    <color name="paper">@color/settings_bg</color>
+    <color name="card">@color/settings_card</color>
+    <color name="well">#16151D</color>
+    <color name="stroke">@color/settings_border</color>
+    <color name="bubble_green">#2E9E66</color>
+    <color name="bubble_green_light">#16261E</color>
+    <color name="bubble_amber">@color/settings_warning</color>
     <color name="bubble_fill">#5733DB</color>
-    <color name="bubble_record">#D32F2F</color>
+    <color name="bubble_record">#E53935</color>
     <color name="label_bg">#E6202124</color>
     <color name="white">#FFFFFF</color>
 </resources>
