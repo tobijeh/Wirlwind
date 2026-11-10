@@ -51,6 +51,9 @@
                 <!-- Quick switch: tick the models to use; the bubble swipes between them while recording. -->
                 <TextView android:id="@+id/quickSwitchHint" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/quick_switch_hint" android:textSize="14sp" android:textColor="@color/settings_text_secondary"/>
 
+                <!-- A looping demo of the swipe, like the preview on the Bubble page. -->
+                <org.wirl.QuickSwitchDemo android:id="@+id/quickSwitchDemo" android:layout_width="match_parent" android:layout_height="112dp" android:layout_marginTop="12dp" android:background="@drawable/preview_well"/>
+
                 <include android:id="@+id/modelFast" layout="@layout/item_whisper_model"/>
 
                 <include android:id="@+id/modelAccurate" layout="@layout/item_whisper_model"/>

@@ -169,6 +169,41 @@ class DictationPageTest {
         }
     }
 
+    @Test fun theSpeechModelCardHasASwipeDemo() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                shadowOf(Looper.getMainLooper()).idle()
+                val demo = activity.findViewById<QuickSwitchDemo>(R.id.quickSwitchDemo)
+                assertTrue(isInside(demo, R.id.pageDictation))
+                assertEquals("EN and 粵 until two models are ticked", listOf("EN", "粵"), demo.tags)
+                assertTrue(demo.contentDescription.toString().startsWith("Demo: while recording, swipe the bubble up or down"))
+                demo.swipe()
+                shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(400))
+                assertEquals("swiping up shows the next label", "粵", demo.bubble.tag.text.toString())
+                demo.swipe()
+                shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(400))
+                assertEquals("and down goes back", "EN", demo.bubble.tag.text.toString())
+            }
+        }
+    }
+
+    @Test fun theDemoUsesTheTickedModels() {
+        fakeDownload(WhisperModel.FAST)
+        fakeDownload(WhisperModel.ACCURATE)
+        Prefs(context).activeModels = setOf(WhisperModel.FAST, WhisperModel.ACCURATE)
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                scenario.onActivity { activity ->
+                    shadowOf(Looper.getMainLooper()).idle()
+                    assertEquals(listOf("EN", "EN+"), activity.findViewById<QuickSwitchDemo>(R.id.quickSwitchDemo).tags)
+                }
+            }
+        } finally {
+            WhisperApp.store(context).delete(WhisperModel.ACCURATE.spec)
+            Prefs(context).activeModels = emptySet()
+        }
+    }
+
     @Test fun setupCanOpenTheDictationPage() {
         val intent = Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_PAGE, MainActivity.PAGE_DICTATION)
         ActivityScenario.launch<MainActivity>(intent).use { scenario ->
