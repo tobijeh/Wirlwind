@@ -139,6 +139,7 @@ class MainActivity : AppCompatActivity() {
             WhisperModel.FAST -> R.string.whisper_model_fast
             WhisperModel.ACCURATE -> R.string.whisper_model_accurate
             WhisperModel.MULTILINGUAL -> R.string.whisper_model_multilingual
+            WhisperModel.CANTONESE -> R.string.whisper_model_cantonese
         },
     )
 
@@ -148,10 +149,22 @@ class MainActivity : AppCompatActivity() {
             WhisperModel.FAST -> R.string.model_name_fast
             WhisperModel.ACCURATE -> R.string.model_name_accurate
             WhisperModel.MULTILINGUAL -> R.string.model_name_multilingual
+            WhisperModel.CANTONESE -> R.string.model_name_cantonese
         },
     )
 
-    private val nativeLoads: Boolean by lazy { WhisperLibrary.loads }
+    /** Whether the selected model's engine loads on this phone. */
+    private fun nativeLoads(model: WhisperModel): Boolean = ModelLibraries.loads(model)
+
+    /** The Speech quality cards, in picker order. */
+    private val modelRows: List<Pair<WhisperModel, ItemWhisperModelBinding>> by lazy {
+        listOf(
+            WhisperModel.FAST to binding.modelFast,
+            WhisperModel.ACCURATE to binding.modelAccurate,
+            WhisperModel.MULTILINGUAL to binding.modelMultilingual,
+            WhisperModel.CANTONESE to binding.modelCantonese,
+        )
+    }
 
     /** Each settings card gets its icon tile, a title, and one line about what it controls. */
     private fun setupSections() {
@@ -223,11 +236,16 @@ class MainActivity : AppCompatActivity() {
         binding.healthLine.setTextColor(
             getColor(if (missing == 0) R.color.settings_success else R.color.settings_warning),
         )
-        binding.dictationSummary.text = getString(
-            R.string.summary_dictation,
-            shortModelName(prefs.whisperModel),
-            DictationLanguages.labelFor(prefs.dictationLanguage),
-        )
+        // The Cantonese model sets its own language, so the language setting isn't shown with it.
+        binding.dictationSummary.text = if (prefs.whisperModel == WhisperModel.CANTONESE) {
+            shortModelName(prefs.whisperModel)
+        } else {
+            getString(
+                R.string.summary_dictation,
+                shortModelName(prefs.whisperModel),
+                DictationLanguages.labelFor(prefs.dictationLanguage),
+            )
+        }
         binding.cleanupSummary.text = when {
             !prefs.dictationCleanup -> getString(R.string.summary_cleanup_off)
             prefs.styleNotes.isNotBlank() -> getString(R.string.summary_cleanup_notes, getString(R.string.summary_cleanup_on))
@@ -299,9 +317,7 @@ class MainActivity : AppCompatActivity() {
             refreshWhisper()
             refreshStatus()
         }
-        bindModelRow(binding.modelFast, WhisperModel.FAST)
-        bindModelRow(binding.modelAccurate, WhisperModel.ACCURATE)
-        bindModelRow(binding.modelMultilingual, WhisperModel.MULTILINGUAL)
+        modelRows.forEach { (model, row) -> bindModelRow(row, model) }
         binding.mobileDataSwitch.isChecked = prefs.allowMobileData
         binding.mobileDataSwitch.setOnCheckedChangeListener { _, checked -> prefs.allowMobileData = checked }
         binding.bannerDownload.setOnClickListener { downloadModel(prefs.whisperModel) }
@@ -315,6 +331,7 @@ class MainActivity : AppCompatActivity() {
                 WhisperModel.FAST -> R.string.quality_fast_desc
                 WhisperModel.ACCURATE -> R.string.quality_accurate_desc
                 WhisperModel.MULTILINGUAL -> R.string.quality_multilingual_desc
+                WhisperModel.CANTONESE -> R.string.quality_cantonese_desc
             },
         )
         row.select.setOnClickListener {
@@ -324,6 +341,10 @@ class MainActivity : AppCompatActivity() {
             refreshWhisper()
         }
         row.download.setOnClickListener { downloadModel(model) }
+        row.cancel.setOnClickListener {
+            ModelDownloads.cancel(model)
+            row.cancel.isEnabled = false
+        }
         row.delete.setOnClickListener { confirmDelete(model) }
     }
 
@@ -335,19 +356,20 @@ class MainActivity : AppCompatActivity() {
         val anyReady = WhisperModel.entries.any { store.isReady(it.spec) }
         binding.modelBanner.visibility = if (anyReady) View.GONE else View.VISIBLE
         binding.engineStatus.text = engineStatusText(
-            EngineChoice.use(prefs.dictationEngine, selectedReady, nativeLoads),
+            EngineChoice.use(prefs.dictationEngine, selectedReady, nativeLoads(selected)),
             selected,
         )
-        refreshRow(binding.modelFast, WhisperModel.FAST, selected)
-        refreshRow(binding.modelAccurate, WhisperModel.ACCURATE, selected)
-        refreshRow(binding.modelMultilingual, WhisperModel.MULTILINGUAL, selected)
+        modelRows.forEach { (model, row) -> refreshRow(row, model, selected) }
     }
 
     private fun engineStatusText(use: EngineUse, selected: WhisperModel): String = when {
         prefs.dictationEngine == DictationEngine.GOOGLE -> getString(R.string.engine_using_google)
-        use.engine == DictationEngine.WHISPER -> getString(R.string.engine_using_whisper, modelLabel(selected))
+        use.engine == DictationEngine.WHISPER -> getString(
+            if (selected.engine == ModelEngine.SENSE_VOICE) R.string.engine_using_sensevoice else R.string.engine_using_whisper,
+            modelLabel(selected),
+        )
         use.reason == FallbackReason.MODEL_MISSING -> getString(R.string.engine_fallback_model, modelLabel(selected))
-        else -> getString(R.string.engine_fallback_native)
+        else -> getString(R.string.engine_fallback_native, if (selected.engine == ModelEngine.SENSE_VOICE) "SenseVoice" else "Whisper")
     }
 
     private fun refreshRow(row: ItemWhisperModelBinding, model: WhisperModel, selected: WhisperModel) {
@@ -356,7 +378,12 @@ class MainActivity : AppCompatActivity() {
         row.select.isChecked = model == selected
         row.status.text = when (state) {
             ModelState.Ready -> getString(R.string.model_status_ready)
-            is ModelState.Downloading -> getString(R.string.model_status_downloading, state.percent)
+            // An archive model is unpacked after the last byte arrives, which takes a little while.
+            is ModelState.Downloading -> if (state.percent >= 100 && model.spec.isArchive) {
+                getString(R.string.model_status_unpacking)
+            } else {
+                getString(R.string.model_status_downloading, state.percent)
+            }
             is ModelState.Partial -> getString(R.string.model_status_partial, state.percent)
             ModelState.NotDownloaded -> getString(R.string.model_size, Formatter.formatShortFileSize(this, model.sizeBytes))
         }
@@ -370,6 +397,16 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.model_download, Formatter.formatShortFileSize(this, model.sizeBytes))
         }
         row.delete.visibility = if (state == ModelState.Ready || state is ModelState.Partial) View.VISIBLE else View.GONE
+        // Cancel while bytes are arriving. Unpacking can't be stopped halfway, so it's hidden then.
+        row.cancel.visibility = if (downloading && (state as ModelState.Downloading).percent < 100) View.VISIBLE else View.GONE
+        row.cancel.isEnabled = !ModelDownloads.isCancelled(model)
+        // Chosen but not on the phone: say what dictation does meanwhile, next to the Download button.
+        val chosenMissing = model == selected && state != ModelState.Ready && !downloading
+        row.notice.visibility = if (chosenMissing) View.VISIBLE else View.GONE
+        row.notice.text = getString(
+            if (model == WhisperModel.CANTONESE) R.string.model_not_downloaded_notice_cantonese else R.string.model_not_downloaded_notice,
+            Formatter.formatShortFileSize(this, model.sizeBytes),
+        )
     }
 
     private fun confirmDelete(model: WhisperModel) {
@@ -398,15 +435,22 @@ class MainActivity : AppCompatActivity() {
         refreshWhisper()
         Thread({
             val result = runCatching {
-                WhisperApp.downloader(this).download(model.spec) { done, total ->
+                WhisperApp.downloader(this).download(model.spec, cancelled = { ModelDownloads.isCancelled(model) }) { done, total ->
                     // Redraw only when the whole percentage moves, so the progress bar doesn't flood the UI thread.
                     if (ModelDownloads.update(model, ModelStatus.percent(done, total))) runOnUiThread { refreshWhisper() }
                 }
             }
             ModelDownloads.finish(model)
             runOnUiThread {
-                result.exceptionOrNull()?.let {
-                    Toast.makeText(this, getString(R.string.whisper_download_failed, it.message ?: "unknown error"), Toast.LENGTH_LONG).show()
+                when (val error = result.exceptionOrNull()) {
+                    null -> Unit
+                    is ModelDownloader.CancelledException ->
+                        Toast.makeText(this, R.string.model_download_cancelled, Toast.LENGTH_SHORT).show()
+                    else -> Toast.makeText(
+                        this,
+                        getString(R.string.whisper_download_failed, error.message ?: "unknown error"),
+                        Toast.LENGTH_LONG,
+                    ).show()
                 }
                 refreshWhisper()
             }

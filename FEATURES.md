@@ -24,6 +24,10 @@ The Desktop column is taken from `FEATURES.md` in Wirl-Desktop. Update both file
 | | Start and stop tones | 🟢 | 🟢 |
 | | Slide to cancel while recording | ✅ logic / 🟢 gesture | ➖ (Esc cancels) |
 | **Models** | Fast (base.en q5_1), Accurate (small.en q5_1), Multilingual (base q5_1) | ✅ | ✅ |
+| | Cantonese (粵語): SenseVoice int8 via sherpa-onnx, language yue, use_itn on | ✅ download, settings / 🟢 on-device | ⬜ |
+| | Cantonese mode in cleanup (traditional characters, spoken Cantonese, English kept; `docs/cantonese.md`) | ✅ | ⬜ |
+| | Google fallback in Cantonese (Hong Kong), yue-Hant-HK | 🟢 | ➖ |
+| | Cancel a model download (Resume continues it) | ✅ | ⬜ |
 | | Download from Hugging Face with resume and SHA-256 check | ✅ | ✅ |
 | | Downloads wait for Wi-Fi unless mobile data is allowed | ✅ | ➖ |
 | | Model kept loaded, freed after 10 min idle | ✅ | 🟢 kept loaded |

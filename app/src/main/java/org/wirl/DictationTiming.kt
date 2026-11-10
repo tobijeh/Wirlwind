@@ -12,7 +12,7 @@ data class ClaudeCallTiming(
     val thinkingUsed: Boolean,
 )
 
-/** Timing of one Whisper dictation. */
+/** Timing of one on-device dictation (Whisper, or SenseVoice for Cantonese). [stage] names it in Diagnostics. */
 data class WhisperTiming(
     /** Time waited for the model to be ready. Near zero when the model was already loaded. */
     val modelWaitMs: Long,
@@ -22,6 +22,7 @@ data class WhisperTiming(
     val totalMs: Long,
     val chunks: Int,
     val duringRecording: Int,
+    val stage: String = "whisper",
 )
 
 /** Every stage of one dictation, in the order it happens. Stages that didn't run are left out of the lines. */
@@ -35,9 +36,9 @@ data class DictationTiming(
 ) {
     fun lines(): List<String> = buildList {
         whisper?.let {
-            add("whisper model wait: ${it.modelWaitMs} ms")
-            add("whisper final chunk: ${it.finalChunkMs?.let { ms -> "$ms ms" } ?: "none"}")
-            add("whisper total: ${it.totalMs} ms, ${it.chunks} chunks (${it.duringRecording} during recording)")
+            add("${it.stage} model wait: ${it.modelWaitMs} ms")
+            add("${it.stage} final chunk: ${it.finalChunkMs?.let { ms -> "$ms ms" } ?: "none"}")
+            add("${it.stage} total: ${it.totalMs} ms, ${it.chunks} chunks (${it.duringRecording} during recording)")
         }
         claude?.let {
             add("claude first byte: ${it.firstByteMs} ms, total: ${it.totalMs} ms, connection: ${if (it.connectionReused) "reused" else "new"}")

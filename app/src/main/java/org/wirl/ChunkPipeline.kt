@@ -35,8 +35,25 @@ class ChunkAssembler {
         return true
     }
 
-    /** The whole text so far, in order, with single spaces. */
-    fun text(): String = texts.values.filter { it.isNotEmpty() }.joinToString(" ").replace(Regex("\\s+"), " ").trim()
+    /**
+     * The whole text so far, in order, with single spaces. Chunks meet without a space where both sides are Chinese
+     * (or another script written without spaces), so Cantonese chunks join into one run of text.
+     */
+    fun text(): String = texts.values.filter { it.isNotEmpty() }.fold("") { joined, next ->
+        when {
+            joined.isEmpty() -> next
+            noSpaceBetween(joined.last(), next.first()) -> joined + next
+            else -> "$joined $next"
+        }
+    }.replace(Regex("\\s+"), " ").trim()
+
+    private fun noSpaceBetween(before: Char, after: Char): Boolean = isCjk(before) && isCjk(after)
+
+    private fun isCjk(c: Char): Boolean = when (Character.UnicodeScript.of(c.code)) {
+        Character.UnicodeScript.HAN, Character.UnicodeScript.HIRAGANA, Character.UnicodeScript.KATAKANA -> true
+        // Full-width punctuation (，。？！) is Common script; it's in these blocks.
+        else -> c in '\u3000'..'\u303F' || c in '\uFF00'..'\uFFEF'
+    }
 
     /** Chunk numbers below the highest one received that never arrived. */
     fun missing(): List<Int> {
