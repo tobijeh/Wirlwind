@@ -63,6 +63,20 @@ class Prefs(context: Context) {
         get() = WhisperModel.fromKey(plain.getString(KEY_WHISPER_MODEL, null))
         set(value) = plain.edit().putString(KEY_WHISPER_MODEL, value.name).apply()
 
+    /**
+     * The models turned on for quick switch (Settings › Dictation), which a vertical swipe on the recording bubble moves
+     * between. Always includes [whisperModel]. Unset means only [whisperModel].
+     */
+    var activeModels: Set<WhisperModel>
+        get() {
+            val saved = plain.getString(KEY_ACTIVE_MODELS, null)
+                ?.split(',')
+                ?.mapNotNull { name -> WhisperModel.entries.firstOrNull { it.name == name } }
+                .orEmpty()
+            return saved.toSet() + whisperModel
+        }
+        set(value) = plain.edit().putString(KEY_ACTIVE_MODELS, value.sortedBy { it.ordinal }.joinToString(",") { it.name }).apply()
+
     /** Shows the Diagnostics screen in Settings. Logging runs either way. */
     var developerOptions: Boolean
         get() = plain.getBoolean(KEY_DEVELOPER_OPTIONS, false)
@@ -245,6 +259,7 @@ class Prefs(context: Context) {
         const val KEY_DICTATION_CLEANUP = "dictation_cleanup"
         const val KEY_DICTATION_ENGINE = "dictation_engine"
         const val KEY_WHISPER_MODEL = "whisper_model"
+        const val KEY_ACTIVE_MODELS = "active_models"
         /** The removed Multilingual model's saved name and file (settings version 5). */
         const val REMOVED_MULTILINGUAL = "MULTILINGUAL"
         const val REMOVED_MULTILINGUAL_FILE = "ggml-base-q5_1.bin"
@@ -270,7 +285,7 @@ class Prefs(context: Context) {
         val RESETTABLE_KEYS = listOf(
             KEY_BUBBLE_ENABLED, KEY_BUBBLE_X, KEY_BUBBLE_Y, KEY_BUBBLE_SIZE, KEY_BUBBLE_OPACITY, KEY_BUBBLE_ICON,
             KEY_SHOW_DONE_CHECK, KEY_SHOW_DONE_MESSAGE, KEY_STYLE_NOTES, KEY_DICTATION_CLEANUP,
-            KEY_DICTATION_LANGUAGE, KEY_PROMPT, KEY_DICTATION_ENGINE, KEY_WHISPER_MODEL, KEY_ALLOW_MOBILE_DATA,
+            KEY_DICTATION_LANGUAGE, KEY_PROMPT, KEY_DICTATION_ENGINE, KEY_WHISPER_MODEL, KEY_ACTIVE_MODELS, KEY_ALLOW_MOBILE_DATA,
             KEY_DEVELOPER_OPTIONS, KEY_WHISPER_THREADS,
         )
         const val KEY_PACK_PREFIX = "onDevicePack_"

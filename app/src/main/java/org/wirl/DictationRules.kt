@@ -72,3 +72,22 @@ object SlideToCancel {
     private fun bounds(restX: Int, travelPx: Int, direction: SlideDirection): Pair<Int, Int> =
         if (direction == SlideDirection.LEFT) (restX - travelPx) to restX else restX to (restX + travelPx)
 }
+
+/**
+ * Quick switch on the bubble: while recording, a swipe up or down moves to the next or previous model turned on in Settings
+ * (see [ModelCycle]). Sideways stays Slide to cancel.
+ */
+object QuickSwitch {
+    /** How far (dp) the finger must travel up or down. */
+    const val SWIPE_DP = 40
+
+    /** The vertical movement must be this many times the sideways movement, so a slide to cancel never switches. */
+    const val VERTICAL_RATIO = 1.5f
+
+    /** 1 for a swipe up (the next model), -1 for a swipe down (the previous one), or 0 when it isn't a swipe up or down yet. */
+    fun stepFor(dxPx: Float, dyPx: Float, thresholdPx: Float): Int = when {
+        kotlin.math.abs(dyPx) < thresholdPx || kotlin.math.abs(dyPx) <= kotlin.math.abs(dxPx) * VERTICAL_RATIO -> 0
+        dyPx < 0 -> 1
+        else -> -1
+    }
+}

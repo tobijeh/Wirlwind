@@ -63,6 +63,14 @@ enum class WhisperModel(
         engine = ModelEngine.SENSE_VOICE, downloadUrl = SENSE_VOICE_URL, unpacked = SENSE_VOICE_FILES,
     );
 
+    /** The short label the bubble shows for a moment when dictation switches to this model. */
+    val tag: String get() = when (this) {
+        FAST -> "EN"
+        ACCURATE -> "EN+"
+        CANTONESE -> "粵"
+        MANDARIN -> "普"
+    }
+
     /** The other models that use the same downloaded files (Cantonese and Mandarin share one). */
     val sharesFilesWith: List<WhisperModel> get() = entries.filter { it != this && it.fileName == fileName }
 

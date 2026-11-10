@@ -98,6 +98,12 @@
     <string name="model_offer">Speech model not downloaded. Dictation is using Google\'s recognizer. Download it in Wirl Settings.</string>
     <string name="model_row_title">%1$s (%2$s)</string>
     <string name="model_status_ready">Ready</string>
+    <string name="model_status_in_use">Ready · In use now</string>
+    <string name="model_status_off">Ready · Tick to add it to quick switch</string>
+    <string name="model_use_now">Use now</string>
+    <string name="quick_switch_hint">Tick the models you want to use. With more than one ticked, swipe the bubble up or down while recording to switch between them.</string>
+    <string name="quick_switch_keep_one">Keep at least one model ticked.</string>
+    <string name="quick_switch_desc">Swipe up or down to switch language</string>
     <string name="model_status_not_downloaded">Not downloaded</string>
     <string name="model_status_downloading">Downloading %1$d%%</string>
     <string name="model_status_partial">Partly downloaded (%1$d%%). Resume to finish.</string>

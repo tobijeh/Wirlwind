@@ -6,7 +6,8 @@
     android:layout_marginTop="8dp"
     android:orientation="vertical">
 
-    <RadioButton
+    <!-- Ticked: this model is on for quick switch. Only a downloaded model can be ticked; ticking never downloads. -->
+    <com.google.android.material.checkbox.MaterialCheckBox
         android:id="@+id/select"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -54,6 +55,16 @@
         android:layout_marginStart="40dp"
         android:layout_marginTop="4dp"
         android:orientation="horizontal">
+
+        <!-- Makes this downloaded model the one dictation uses now. -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/useNow"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:text="@string/model_use_now"
+            android:visibility="gone" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/download"

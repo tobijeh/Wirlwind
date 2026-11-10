@@ -108,6 +108,67 @@ class DictationPageTest {
         }
     }
 
+    private fun fakeDownload(model: WhisperModel) {
+        val file = WhisperApp.store(context).fileFor(model.spec)
+        file.parentFile?.mkdirs()
+        java.io.RandomAccessFile(file, "rw").use { it.setLength(model.spec.sizeBytes) }
+    }
+
+    private fun row(activity: MainActivity, id: Int) = org.wirl.databinding.ItemWhisperModelBinding.bind(activity.findViewById(id))
+
+    @Test fun tappingAModelThatIsntDownloadedNeverStartsADownload() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                shadowOf(Looper.getMainLooper()).idle()
+                val mandarin = row(activity, R.id.modelMandarin)
+                assertFalse("only a downloaded model can be ticked", mandarin.select.isEnabled)
+                mandarin.select.performClick()
+                mandarin.root.performClick()
+                assertFalse(ModelDownloads.isDownloading(WhisperModel.MANDARIN))
+                assertEquals(WhisperModel.FAST, Prefs(context).whisperModel)
+                assertEquals(setOf(WhisperModel.FAST), Prefs(context).activeModels)
+                assertEquals(View.VISIBLE, mandarin.download.visibility)
+            }
+        }
+    }
+
+    @Test fun downloadedModelsCanBeTickedForQuickSwitchAndUsedNow() {
+        fakeDownload(WhisperModel.FAST)
+        fakeDownload(WhisperModel.ACCURATE)
+        try {
+            ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+                scenario.onActivity { activity ->
+                    shadowOf(Looper.getMainLooper()).idle()
+                    val fast = row(activity, R.id.modelFast)
+                    val accurate = row(activity, R.id.modelAccurate)
+                    assertEquals("Ready · In use now", fast.status.text.toString())
+                    assertEquals(View.GONE, fast.useNow.visibility)
+                    assertTrue(accurate.select.isEnabled)
+                    assertFalse(accurate.select.isChecked)
+
+                    accurate.select.performClick()
+                    assertEquals(setOf(WhisperModel.FAST, WhisperModel.ACCURATE), Prefs(context).activeModels)
+                    assertEquals("ticking doesn't change the model in use", WhisperModel.FAST, Prefs(context).whisperModel)
+
+                    accurate.useNow.performClick()
+                    assertEquals(WhisperModel.ACCURATE, Prefs(context).whisperModel)
+                    assertEquals("Ready · In use now", accurate.status.text.toString())
+
+                    accurate.select.performClick()
+                    assertEquals("ticking off the one in use moves to the other", WhisperModel.FAST, Prefs(context).whisperModel)
+                    assertEquals(setOf(WhisperModel.FAST), Prefs(context).activeModels)
+
+                    fast.select.performClick()
+                    assertTrue("the last one stays ticked", fast.select.isChecked)
+                    assertEquals(setOf(WhisperModel.FAST), Prefs(context).activeModels)
+                }
+            }
+        } finally {
+            WhisperApp.store(context).delete(WhisperModel.ACCURATE.spec)
+            Prefs(context).activeModels = emptySet()
+        }
+    }
+
     @Test fun setupCanOpenTheDictationPage() {
         val intent = Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_PAGE, MainActivity.PAGE_DICTATION)
         ActivityScenario.launch<MainActivity>(intent).use { scenario ->

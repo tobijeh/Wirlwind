@@ -139,6 +139,17 @@ class PrefsTest {
         assertTrue(plain.getInt(Prefs.KEY_SETTINGS_VERSION, 0) >= 6)
     }
 
+    @Test fun quickSwitchModelsDefaultToTheModelInUseAndPersist() {
+        context.getSharedPreferences("wirl", Context.MODE_PRIVATE).edit().clear().commit()
+        val prefs = Prefs(context)
+        prefs.whisperModel = WhisperModel.ACCURATE
+        assertEquals(setOf(WhisperModel.ACCURATE), prefs.activeModels)
+        prefs.activeModels = setOf(WhisperModel.CANTONESE, WhisperModel.FAST)
+        assertEquals("always includes the model in use", setOf(WhisperModel.FAST, WhisperModel.ACCURATE, WhisperModel.CANTONESE), Prefs(context).activeModels)
+        prefs.resetToDefaults()
+        assertEquals(setOf(WhisperModel.FAST), Prefs(context).activeModels)
+    }
+
     @Test fun dictationDefaults() {
         val prefs = Prefs(context)
         assertTrue(prefs.dictationCleanup)
