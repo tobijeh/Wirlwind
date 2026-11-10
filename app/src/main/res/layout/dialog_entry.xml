@@ -12,7 +12,8 @@
         style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="@string/dictionary_entry_term">
+        android:hint="@string/dictionary_entry_term"
+        app:placeholderText="@string/dictionary_entry_term_hint">
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/entryTerm"
             android:layout_width="match_parent"
@@ -26,7 +27,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:hint="@string/dictionary_entry_sounds">
+        android:hint="@string/dictionary_entry_sounds"
+        app:placeholderText="@string/dictionary_entry_sounds_hint"
+        app:helperText="@string/dictionary_entry_sounds_helper"
+        app:helperTextEnabled="true">
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/entrySounds"
             android:layout_width="match_parent"
@@ -39,7 +43,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:hint="@string/dictionary_entry_note">
+        android:hint="@string/dictionary_entry_note"
+        app:placeholderText="@string/dictionary_entry_note_hint"
+        app:helperText="@string/dictionary_entry_note_helper"
+        app:helperTextEnabled="true">
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/entryNote"
             android:layout_width="match_parent"

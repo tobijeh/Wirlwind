@@ -8,7 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.wirl.databinding.DialogQuickAddBinding
 
-/** "Add to Wirl dictionary" in the text selection menu. Asks what the selected text should be. */
+/** "Add to Wirl dictionary" in the text selection menu. The selection is what Wirl typed; the user enters the correct spelling. */
 class QuickAddActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

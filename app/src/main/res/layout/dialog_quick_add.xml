@@ -28,7 +28,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:hint="@string/quick_add_term">
+        android:hint="@string/quick_add_term"
+        app:placeholderText="@string/quick_add_term_hint">
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/quickTerm"
             android:layout_width="match_parent"
@@ -42,7 +43,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:hint="@string/dictionary_entry_note">
+        android:hint="@string/dictionary_entry_note"
+        app:placeholderText="@string/dictionary_entry_note_hint"
+        app:helperText="@string/dictionary_entry_note_helper"
+        app:helperTextEnabled="true">
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/quickNote"
             android:layout_width="match_parent"
