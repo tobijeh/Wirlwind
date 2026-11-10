@@ -1,8 +1,6 @@
 package org.wirl
 
 import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
 
 /** "just now", "5 min ago", "2 hours ago", "3 days ago". Pure, so it can be tested without resources. */
 object TimeAgo {
@@ -31,30 +29,17 @@ object TimeAgo {
     }
 }
 
-/**
- * Android's local network permission. Newer Android versions require it before an app can reach devices on the
- * local network; older ones don't define it, and then nothing is asked.
- */
-object LocalNetworkPermission {
-    const val NAME = "android.permission.ACCESS_LOCAL_NETWORK"
-
-    /** True if this Android version has the permission and Wirl doesn't hold it yet. */
-    fun needsRequest(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
-        val defined = runCatching { context.packageManager.getPermissionInfo(NAME, 0) }.isSuccess
-        return defined && context.checkSelfPermission(NAME) != PackageManager.PERMISSION_GRANTED
-    }
-}
-
 /** What a paired computer's status line says. Pure, so the choice can be tested without resources. */
 sealed class SyncState {
     object NeedsPairing : SyncState()
     object Syncing : SyncState()
+
+    /** Can't reach the sync service, or the round didn't finish. Both are retried. */
     data class Problem(val problem: SyncProblem) : SyncState()
     data class Synced(val at: Long) : SyncState()
     object NotSynced : SyncState()
 
-    /** Shown in amber: the user has something to do. */
+    /** Shown in amber: the user has something to do, or something is wrong. */
     val needsAttention: Boolean get() = this is NeedsPairing || this is Problem
 }
 
@@ -63,7 +48,7 @@ object SyncStatus {
     fun of(computer: PairedComputer, syncing: Boolean): SyncState {
         val problem = computer.problem
         return when {
-            computer.needsPairing -> SyncState.NeedsPairing
+            problem == SyncProblem.NEEDS_PAIRING -> SyncState.NeedsPairing
             syncing -> SyncState.Syncing
             problem != null -> SyncState.Problem(problem)
             computer.lastSyncAt > 0 -> SyncState.Synced(computer.lastSyncAt)
@@ -82,6 +67,10 @@ object SyncStatus {
                 .thenBy { it.first.name.lowercase() },
         )
 
+    /** The other phones in the group, from the device list of the last round. This phone isn't one of them. */
+    fun otherPhones(computer: PairedComputer, myId: String): List<String> =
+        computer.devices.filter { it.kind == SyncProtocol.KIND_PHONE && it.id != myId }.map { it.name }.sorted()
+
     private fun rank(state: SyncState): Int = when (state) {
         SyncState.NeedsPairing -> 0
         is SyncState.Problem -> 1
@@ -93,34 +82,33 @@ object SyncStatus {
 
 /** The words for [SyncState], shared by the Dictionary screen, the Computer sync screen and the Home row. */
 object SyncStatusText {
-    /** The full status line for one computer. */
-    fun line(context: Context, computer: PairedComputer, state: SyncState, now: Long): String {
+    /**
+     * The status line for one computer. On the Computer sync cards the name is shown above it ([withName] false);
+     * the Dictionary screen's compact rows put the name first for messages that don't contain it.
+     */
+    fun line(context: Context, computer: PairedComputer, state: SyncState, now: Long, withName: Boolean = false): String {
         val name = computer.name
-        return when (state) {
-            SyncState.NeedsPairing -> context.getString(R.string.pairing_invalid, name)
-            SyncState.Syncing -> context.getString(R.string.syncing_with, name)
-            is SyncState.Problem -> when (state.problem) {
-                SyncProblem.DIFFERENT_NETWORK -> context.getString(R.string.sync_error_different_network, name)
-                SyncProblem.NOT_ANSWERING -> context.getString(R.string.sync_error_not_answering, name)
-                SyncProblem.FAILED -> context.getString(R.string.sync_error_failed, name)
-            }
-            is SyncState.Synced -> context.getString(R.string.synced_with, name, TimeAgo.format(context, state.at, now))
-            SyncState.NotSynced -> context.getString(R.string.not_synced_yet, name)
+        val message = when (state) {
+            SyncState.NeedsPairing -> context.getString(R.string.pairing_invalid)
+            SyncState.Syncing -> return context.getString(R.string.syncing_with, name)
+            is SyncState.Problem -> context.getString(
+                if (state.problem == SyncProblem.UNREACHABLE) R.string.sync_error_unreachable else R.string.sync_error_failed,
+            )
+            is SyncState.Synced -> return context.getString(R.string.synced_with, name, TimeAgo.format(context, state.at, now))
+            SyncState.NotSynced -> return context.getString(R.string.not_synced_yet, name)
         }
+        return if (withName) context.getString(R.string.sync_line_named, name, message) else message
     }
 
-    /** The Home row's value line: short, with the details on the Computer sync screen. */
+    /** The Home row's value line: short, with the details on the Computer sync screen. Second: show it in amber. */
     fun home(context: Context, computers: List<PairedComputer>, syncing: Boolean, now: Long): Pair<String, Boolean> {
         val (computer, state) = SyncStatus.homePick(computers, syncing)
             ?: return context.getString(R.string.home_sync_pair) to false
-        val name = computer.name
         val text = when (state) {
-            SyncState.NeedsPairing -> context.getString(R.string.home_sync_needs_pairing, name)
-            is SyncState.Problem -> if (state.problem == SyncProblem.FAILED) {
-                context.getString(R.string.home_sync_failed, name)
-            } else {
-                context.getString(R.string.home_sync_cant_reach, name)
-            }
+            SyncState.NeedsPairing -> context.getString(R.string.home_sync_needs_pairing, computer.name)
+            is SyncState.Problem -> context.getString(
+                if (state.problem == SyncProblem.UNREACHABLE) R.string.home_sync_cant_reach else R.string.home_sync_failed,
+            )
             else -> line(context, computer, state, now)
         }
         return text to state.needsAttention

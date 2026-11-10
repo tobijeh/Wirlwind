@@ -10,7 +10,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <!-- Pairing scans a QR code. Dictionary sync talks to the computer on the local network. -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <uses-feature
         android:name="android.hardware.camera.any"
         android:required="false" />
@@ -101,9 +100,9 @@
             </intent-filter>
         </activity>
 
-        <!-- Woken by ConnectivityManager when the phone joins Wi-Fi, to sync the dictionary. -->
+        <!-- Woken by ConnectivityManager when the network comes back, to sync the dictionary. -->
         <receiver
-            android:name=".WifiSyncReceiver"
+            android:name=".NetworkSyncReceiver"
             android:exported="false" />
 
         <!-- The QR scanner (zxing-android-embedded). It turns with the phone. -->

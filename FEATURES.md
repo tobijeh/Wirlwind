@@ -50,18 +50,18 @@ The Desktop column is taken from `FEATURES.md` in Wirl-Desktop. Update both file
 | | Quick add from the text-selection menu | 🟢 | ➖ |
 | | Import (sync format, old format, simple list) merged by term; export | ✅ | ✅ |
 | | Automatic migration to the sync format (ids, timestamps) | ✅ | ➖ (always used it) |
-| **Dictionary sync** | Protocol in `docs/sync-protocol.md` (AES-256-GCM, HKDF, per-id merge) | ✅ (test vector checked) | ✅ |
-| | Pairing by QR code | 🟢 phone scans, from Settings › Computer sync | 🟢 computer shows the code |
+| **Dictionary sync** | Encrypted mailbox relay, protocol v2 in `docs/sync-protocol.md` (HKDF keys, AES-256-GCM, per-id merge) | ✅ (test vector checked) | ✅ |
+| | Works on any network (Wi-Fi or mobile data), no accounts | ✅ / 🟢 | ✅ / 🟢 |
+| | Pairing by QR code (v1 codes rejected with "Update Wirl on your computer") | ✅ parsing / 🟢 phone scans, from Settings › Computer sync | 🟢 computer shows the code |
 | | Computer sync screen and Home row (status in amber when action is needed) | ✅ / 🟢 | ➖ |
-| | Several paired devices, Unpair | ✅ storage / 🟢 screen | 🟢 |
-| | "Synced with *name* *time ago*" per paired device | 🟢 | 🟢 |
-| | 401 → "Pair again" | ✅ | ✅ |
-| | Last working address and QR addresses first (in parallel), then mDNS `_wirl._tcp` | ✅ order / 🟢 NSD | 🟢 advertises |
-| | Short LAN timeouts (2 s connect, 10 s read) | ✅ | ➖ |
-| | Plain errors: different Wi-Fi networks, or computer not answering (firewall) | ✅ | ➖ |
-| | Private networks only | ✅ | ✅ |
-| | Syncs right away when a sync screen opens, after pairing and on Sync now ("Syncing…" shown) | ✅ engine / 🟢 screen | ➖ (the computer is the server) |
-| | Background sync after changes, on joining Wi-Fi, every 30 min on unmetered networks | 🟢 | ➖ |
+| | Several computers (one mailbox each), Unpair locally | ✅ storage / 🟢 screen | 🟢 |
+| | "Synced with *name* *time ago*", "Also synced: *other phones*" | ✅ / 🟢 | 🟢 |
+| | Compare-and-swap with merge and retry on conflicts (5 at most) | ✅ | ✅ |
+| | Uploads only on changes, plus a 15-minute heartbeat | ✅ | ✅ |
+| | 401 / 410 / undecryptable → "Pair again"; network → "Can't reach the sync service" | ✅ | ✅ |
+| | Old Wi-Fi pairings dropped once with "Pair again with your computer's new code" | ✅ | ➖ |
+| | Syncs right away when a sync screen opens, after pairing and on Sync now ("Syncing…" shown) | ✅ engine / 🟢 screen | 🟢 Sync now |
+| | Background sync 2 s after changes, when the network comes back, every 30 min (computer: every 5 min) | 🟢 | 🟢 |
 | | Silent, failures logged in Diagnostics and retried | ✅ logging / 🟢 retry | 🟢 |
 | **App** | Settings home with pages (Dictation, AI cleanup, Dictionary, Computer sync, Bubble, Setup, About) | ✅ | 🟢 |
 | | Setup checklist on first run; Test dictation; optional "Sync with your computer" | 🟢 | 🟢 |

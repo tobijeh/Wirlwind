@@ -48,11 +48,12 @@ and choose **Add to Wirl dictionary**.
 Each cleanup sends only the entries that might match the text, so the model knows to spell them that way.
 Use **Import** and **Export** to move the dictionary to another phone, as JSON.
 
-**Sync with Wirl for Windows.** On the computer, open *Dictionary › Pair with phone*. On the phone, open the Dictionary,
-tap ⋮ › **Pair with computer**, and scan the code. After that the dictionary syncs over your Wi-Fi by itself: when you
-open the Dictionary, after you change it, when the phone joins Wi-Fi, and every 30 minutes on Wi-Fi. The Dictionary shows
-"Synced with *computer* 5 min ago". Nothing leaves your network, and the data is encrypted. If the computer was reset or
-unpaired you'll see **Pair again**. Details: `docs/sync-protocol.md`.
+**Sync with Wirl for Windows.** On the computer, open *Wirl › Dictionary › Pair a phone*. On the phone, open Settings ›
+**Computer sync** › **Pair with a computer** and scan the code. After that the dictionary syncs by itself, on any network
+(Wi-Fi or mobile data) and with no account: when you open the Dictionary or Computer sync, a couple of seconds after you
+change a word, when the network comes back, and every 30 minutes. It goes through a small mailbox service that only ever
+sees encrypted data; the key never leaves your devices. Computer sync shows "Synced with *computer* 2 min ago". If the
+computer disconnected its phones you'll see **Pair again**. Details: `docs/sync-protocol.md`.
 
 ## 1. Get an API key
 
