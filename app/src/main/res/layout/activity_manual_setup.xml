@@ -209,7 +209,7 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 5. Test dictation -->
+            <!-- 5. Speech model downloaded -->
             <com.google.android.material.card.MaterialCardView
                 style="@style/Widget.Wirl.Setup.Card"
                 android:layout_width="match_parent"
@@ -229,21 +229,20 @@
                         android:drawablePadding="12dp"
                         android:textAppearance="?attr/textAppearanceTitleMedium" />
 
+                    <TextView
+                        android:id="@+id/modelDetail"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textAppearance="?attr/textAppearanceBodySmall" />
+
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/runTest"
+                        android:id="@+id/openModels"
                         style="@style/Widget.Material3.Button.TonalButton"
                         android:layout_width="match_parent"
                         android:layout_height="48dp"
                         android:layout_marginTop="12dp"
-                        android:text="@string/test_dictation" />
-
-                    <TextView
-                        android:id="@+id/testResults"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:fontFamily="monospace"
-                        android:textAppearance="?attr/textAppearanceBodySmall" />
+                        android:text="@string/setup_open_models" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>

@@ -69,7 +69,8 @@ The Desktop column is taken from `FEATURES.md` in Wirl-Desktop. Update both file
 | | Background sync 2 s after changes, when the network comes back, every 30 min (computer: every 5 min) | 🟢 | 🟢 |
 | | Silent, failures logged in Diagnostics and retried | ✅ logging / 🟢 retry | 🟢 |
 | **App** | Settings home with pages (Dictation, AI cleanup, Dictionary, Computer sync, Bubble, Setup, About) | ✅ | 🟢 |
-| | Setup checklist on first run; Test dictation; optional "Sync with your computer" | 🟢 | 🟢 |
+| | Setup checklist on first run (last item: speech model downloaded); optional "Sync with your computer" | 🟢 | 🟢 |
+| | Check Google recognizers (Developer options, troubleshooting) | 🟢 | ➖ |
 | | Start with the system | 🟢 (accessibility service) | 🟢 |
 | | Reset to defaults (keeps key, dictionary, pairing) | ✅ | ✅ |
 | | Developer options (7 taps on the version) with Diagnostics | ✅ | 🟢 |
