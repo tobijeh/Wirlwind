@@ -73,12 +73,23 @@ class DictationPageTest {
         }
     }
 
-    @Test fun theDictationPageShowsTheMicrophoneState() {
+    @Test fun theMicrophoneCardShowsOnlyWhenTheMicrophoneIsNotAllowed() {
+        val app = org.robolectric.Shadows.shadowOf(context as android.app.Application)
+        app.denyPermissions(android.Manifest.permission.RECORD_AUDIO)
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 shadowOf(Looper.getMainLooper()).idle()
-                val state = activity.findViewById<TextView>(R.id.micState).text.toString()
-                assertTrue(state == "Microphone allowed" || state == "Wirl can't use the microphone yet.")
+                assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.micCard).visibility)
+                assertEquals("Wirl can't use the microphone yet.", activity.findViewById<TextView>(R.id.micState).text.toString())
+                assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.micButton).visibility)
+            }
+        }
+        app.grantPermissions(android.Manifest.permission.RECORD_AUDIO)
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                shadowOf(Looper.getMainLooper()).idle()
+                assertEquals("nothing to say once it's allowed", View.GONE, activity.findViewById<View>(R.id.micCard).visibility)
+                assertEquals(View.GONE, activity.findViewById<View>(R.id.cardDictation).visibility)
             }
         }
     }

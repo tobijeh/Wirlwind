@@ -185,7 +185,6 @@
     <string name="section_claude_sub">Tidies what you dictate and what you select</string>
     <string name="section_dictation">Microphone</string>
     <string name="section_dictation_sub">Wirl needs it to hear you</string>
-    <string name="mic_state_allowed">Microphone allowed</string>
     <string name="mic_state_needed">Wirl can\'t use the microphone yet.</string>
     <string name="section_speech">Speech model</string>
     <string name="section_speech_sub">The language you speak, and the model on this phone that hears it</string>

@@ -32,7 +32,8 @@
   <ScrollView android:id="@+id/pageDictation" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true" android:background="@color/settings_bg" android:visibility="gone">
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp"><LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:paddingBottom="16dp"><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:id="@+id/backDictation" android:text="@string/settings_back" android:minHeight="48dp" android:gravity="center_vertical" android:paddingEnd="12dp" android:clickable="true" android:focusable="true" android:background="?attr/selectableItemBackgroundBorderless" android:textColor="@color/settings_accent" android:textSize="16sp"/><TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/page_dictation" android:textSize="24sp" android:textStyle="bold" android:textColor="@color/settings_text"/></LinearLayout><include android:id="@+id/cardDictation" layout="@layout/section_header" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="20dp"/>
 
-        <com.google.android.material.card.MaterialCardView style="@style/Widget.Wirl.Settings.Card">
+        <!-- Shown only when the microphone isn't allowed: when it is, there's nothing to say here (Setup covers it). -->
+        <com.google.android.material.card.MaterialCardView android:id="@+id/micCard" style="@style/Widget.Wirl.Settings.Card">
             <LinearLayout style="@style/Wirl_CardBody">
 
                 <TextView android:id="@+id/micState" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="15sp" android:textColor="@color/settings_text"/>
