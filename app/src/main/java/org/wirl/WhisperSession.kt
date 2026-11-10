@@ -24,17 +24,19 @@ data class WhisperOutcome(
     /** The chunk cut at stop: the one with the highest number. Null if there were no chunks. */
     fun finalChunk(): ChunkResult? = chunks.maxByOrNull { it.seq }
 
-    fun timing(): WhisperTiming = WhisperTiming(
+    /** [stage] is "whisper", or "sensevoice" for the Cantonese model. */
+    fun timing(stage: String = "whisper"): WhisperTiming = WhisperTiming(
         modelWaitMs = modelWaitMs,
         finalChunkMs = finalChunk()?.transcribeMs,
         totalMs = stopToTextMs,
         chunks = chunks.size,
         duringRecording = duringRecording,
+        stage = stage,
     )
 }
 
 /**
- * One dictation with on-device Whisper. The microphone is recorded continuously until [stop]. Each pause ends a chunk,
+ * One dictation with an on-device model: Whisper, or SenseVoice for Cantonese ([models] decides which). The microphone is recorded continuously until [stop]. Each pause ends a chunk,
  * and that chunk is transcribed in the background while recording goes on. No audio is written to disk: a chunk's samples
  * are dropped once it's transcribed.
  */

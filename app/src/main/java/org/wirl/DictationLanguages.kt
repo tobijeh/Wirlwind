@@ -13,7 +13,14 @@ object DictationLanguages {
         "pt-BR" to "Português (Brasil)",
         "nl-NL" to "Nederlands",
         "ja-JP" to "日本語",
+        CANTONESE_HK to "粵語 (香港)",
     )
+
+    /** Cantonese (Hong Kong), for Google's recognizer. Used automatically with the Cantonese model. */
+    const val CANTONESE_HK = "yue-Hant-HK"
+
+    /** True for a Cantonese tag ("yue", "yue-Hant-HK"): its transcript gets Cantonese mode in cleanup. */
+    fun isCantonese(tag: String): Boolean = tag.substringBefore('-').equals("yue", ignoreCase = true)
 
     fun labelFor(tag: String): String = options.firstOrNull { it.first == tag }?.second ?: options[0].second
 }

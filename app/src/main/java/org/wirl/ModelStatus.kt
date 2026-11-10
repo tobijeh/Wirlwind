@@ -14,23 +14,36 @@ sealed interface ModelState {
 /** Downloads in progress, shared across screens, so reopening Settings still shows them. */
 object ModelDownloads {
     private val progress = ConcurrentHashMap<WhisperModel, Int>()
+    private val cancelRequested = ConcurrentHashMap.newKeySet<WhisperModel>()
 
     fun start(model: WhisperModel) {
+        cancelRequested.remove(model)
         progress[model] = 0
     }
+
+    /** Asks the download of [model] to stop. What's downloaded so far is kept, so Resume continues it. */
+    fun cancel(model: WhisperModel) {
+        if (progress.containsKey(model)) cancelRequested.add(model)
+    }
+
+    fun isCancelled(model: WhisperModel): Boolean = model in cancelRequested
 
     /** Records progress. Returns true if the whole-number percentage changed, so the screen only redraws then. */
     fun update(model: WhisperModel, percent: Int): Boolean = progress.put(model, percent) != percent
 
     fun finish(model: WhisperModel) {
         progress.remove(model)
+        cancelRequested.remove(model)
     }
 
     fun percentOf(model: WhisperModel): Int? = progress[model]
 
     fun isDownloading(model: WhisperModel): Boolean = progress.containsKey(model)
 
-    fun clear() = progress.clear()
+    fun clear() {
+        progress.clear()
+        cancelRequested.clear()
+    }
 }
 
 object ModelStatus {

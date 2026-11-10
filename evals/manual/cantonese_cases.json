@@ -1,0 +1,38 @@
+[
+  {
+    "id": "yue-english-mixed",
+    "input": "我哋听日开会讨论下个 PROJECT 嘅 BUDGET 呀",
+    "expected": "Traditional characters, spoken Cantonese kept as spoken, English words kept in English in place (project, budget; normal casing is fine), the particle 呀 kept, full-width punctuation. Meaning: We're having a meeting tomorrow to discuss next project's budget. Roughly: 我哋聽日開會討論下個 project 嘅 budget 呀。"
+  },
+  {
+    "id": "yue-fillers-false-start",
+    "input": "呃 嗯 我谂我哋 我哋应该迟啲先决定啦",
+    "expected": "Filler sounds 呃 and 嗯 removed, the repeated false start 我哋 removed, the final particle 啦 kept, traditional characters. Roughly: 我諗我哋應該遲啲先決定啦。"
+  },
+  {
+    "id": "yue-mandarin-characters",
+    "input": "我们今日唔得闲 他话下个礼拜先倾",
+    "expected": "Mandarin-style characters turned into the Cantonese ones the speaker said (我们 to 我哋, 他 to 佢), not rewritten into formal written Chinese, traditional characters. Roughly: 我哋今日唔得閒，佢話下個禮拜先傾。"
+  },
+  {
+    "id": "yue-self-correction",
+    "input": "我五点到 唔系 六点到呀",
+    "expected": "Self-correction resolved: only six o'clock is kept, the discarded five and 唔系 removed, particle 呀 kept, traditional characters. Roughly: 我六點到呀。"
+  },
+  {
+    "id": "yue-question",
+    "input": "你食咗饭未呀",
+    "expected": "A question in spoken Cantonese with traditional characters and a full-width question mark, particle 呀 kept. Roughly: 你食咗飯未呀？"
+  },
+  {
+    "id": "yue-dictionary",
+    "input": "我今日同 STELLA 去咗饮茶",
+    "dictionary": [{"term": "Sela", "soundsLike": ["Stella"]}],
+    "expected": "The dictionary term Sela used instead of the misheard Stella, the rest in spoken Cantonese with traditional characters. Roughly: 我今日同 Sela 去咗飲茶。"
+  },
+  {
+    "id": "yue-no-formal-rewrite",
+    "input": "佢哋啲嘢好正 不过就贵咗少少",
+    "expected": "Kept as colloquial Cantonese (佢哋, 啲, 嘢, 咗), never rewritten into formal written Chinese like 他們的東西很好, traditional characters, full-width comma. Roughly: 佢哋啲嘢好正，不過就貴咗少少。"
+  }
+]

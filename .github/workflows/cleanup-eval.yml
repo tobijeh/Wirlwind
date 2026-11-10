@@ -12,6 +12,8 @@ on:
       - 'app/src/main/java/org/wirl/Dictionary*.kt'
       - 'app/src/test/java/org/wirl/CleanupEvalTest.kt'
       - 'evals/**'
+      # The Cantonese set is run by hand with your own key, never here (CantoneseEvalTest).
+      - '!evals/manual/**'
       - '.github/workflows/cleanup-eval.yml'
   workflow_dispatch:
 

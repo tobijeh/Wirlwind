@@ -28,6 +28,17 @@
         android:paddingStart="48dp"
         android:textAppearance="?attr/textAppearanceBodySmall" />
 
+    <!-- Shown when this model is chosen but isn't downloaded yet: dictation uses Google's recognizer until it is. -->
+    <TextView
+        android:id="@+id/notice"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:paddingStart="48dp"
+        android:textAppearance="?attr/textAppearanceBodySmall"
+        android:textColor="@color/settings_warning"
+        android:visibility="gone" />
+
     <com.google.android.material.progressindicator.LinearProgressIndicator
         android:id="@+id/progress"
         android:layout_width="match_parent"
@@ -49,6 +60,14 @@
             style="@style/Widget.Material3.Button.TonalButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/cancel"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/model_cancel"
+            android:visibility="gone" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/delete"

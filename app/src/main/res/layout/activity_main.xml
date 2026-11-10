@@ -60,6 +60,8 @@
 
                 <include android:id="@+id/modelMultilingual" layout="@layout/item_whisper_model"/>
 
+                <include android:id="@+id/modelCantonese" layout="@layout/item_whisper_model"/>
+
                 </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

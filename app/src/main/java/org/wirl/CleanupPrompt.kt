@@ -36,6 +36,22 @@ Rules:
 - If the input contains no intended words (only noise, sound descriptions, or nothing meaningful), return an empty response.
 - Return only the final text, with no preamble, notes, or quotes."""
 
+    /**
+     * Added to [CORE] when the Cantonese model, or Google's recognizer in Cantonese (yue-Hant-HK), produced the transcript.
+     * The same text is in docs/cantonese.md and in Wirl for Windows: keep all three identical.
+     */
+    const val CANTONESE_MODE = """--- CANTONESE MODE ---
+The speaker is talking Cantonese, often mixed with English.
+- Write exactly as spoken, in written spoken Cantonese (口語), in traditional characters (Hong Kong style). For example: 佢, 嘅, 唔, 咗, 喺, 啲, 咁, 冇, 嚟, 睇.
+- Never rewrite into formal written Chinese (書面語) or Mandarin phrasing, and never use simplified characters.
+- Keep English words and phrases in English, exactly where they were spoken.
+- If the transcript uses Mandarin-style characters where the speaker clearly said Cantonese, correct them to the Cantonese characters.
+- Remove pure filler sounds (such as 呃 and 嗯) and false starts. Keep sentence-final particles (such as 呀, 啦, 喎, 囉, 嘛, 㗎, 啩) because they carry meaning and tone.
+- Use full-width Chinese punctuation (，。？！：) in Chinese text.
+- Polish lightly. The result should read like the speaker typed it themselves in a message.
+- Apply the personal dictionary as usual.
+--- END CANTONESE MODE ---"""
+
     const val ALTERNATIVES_INSTRUCTION =
         "The speech recognizer also produced these alternative transcriptions. Use them to resolve words or phrases " +
             "that don't make sense in the top transcript. Output a single cleaned version."
@@ -43,15 +59,18 @@ Rules:
     /**
      * The system prompt for a cleanup. [styleNotes] and [alternatives] are optional and only added when present.
      * The personal dictionary is added by [DictionaryPrompt] for the entries that might appear in [text].
+     * [cantonese] adds [CANTONESE_MODE] after the core prompt, before the style notes.
      */
     fun build(
         styleNotes: String,
         dictionary: List<DictionaryEntry>,
         text: String,
         alternatives: List<String> = emptyList(),
+        cantonese: Boolean = false,
     ): String {
         val notes = styleNotes.trim()
-        val withStyle = if (notes.isEmpty()) CORE else "$CORE\n\nSpeaker's style preferences:\n$notes"
+        val core = if (cantonese) "$CORE\n\n$CANTONESE_MODE" else CORE
+        val withStyle = if (notes.isEmpty()) core else "$core\n\nSpeaker's style preferences:\n$notes"
         val withDictionary = DictionaryPrompt.forText(withStyle, dictionary, text)
         if (alternatives.isEmpty()) return withDictionary
         val numbered = alternatives.mapIndexed { i, alt -> "Alternative ${i + 1}: $alt" }.joinToString("\n")

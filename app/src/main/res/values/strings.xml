@@ -91,10 +91,12 @@
     <string name="whisper_model_fast">Fast: base.en, English (default)</string>
     <string name="whisper_model_accurate">Accurate: small.en, English</string>
     <string name="whisper_model_multilingual">Multilingual: base, other languages</string>
+    <string name="whisper_model_cantonese">Cantonese (粵語): SenseVoice, Cantonese with English</string>
     <string name="engine_using_whisper">Using Whisper on this phone, with the %1$s model.</string>
+    <string name="engine_using_sensevoice">Using SenseVoice on this phone, with the %1$s model.</string>
     <string name="engine_using_google">Using Google\'s recognizer, as chosen above.</string>
     <string name="engine_fallback_model">Using Google\'s recognizer, because the %1$s model isn\'t downloaded yet.</string>
-    <string name="engine_fallback_native">Using Google\'s recognizer, because Whisper isn\'t available on this device.</string>
+    <string name="engine_fallback_native">Using Google\'s recognizer, because the %1$s engine isn\'t available on this device.</string>
     <string name="selection_not_downloaded">The %1$s model isn\'t downloaded yet, so dictation uses Google\'s recognizer until you download it.</string>
     <string name="model_offer">Speech model not downloaded. Dictation is using Google\'s recognizer. Download it in Wirl Settings.</string>
     <string name="model_row_title">%1$s (%2$s)</string>
@@ -105,6 +107,11 @@
     <string name="model_download">Download (%1$s)</string>
     <string name="model_resume">Resume download</string>
     <string name="model_delete">Delete</string>
+    <string name="model_cancel">Cancel</string>
+    <string name="model_status_unpacking">Unpacking…</string>
+    <string name="model_not_downloaded_notice">Not downloaded yet, so dictation uses Google\'s recognizer for now. Tap Download (%1$s) to use this model.</string>
+    <string name="model_not_downloaded_notice_cantonese">Not downloaded yet, so dictation uses Google\'s recognizer in Cantonese (Hong Kong) for now. Tap Download (%1$s) to use this model.</string>
+    <string name="model_download_cancelled">Download paused. Resume continues where it stopped.</string>
     <string name="model_delete_confirm">Delete the %1$s model? You can download it again later.</string>
     <string name="speech_banner_title">Download speech model</string>
     <string name="speech_banner_body">Offline dictation needs a speech model. Until one is downloaded, dictation uses Google\'s recognizer.</string>
@@ -113,7 +120,7 @@
     <string name="no_network">No internet connection. Connect to Wi-Fi to download the model.</string>
     <string name="needs_mobile_data">Downloads wait for Wi-Fi. Connect to Wi-Fi, or allow mobile data above.</string>
     <string name="whisper_download_failed">Download failed: %1$s</string>
-    <string name="whisper_failed">Whisper couldn\'t transcribe the dictation: %1$s</string>
+    <string name="whisper_failed">%1$s couldn\'t transcribe the dictation: %2$s</string>
     <string name="transcribing">Transcribing…</string>
     <string name="no_speech_heard">No speech heard</string>
     <string name="slide_cancel">Cancel</string>
@@ -180,6 +187,7 @@
     <string name="model_name_fast">Fast</string>
     <string name="model_name_accurate">Accurate</string>
     <string name="model_name_multilingual">Multilingual</string>
+    <string name="model_name_cantonese">Cantonese (粵語)</string>
     <string name="chevron">›</string>
     <string name="page_dictation">Dictation</string>
     <string name="page_cleanup">AI cleanup</string>
@@ -222,6 +230,7 @@
     <string name="quality_fast_desc">Quickest. Great for everyday texts.</string>
     <string name="quality_accurate_desc">Better with names and long messages</string>
     <string name="quality_multilingual_desc">For languages other than English</string>
+    <string name="quality_cantonese_desc">Cantonese with English mixed in. Writes as you speak, in traditional characters.</string>
     <string name="model_size">%1$s</string>
     <string name="cleanup_subtitle">Polish dictation before it\'s inserted</string>
     <string name="what_it_does_title">What it does</string>

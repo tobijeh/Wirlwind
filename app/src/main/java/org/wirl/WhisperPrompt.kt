@@ -34,6 +34,7 @@ object WhisperPrompt {
      * (for example "de" from "de-DE"), or detects it when there's none.
      */
     fun languageFor(model: WhisperModel, dictationTag: String): String {
+        if (model.engine == ModelEngine.SENSE_VOICE) return SenseVoice.LANGUAGE
         if (!model.multilingual) return "en"
         return dictationTag.substringBefore('-').lowercase().ifEmpty { "auto" }
     }

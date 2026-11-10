@@ -328,9 +328,19 @@ class BubbleService : AccessibilityService() {
     private val enginesTried = mutableSetOf<SpeechEngine.Choice>()
     private var dictationLanguageTag = ""
 
-    /** The language tag for recognizers: BCP-47 with a hyphen, e.g. "en-US". */
+    /**
+     * The language tag for recognizers: BCP-47 with a hyphen, e.g. "en-US". With the Cantonese model chosen, Google's
+     * recognizer (the fallback) uses Cantonese (Hong Kong).
+     */
     private fun dictationLanguage(): String =
-        LanguageTag.format(DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag()))
+        if (prefs.whisperModel == WhisperModel.CANTONESE) {
+            DictationLanguages.CANTONESE_HK
+        } else {
+            LanguageTag.format(DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag()))
+        }
+
+    /** Whether this dictation's transcript is Cantonese, so cleanup adds Cantonese mode. Set when dictation starts. */
+    private var dictationCantonese = false
     private var busyRetries = 0
     private var attemptStart = 0L
     private val attemptTrail = mutableListOf<String>()
@@ -340,9 +350,10 @@ class BubbleService : AccessibilityService() {
         val key = node?.let { fieldKey(it) }
         val found = SpeechEngineAndroid.detect(this)
         dictationLanguageTag = dictationLanguage()
+        dictationCantonese = DictationLanguages.isCantonese(dictationLanguageTag)
         val available = SpeechEngine.order(found, prefs.onDevicePackInstalled(dictationLanguageTag))
         val modelReady = WhisperApp.store(this).isReady(prefs.whisperModel.spec)
-        val nativeLoads = WhisperLibrary.loads
+        val nativeLoads = ModelLibraries.loads(prefs.whisperModel)
         val use = EngineChoice.use(prefs.dictationEngine, modelReady, nativeLoads)
         val chosen = use.engine
         var note = fallbackNote(use.reason)
@@ -385,7 +396,7 @@ class BubbleService : AccessibilityService() {
 
         if (chosen == DictationEngine.WHISPER) {
             if (startWhisper(key)) return
-            note = "Whisper couldn't open the microphone, using Google's recognizer"
+            note = "${engineName(prefs.whisperModel)} couldn't open the microphone, using Google's recognizer"
         }
         // The engine in use here is Google's recognizer (Whisper returned above). Only it shows live words.
         if (DictationPreview.forEngine(DictationEngine.GOOGLE) == LivePreview.WORDS) showChip(getString(R.string.listening))
@@ -410,16 +421,29 @@ class BubbleService : AccessibilityService() {
     /** Why Google is used instead of Whisper, in words for Diagnostics. Null when there's no fallback. */
     private fun fallbackNote(reason: FallbackReason): String? = when (reason) {
         FallbackReason.MODEL_MISSING -> getString(R.string.engine_fallback_model, prefs.whisperModel.label)
-        FallbackReason.NATIVE_MISSING -> getString(R.string.engine_fallback_native)
+        FallbackReason.NATIVE_MISSING -> getString(R.string.engine_fallback_native, engineName(prefs.whisperModel))
         FallbackReason.NONE -> null
     }
+
+    /** The engine's name for messages and Diagnostics. */
+    private fun engineName(model: WhisperModel): String =
+        if (model.engine == ModelEngine.SENSE_VOICE) "SenseVoice" else "Whisper"
+
+    /** The timing stage name in Diagnostics. */
+    private fun stageName(model: WhisperModel): String =
+        if (model.engine == ModelEngine.SENSE_VOICE) "sensevoice" else "whisper"
 
     /** Starts a Whisper dictation. Returns false if the microphone can't be opened, so the caller can use Google's recognizer. */
     private fun startWhisper(key: FieldKey): Boolean {
         val model = prefs.whisperModel
         val threads = prefs.whisperThreads
         val language = WhisperPrompt.languageFor(model, dictationLanguageTag)
-        val prompt = WhisperPrompt.build(DictionaryRepository.get(this).entries.value.map { it.term })
+        // SenseVoice takes no prompt; dictionary terms reach it through Claude's cleanup instead.
+        val prompt = if (model.engine == ModelEngine.SENSE_VOICE) {
+            null
+        } else {
+            WhisperPrompt.build(DictionaryRepository.get(this).entries.value.map { it.term })
+        }
         val created = WhisperSession(
             models = modelHolderFor(model, threads),
             language = language,
@@ -433,10 +457,17 @@ class BubbleService : AccessibilityService() {
         }
         whisper = created
         whisperStopping = false
-        dictationDetails = listOf(
-            "engine: whisper, model: ${model.label} (${model.fileName}), language: $language",
-            "threads: $threads, initial prompt: ${if (prompt == null) "none" else "dictionary terms"}",
-        ).joinToString("\n")
+        dictationDetails = if (model.engine == ModelEngine.SENSE_VOICE) {
+            listOf(
+                "engine: sensevoice (sherpa-onnx), model: ${model.label} (${model.fileName.substringBefore(".tar")}), language: $language",
+                "threads: $threads, use_itn: ${SenseVoice.USE_ITN}, cleanup: Cantonese mode",
+            ).joinToString("\n")
+        } else {
+            listOf(
+                "engine: whisper, model: ${model.label} (${model.fileName}), language: $language",
+                "threads: $threads, initial prompt: ${if (prompt == null) "none" else "dictionary terms"}",
+            ).joinToString("\n")
+        }
         DictationTones.play(DictationTones.START)
         dictationSound?.begin()
         return true
@@ -450,9 +481,13 @@ class BubbleService : AccessibilityService() {
         val store = WhisperApp.store(this)
         val holder = ModelHolder(
             load = {
-                WhisperTranscriber.load(store.fileFor(model.spec), threads) ?: run {
+                val loaded = when (model.engine) {
+                    ModelEngine.WHISPER -> WhisperTranscriber.load(store.fileFor(model.spec), threads)
+                    ModelEngine.SENSE_VOICE -> SenseVoiceTranscriber.load(store.dirFor(model.spec), threads)
+                }
+                loaded ?: run {
                     // A file that won't load is damaged. Remove it, so later dictations use Google until it's downloaded again.
-                    Log.e(TAG, "Whisper model ${model.fileName} couldn't be loaded; deleting it")
+                    Log.e(TAG, "${engineName(model)} model ${model.fileName} couldn't be loaded; deleting it")
                     store.delete(model.spec)
                     null
                 }
@@ -467,8 +502,8 @@ class BubbleService : AccessibilityService() {
 
     /** Loads the Whisper model in the background, so the first dictation doesn't wait for it. */
     private fun preloadWhisper() {
-        if (prefs.dictationEngine != DictationEngine.WHISPER || !WhisperLibrary.loads) return
         val model = prefs.whisperModel
+        if (prefs.dictationEngine != DictationEngine.WHISPER || !ModelLibraries.loads(model)) return
         if (!WhisperApp.store(this).isReady(model.spec)) return
         val holder = modelHolderFor(model, prefs.whisperThreads)
         Thread({ holder.get() }, "wirl-model-preload").start()
@@ -670,7 +705,7 @@ class BubbleService : AccessibilityService() {
         whisper = null
         runCatching { stopService(Intent(this, DictationService::class.java)) }
         dictationDetails = whisperLines(outcome)
-        whisperTiming = outcome.timing()
+        whisperTiming = outcome.timing(stageName(whisperModelKey?.first ?: prefs.whisperModel))
         if (outcome.text.isBlank()) {
             val failure = outcome.chunks.firstNotNullOfOrNull { it.error }
             releaseRecognizer()
@@ -680,7 +715,7 @@ class BubbleService : AccessibilityService() {
             dictationField = null
             val timing = DictationTiming(thermal = thermalNow(), whisper = whisperTiming, stopToInsertMs = stopToInsertMs())
             if (failure != null) {
-                val message = getString(R.string.whisper_failed, failure)
+                val message = getString(R.string.whisper_failed, engineName(whisperModelKey?.first ?: prefs.whisperModel), failure)
                 recordAttempt(message, null, null, attemptDetails(timing, listOf(section("TRANSCRIPT", listOf("(empty)"))), soundLines))
                 fail(message)
             } else {
@@ -781,7 +816,9 @@ class BubbleService : AccessibilityService() {
             var claude: ClaudeCallTiming? = null
             // Same cleanup as hold-to-clean, plus the recognizer's alternatives to resolve unclear words.
             val cleaned = if (aiEnabled) {
-                runCatching { ClaudeClient.clean(this@BubbleService, spoken, finish.alternatives) { claude = it } }
+                runCatching {
+                    ClaudeClient.clean(this@BubbleService, spoken, finish.alternatives, cantonese = dictationCantonese) { claude = it }
+                }
             } else {
                 null
             }
