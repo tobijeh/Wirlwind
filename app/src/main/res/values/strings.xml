@@ -103,6 +103,7 @@
     <string name="model_use_now">Use now</string>
     <string name="quick_switch_hint">Tick the models you want to use. With more than one ticked, swipe the bubble up or down while recording to switch between them.</string>
     <string name="quick_switch_keep_one">Keep at least one model ticked.</string>
+    <string name="quick_switch_demo_desc">Demo: while recording, swipe the bubble up or down to switch language. It shows EN, EN+, 粵 or 普 for a moment.</string>
     <string name="quick_switch_desc">Swipe up or down to switch language</string>
     <string name="model_status_not_downloaded">Not downloaded</string>
     <string name="model_status_downloading">Downloading %1$d%%</string>

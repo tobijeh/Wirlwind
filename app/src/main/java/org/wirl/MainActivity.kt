@@ -365,6 +365,8 @@ class MainActivity : AppCompatActivity() {
         binding.modelBanner.visibility = if (anyReady) View.GONE else View.VISIBLE
         binding.engineStatus.text = engineStatusText(currentEngine(), selected)
         modelRows.forEach { (model, row) -> refreshRow(row, model, selected) }
+        // The demo switches between the user's own ticked models once there are two, otherwise EN and 粵.
+        binding.quickSwitchDemo.tags = ModelCycle.members(prefs.activeModels, selected, ::isModelReady).map { it.tag }
     }
 
     /**
