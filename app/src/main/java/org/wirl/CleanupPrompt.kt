@@ -1,5 +1,8 @@
 package org.wirl
 
+/** Which language block, if any, cleanup adds after the core prompt. Set by the dictation's model ([SpeechLanguage]). */
+enum class CleanupMode { STANDARD, CANTONESE, MANDARIN }
+
 /**
  * The cleanup instructions. The core prompt is built in and not editable, and is the same for dictation and hold-to-clean.
  * The only user input is optional style notes, which are appended under their own heading.
@@ -52,6 +55,22 @@ The speaker is talking Cantonese, often mixed with English.
 - Apply the personal dictionary as usual.
 --- END CANTONESE MODE ---"""
 
+    /**
+     * Added to [CORE] when the Mandarin model, or Google's recognizer in Mandarin (zh-CN), produced the transcript.
+     * The same text is in docs/mandarin.md, for Wirl for Windows: keep them identical.
+     */
+    const val MANDARIN_MODE = """--- MANDARIN MODE ---
+The speaker is talking Mandarin Chinese, often mixed with English.
+- Write in natural written Mandarin as the speaker said it, in simplified characters (mainland China style).
+- Never use traditional characters, and never use Cantonese words or characters (such as 佢, 嘅, 唔, 咗, 喺).
+- Keep English words and phrases in English, exactly where they were spoken.
+- Fix characters the speech recognizer got wrong, where a character with the same sound (同音字) clearly makes more sense.
+- Remove filler sounds and words (such as 嗯, 呃, 那个, 就是说) and false starts. Keep sentence-final particles (such as 吧, 呢, 啊, 嘛) when they carry meaning or tone.
+- Use full-width Chinese punctuation (，。？！：) in Chinese text.
+- Polish lightly. The result should read like the speaker typed it themselves in a message.
+- Apply the personal dictionary as usual.
+--- END MANDARIN MODE ---"""
+
     const val ALTERNATIVES_INSTRUCTION =
         "The speech recognizer also produced these alternative transcriptions. Use them to resolve words or phrases " +
             "that don't make sense in the top transcript. Output a single cleaned version."
@@ -59,17 +78,21 @@ The speaker is talking Cantonese, often mixed with English.
     /**
      * The system prompt for a cleanup. [styleNotes] and [alternatives] are optional and only added when present.
      * The personal dictionary is added by [DictionaryPrompt] for the entries that might appear in [text].
-     * [cantonese] adds [CANTONESE_MODE] after the core prompt, before the style notes.
+     * [mode] adds [CANTONESE_MODE] or [MANDARIN_MODE] after the core prompt, before the style notes.
      */
     fun build(
         styleNotes: String,
         dictionary: List<DictionaryEntry>,
         text: String,
         alternatives: List<String> = emptyList(),
-        cantonese: Boolean = false,
+        mode: CleanupMode = CleanupMode.STANDARD,
     ): String {
         val notes = styleNotes.trim()
-        val core = if (cantonese) "$CORE\n\n$CANTONESE_MODE" else CORE
+        val core = when (mode) {
+            CleanupMode.STANDARD -> CORE
+            CleanupMode.CANTONESE -> "$CORE\n\n$CANTONESE_MODE"
+            CleanupMode.MANDARIN -> "$CORE\n\n$MANDARIN_MODE"
+        }
         val withStyle = if (notes.isEmpty()) core else "$core\n\nSpeaker's style preferences:\n$notes"
         val withDictionary = DictionaryPrompt.forText(withStyle, dictionary, text)
         if (alternatives.isEmpty()) return withDictionary

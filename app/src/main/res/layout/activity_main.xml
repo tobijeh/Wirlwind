@@ -41,10 +41,6 @@
 
                 <TextView android:id="@+id/testResults" style="@style/Wirl_Caption" android:layout_width="match_parent" android:layout_height="wrap_content"/>
 
-                <com.google.android.material.textfield.TextInputLayout style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:hint="@string/dictation_language">
-
-                    <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/dictationLanguage" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none"/>
-                </com.google.android.material.textfield.TextInputLayout>
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -58,9 +54,9 @@
 
                 <include android:id="@+id/modelAccurate" layout="@layout/item_whisper_model"/>
 
-                <include android:id="@+id/modelMultilingual" layout="@layout/item_whisper_model"/>
-
                 <include android:id="@+id/modelCantonese" layout="@layout/item_whisper_model"/>
+
+                <include android:id="@+id/modelMandarin" layout="@layout/item_whisper_model"/>
 
                 </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

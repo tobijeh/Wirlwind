@@ -39,13 +39,12 @@ class WhisperSettingsTest {
     }
 
     @Test fun englishModelsAlwaysUseEnglish() {
-        assertEquals("en", WhisperPrompt.languageFor(WhisperModel.FAST, "de-DE"))
-        assertEquals("en", WhisperPrompt.languageFor(WhisperModel.ACCURATE, "fr-FR"))
+        assertEquals("en", WhisperPrompt.languageFor(WhisperModel.FAST))
+        assertEquals("en", WhisperPrompt.languageFor(WhisperModel.ACCURATE))
     }
 
-    @Test fun multilingualUsesTheDictationLanguage() {
-        assertEquals("de", WhisperPrompt.languageFor(WhisperModel.MULTILINGUAL, "de-DE"))
-        assertEquals("auto", WhisperPrompt.languageFor(WhisperModel.MULTILINGUAL, ""))
+    @Test fun theRemovedMultilingualChoiceFallsBackToEnglishFast() {
+        assertEquals(WhisperModel.FAST, WhisperModel.fromKey("MULTILINGUAL"))
     }
 
     @Test fun modelAndEngineKeysRoundTrip() {

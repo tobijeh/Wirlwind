@@ -6,30 +6,11 @@ import org.junit.Test
 import org.wirl.DictationLanguage.PackStatus
 
 class DictationLanguageTest {
-    @Test fun aLanguagePickedInSettingsWins() {
-        assertEquals("fr-FR", DictationLanguage.resolve("fr-FR", "en-US"))
-    }
-
-    @Test fun deviceLanguageIsUsedWhenSupported() {
-        assertEquals("de-DE", DictationLanguage.resolve("", "de-DE"))
-    }
-
-    @Test fun unsupportedDeviceLanguageDefaultsToEnglishUs() {
-        assertEquals("en-US", DictationLanguage.resolve("", "zh-CN"))
-    }
-
-    @Test fun regionVariantUsesTheSupportedLanguage() {
-        // Canadian French uses the French pack; Indian English uses US English.
-        assertEquals("fr-FR", DictationLanguage.resolve("", "fr-CA"))
-        assertEquals("en-US", DictationLanguage.resolve("", "en-IN"))
-    }
-
-    @Test fun exactMatchBeatsLanguageMatch() {
-        assertEquals("en-GB", DictationLanguage.resolve("", "en-GB"))
-    }
-
-    @Test fun noMatchGivesNull() {
-        assertNull(DictationLanguage.supportedMatch("xx-YY"))
+    @Test fun theGoogleLanguageFollowsTheModel() {
+        assertEquals("en-US", SpeechLanguage.ENGLISH.googleTag("fr-FR"))
+        assertEquals("phone English is kept", "en-GB", SpeechLanguage.ENGLISH.googleTag("en_gb"))
+        assertEquals("yue-Hant-HK", SpeechLanguage.CANTONESE.googleTag("en-GB"))
+        assertEquals("zh-CN", SpeechLanguage.MANDARIN.googleTag("en-US"))
     }
 
     @Test fun packInstalledWhenListed() {

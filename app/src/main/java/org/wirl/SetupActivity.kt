@@ -161,6 +161,7 @@ class SetupActivity : AppCompatActivity() {
             binding.testResults.text = lines.joinToString("\n")
             refresh()
         }.also { tester = it }
-        runner.run(DictationLanguage.resolve(prefs.dictationLanguage, java.util.Locale.getDefault().toLanguageTag()))
+        // Google's recognizer is tested in the chosen model's language.
+        runner.run(prefs.whisperModel.language.googleTag(java.util.Locale.getDefault().toLanguageTag()))
     }
 }

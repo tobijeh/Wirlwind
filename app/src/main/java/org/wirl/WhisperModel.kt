@@ -13,41 +13,58 @@ enum class ModelEngine {
 }
 
 /**
- * The on-device speech models the user can choose. Each is downloaded, never bundled in the APK, and a download must
- * match its pinned size and SHA-256. The Whisper models come from the whisper.cpp repository on Hugging Face. The
- * Cantonese model is SenseVoice from the sherpa-onnx releases on GitHub: a .tar.bz2 archive that's checked, then unpacked
- * ([unpacked]) and deleted. The enum keeps its name because the saved choice uses these names.
+ * The language a model is for. It decides everything language-related for a dictation, so the screen never shows a
+ * language that disagrees with the model: what the model is told ([modelCode]), Google's recognizer ([googleTag]) when
+ * it's the fallback or chosen under Advanced, and the cleanup mode.
+ */
+enum class SpeechLanguage(val modelCode: String, private val fixedGoogleTag: String?, val cleanupMode: CleanupMode) {
+    ENGLISH("en", null, CleanupMode.STANDARD),
+    CANTONESE("yue", "yue-Hant-HK", CleanupMode.CANTONESE),
+    MANDARIN("zh", "zh-CN", CleanupMode.MANDARIN),
+    ;
+
+    /** English follows the phone's English (en-GB stays en-GB), otherwise en-US. The others are fixed. */
+    fun googleTag(deviceTag: String): String = fixedGoogleTag
+        ?: LanguageTag.format(deviceTag).takeIf { it.startsWith("en-") } ?: "en-US"
+}
+
+/**
+ * The on-device speech models the user can choose, one per language and speed. Each is downloaded, never bundled in the
+ * APK, and a download must match its pinned size and SHA-256. The English models are Whisper, from the whisper.cpp
+ * repository on Hugging Face. Cantonese and Mandarin are both SenseVoice from the sherpa-onnx releases on GitHub, the
+ * same .tar.bz2 archive (checked, then [unpacked] and deleted), so one download serves both. The enum keeps its name
+ * and entry names because the saved choice uses them.
  */
 enum class WhisperModel(
     val label: String,
     val fileName: String,
     val sizeBytes: Long,
     val sha256: String,
-    /** True if the model understands languages other than English. */
-    val multilingual: Boolean,
+    val language: SpeechLanguage,
     val engine: ModelEngine = ModelEngine.WHISPER,
     private val downloadUrl: String? = null,
     /** For an archive: the files to keep from it, and their sizes. Empty for a single model file. */
     val unpacked: List<UnpackedFile> = emptyList(),
 ) {
-    FAST("Fast", "ggml-base.en-q5_1.bin", 59_721_011L,
-        "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f", multilingual = false),
-    ACCURATE("Accurate", "ggml-small.en-q5_1.bin", 190_098_681L,
-        "bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30", multilingual = false),
-    MULTILINGUAL("Multilingual", "ggml-base-q5_1.bin", 59_707_625L,
-        "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898", multilingual = true),
+    FAST("English · Fast", "ggml-base.en-q5_1.bin", 59_721_011L,
+        "4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f", SpeechLanguage.ENGLISH),
+    ACCURATE("English · Accurate", "ggml-small.en-q5_1.bin", 190_098_681L,
+        "bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30", SpeechLanguage.ENGLISH),
 
     /** Cantonese, often mixed with English. SenseVoice int8 (2025-09-09), language "yue". */
     CANTONESE(
-        "Cantonese", "$SENSE_VOICE_NAME.tar.bz2", 165_783_878L,
-        "7305f7905bfcf77fa0b39388a313f3da35c68d971661a65475b56fb2162c8e63", multilingual = true,
-        engine = ModelEngine.SENSE_VOICE,
-        downloadUrl = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/$SENSE_VOICE_NAME.tar.bz2",
-        unpacked = listOf(
-            UnpackedFile("$SENSE_VOICE_NAME/model.int8.onnx", "model.int8.onnx", 237_115_547L),
-            UnpackedFile("$SENSE_VOICE_NAME/tokens.txt", "tokens.txt", 315_894L),
-        ),
+        "Cantonese", "$SENSE_VOICE_NAME.tar.bz2", SENSE_VOICE_SIZE, SENSE_VOICE_SHA256, SpeechLanguage.CANTONESE,
+        engine = ModelEngine.SENSE_VOICE, downloadUrl = SENSE_VOICE_URL, unpacked = SENSE_VOICE_FILES,
+    ),
+
+    /** Mandarin, often mixed with English. The same SenseVoice files as Cantonese, with language "zh". */
+    MANDARIN(
+        "Mandarin", "$SENSE_VOICE_NAME.tar.bz2", SENSE_VOICE_SIZE, SENSE_VOICE_SHA256, SpeechLanguage.MANDARIN,
+        engine = ModelEngine.SENSE_VOICE, downloadUrl = SENSE_VOICE_URL, unpacked = SENSE_VOICE_FILES,
     );
+
+    /** The other models that use the same downloaded files (Cantonese and Mandarin share one). */
+    val sharesFilesWith: List<WhisperModel> get() = entries.filter { it != this && it.fileName == fileName }
 
     val url: String get() = downloadUrl ?: "$BASE_URL/$fileName"
 
@@ -66,6 +83,13 @@ enum class WhisperModel(
 
 /** The archive folder name of the official SenseVoice model, in the sherpa-onnx "asr-models" release. */
 private const val SENSE_VOICE_NAME = "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09"
+private const val SENSE_VOICE_SIZE = 165_783_878L
+private const val SENSE_VOICE_SHA256 = "7305f7905bfcf77fa0b39388a313f3da35c68d971661a65475b56fb2162c8e63"
+private const val SENSE_VOICE_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/$SENSE_VOICE_NAME.tar.bz2"
+private val SENSE_VOICE_FILES = listOf(
+    UnpackedFile("$SENSE_VOICE_NAME/model.int8.onnx", "model.int8.onnx", 237_115_547L),
+    UnpackedFile("$SENSE_VOICE_NAME/tokens.txt", "tokens.txt", 315_894L),
+)
 
 /** A file kept from a model archive: its path in the archive, the name it's saved under, and its exact size. */
 data class UnpackedFile(val entry: String, val name: String, val sizeBytes: Long)

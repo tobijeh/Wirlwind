@@ -4,7 +4,7 @@ Wirl can dictate Cantonese, often mixed with English. This file holds the cleanu
 
 ## How it works (Android)
 
-- **Speech to text.** In Settings › Dictation, the **Cantonese (粵語)** model is SenseVoice (`sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09`, int8), run on the phone with sherpa-onnx. It's downloaded on first use from the sherpa-onnx `asr-models` release (166 MB, unpacked to about 237 MB), never bundled in the app. It runs with language `yue` and `use_itn` on.
+- **Speech to text.** In Settings › Dictation, the **Cantonese (粵語)** model is SenseVoice (`sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09`, int8), run on the phone with sherpa-onnx. It's downloaded on first use from the sherpa-onnx `asr-models` release (166 MB, unpacked to about 237 MB), never bundled in the app. It runs with language `yue` and `use_itn` on. Mandarin (普通话) uses the same files with language `zh`; see `docs/mandarin.md`.
 - **Google fallback.** Until the model is downloaded, or if it can't run, dictation uses Google's recognizer in Cantonese (Hong Kong), `yue-Hant-HK`.
 - **Cleanup.** When the Cantonese model or Google's Cantonese recognizer produced the transcript, the block below is added to the built-in core prompt, after it and before the speaker's style notes. Everything else (Understand, Resolve intent, Polish, the rules, the personal dictionary, style notes) stays the same. SenseVoice writes simplified characters without punctuation, so this block is also what turns the text into traditional characters with full-width punctuation.
 
@@ -16,7 +16,7 @@ Wirl can dictate Cantonese, often mixed with English. This file holds the cleanu
 WIRL_CANTONESE_EVAL=1 ANTHROPIC_API_KEY=sk-... ./gradlew testDebugUnitTest --tests org.wirl.CantoneseEvalTest
 ```
 
-Haiku judges each output (traditional characters, spoken Cantonese, English kept, particles kept, full-width punctuation). Results go to `app/build/cantonese-eval/results.json`.
+Haiku judges each output (traditional characters, spoken Cantonese, English kept, particles kept, full-width punctuation). Results go to `app/build/cantonese-eval/results.json`. The same command also runs the Mandarin set.
 
 ## The block
 

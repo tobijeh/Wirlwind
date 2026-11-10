@@ -79,7 +79,9 @@ class CantoneseModelTest {
         assertEquals(listOf("model.int8.onnx", "tokens.txt"), m.unpacked.map { it.name })
         assertTrue(m.spec.isArchive)
         assertEquals("the saved choice uses the enum name", WhisperModel.CANTONESE, WhisperModel.fromKey("CANTONESE"))
-        assertEquals("yue", WhisperPrompt.languageFor(m, "en-US"))
+        assertEquals("yue", WhisperPrompt.languageFor(m))
+        assertEquals("zh", WhisperPrompt.languageFor(WhisperModel.MANDARIN))
+        assertEquals("en", WhisperPrompt.languageFor(WhisperModel.ACCURATE))
         // The Whisper models are unchanged.
         assertEquals(ModelEngine.WHISPER, WhisperModel.FAST.engine)
         assertFalse(WhisperModel.FAST.spec.isArchive)
@@ -160,12 +162,28 @@ class CantoneseModelTest {
         assertEquals("whisper model wait: 5 ms", DictationTiming(whisper = WhisperTiming(5, null, 1, 1, 0)).lines()[0])
     }
 
-    @Test fun googleUsesCantoneseHongKong() {
-        assertEquals("yue-Hant-HK", DictationLanguages.CANTONESE_HK)
-        assertEquals("yue-Hant-HK", LanguageTag.format("yue_hant_hk"))
-        assertTrue(DictationLanguages.options.any { it.first == "yue-Hant-HK" })
-        assertTrue(DictationLanguages.isCantonese("yue-Hant-HK"))
-        assertFalse(DictationLanguages.isCantonese("en-US"))
-        assertFalse(DictationLanguages.isCantonese("zh-HK"))
+    @Test fun cantoneseAndMandarinShareOneDownload() {
+        val c = WhisperModel.CANTONESE
+        val m = WhisperModel.MANDARIN
+        assertEquals(c.spec.copy(label = ""), m.spec.copy(label = ""))
+        assertEquals(listOf(m), c.sharesFilesWith)
+        assertEquals(listOf(c), m.sharesFilesWith)
+        assertTrue(WhisperModel.FAST.sharesFilesWith.isEmpty())
+        // One download shows on both cards, and cancelling either cancels it.
+        ModelDownloads.clear()
+        ModelDownloads.start(c)
+        ModelDownloads.update(c, 30)
+        assertEquals(30, ModelDownloads.percentOf(m))
+        ModelDownloads.cancel(m)
+        assertTrue(ModelDownloads.isCancelled(c))
+        ModelDownloads.clear()
     }
+
+    @Test fun googleFollowsTheModelsLanguage() {
+        assertEquals("yue-Hant-HK", WhisperModel.CANTONESE.language.googleTag("en-US"))
+        assertEquals("zh-CN", WhisperModel.MANDARIN.language.googleTag("en-US"))
+        assertEquals("en-AU", WhisperModel.FAST.language.googleTag("en-AU"))
+        assertEquals("en-US", WhisperModel.ACCURATE.language.googleTag("de-DE"))
+    }
+
 }

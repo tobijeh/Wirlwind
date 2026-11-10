@@ -104,19 +104,10 @@ class MainActivity : AppCompatActivity() {
 
         binding.dictationCleanup.isChecked = prefs.dictationCleanup
         binding.dictationCleanup.setOnCheckedChangeListener { _, checked -> prefs.dictationCleanup = checked }
-        binding.dictationLanguage.setAdapter(
-            ArrayAdapter(this, android.R.layout.simple_list_item_1, DictationLanguages.options.map { it.second }),
-        )
-        binding.dictationLanguage.setText(DictationLanguages.labelFor(prefs.dictationLanguage), false)
-        binding.dictationLanguage.setOnItemClickListener { _, _, position, _ ->
-            prefs.dictationLanguage = DictationLanguages.options[position].first
-            refreshStatus()
-        }
         setupSections()
         setupWhisperSettings()
         binding.downloadPack.setOnClickListener {
-            val language = DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag())
-            val started = SpeechPacks.download(this, language)
+            val started = SpeechPacks.download(this, googleLanguage())
             Toast.makeText(
                 this,
                 if (started) R.string.download_started else R.string.download_unavailable,
@@ -138,8 +129,8 @@ class MainActivity : AppCompatActivity() {
         when (model) {
             WhisperModel.FAST -> R.string.whisper_model_fast
             WhisperModel.ACCURATE -> R.string.whisper_model_accurate
-            WhisperModel.MULTILINGUAL -> R.string.whisper_model_multilingual
             WhisperModel.CANTONESE -> R.string.whisper_model_cantonese
+            WhisperModel.MANDARIN -> R.string.whisper_model_mandarin
         },
     )
 
@@ -148,8 +139,19 @@ class MainActivity : AppCompatActivity() {
         when (model) {
             WhisperModel.FAST -> R.string.model_name_fast
             WhisperModel.ACCURATE -> R.string.model_name_accurate
-            WhisperModel.MULTILINGUAL -> R.string.model_name_multilingual
             WhisperModel.CANTONESE -> R.string.model_name_cantonese
+            WhisperModel.MANDARIN -> R.string.model_name_mandarin
+        },
+    )
+
+    /** Google's recognizer language: always the chosen model's language. */
+    private fun googleLanguage(): String = prefs.whisperModel.language.googleTag(Locale.getDefault().toLanguageTag())
+
+    private fun languageName(language: SpeechLanguage): String = getString(
+        when (language) {
+            SpeechLanguage.ENGLISH -> R.string.language_english
+            SpeechLanguage.CANTONESE -> R.string.language_cantonese
+            SpeechLanguage.MANDARIN -> R.string.language_mandarin
         },
     )
 
@@ -161,8 +163,8 @@ class MainActivity : AppCompatActivity() {
         listOf(
             WhisperModel.FAST to binding.modelFast,
             WhisperModel.ACCURATE to binding.modelAccurate,
-            WhisperModel.MULTILINGUAL to binding.modelMultilingual,
             WhisperModel.CANTONESE to binding.modelCantonese,
+            WhisperModel.MANDARIN to binding.modelMandarin,
         )
     }
 
@@ -236,16 +238,8 @@ class MainActivity : AppCompatActivity() {
         binding.healthLine.setTextColor(
             getColor(if (missing == 0) R.color.settings_success else R.color.settings_warning),
         )
-        // The Cantonese model sets its own language, so the language setting isn't shown with it.
-        binding.dictationSummary.text = if (prefs.whisperModel == WhisperModel.CANTONESE) {
-            shortModelName(prefs.whisperModel)
-        } else {
-            getString(
-                R.string.summary_dictation,
-                shortModelName(prefs.whisperModel),
-                DictationLanguages.labelFor(prefs.dictationLanguage),
-            )
-        }
+        // The model's name says its language, so the row matches the Dictation page.
+        binding.dictationSummary.text = shortModelName(prefs.whisperModel)
         binding.cleanupSummary.text = when {
             !prefs.dictationCleanup -> getString(R.string.summary_cleanup_off)
             prefs.styleNotes.isNotBlank() -> getString(R.string.summary_cleanup_notes, getString(R.string.summary_cleanup_on))
@@ -330,8 +324,8 @@ class MainActivity : AppCompatActivity() {
             when (model) {
                 WhisperModel.FAST -> R.string.quality_fast_desc
                 WhisperModel.ACCURATE -> R.string.quality_accurate_desc
-                WhisperModel.MULTILINGUAL -> R.string.quality_multilingual_desc
                 WhisperModel.CANTONESE -> R.string.quality_cantonese_desc
+                WhisperModel.MANDARIN -> R.string.quality_mandarin_desc
             },
         )
         row.select.setOnClickListener {
@@ -385,7 +379,11 @@ class MainActivity : AppCompatActivity() {
                 getString(R.string.model_status_downloading, state.percent)
             }
             is ModelState.Partial -> getString(R.string.model_status_partial, state.percent)
-            ModelState.NotDownloaded -> getString(R.string.model_size, Formatter.formatShortFileSize(this, model.sizeBytes))
+            ModelState.NotDownloaded -> if (model.sharesFilesWith.isNotEmpty()) {
+                getString(R.string.model_size_shared, Formatter.formatShortFileSize(this, model.sizeBytes))
+            } else {
+                getString(R.string.model_size, Formatter.formatShortFileSize(this, model.sizeBytes))
+            }
         }
         val downloading = state is ModelState.Downloading
         row.progress.visibility = if (downloading) View.VISIBLE else View.GONE
@@ -404,14 +402,24 @@ class MainActivity : AppCompatActivity() {
         val chosenMissing = model == selected && state != ModelState.Ready && !downloading
         row.notice.visibility = if (chosenMissing) View.VISIBLE else View.GONE
         row.notice.text = getString(
-            if (model == WhisperModel.CANTONESE) R.string.model_not_downloaded_notice_cantonese else R.string.model_not_downloaded_notice,
+            when (model.language) {
+                SpeechLanguage.CANTONESE -> R.string.model_not_downloaded_notice_cantonese
+                SpeechLanguage.MANDARIN -> R.string.model_not_downloaded_notice_mandarin
+                SpeechLanguage.ENGLISH -> R.string.model_not_downloaded_notice
+            },
             Formatter.formatShortFileSize(this, model.sizeBytes),
         )
     }
 
     private fun confirmDelete(model: WhisperModel) {
         MaterialAlertDialogBuilder(this)
-            .setMessage(getString(R.string.model_delete_confirm, modelLabel(model)))
+            .setMessage(
+                if (model.sharesFilesWith.isNotEmpty()) {
+                    getString(R.string.model_delete_confirm_shared)
+                } else {
+                    getString(R.string.model_delete_confirm, modelLabel(model))
+                },
+            )
             .setPositiveButton(R.string.model_delete) { _, _ ->
                 WhisperApp.store(this).delete(model.spec)
                 refreshWhisper()
@@ -574,8 +582,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshEngineRow() {
         val detection = SpeechEngineAndroid.detect(this)
-        val tag = LanguageTag.format(DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag()))
-        val order = SpeechEngine.order(detection, prefs.onDevicePackInstalled(tag))
+        val order = SpeechEngine.order(detection, prefs.onDevicePackInstalled(googleLanguage()))
         val first = order.firstOrNull()?.label
         binding.speechEngine.text = "${getString(R.string.speech_engine_title)}: " +
             (first ?: SpeechEngine.describe(detection, onDevicePackInstalled = false))
@@ -594,7 +601,7 @@ class MainActivity : AppCompatActivity() {
         binding.testResults.text = getString(R.string.test_running)
         val runner = tester ?: EngineTester(this) { lines -> binding.testResults.text = lines.joinToString("\n") }
             .also { tester = it }
-        runner.run(DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag()))
+        runner.run(googleLanguage())
     }
 
     private fun openVoiceSettings() {
@@ -626,14 +633,14 @@ class MainActivity : AppCompatActivity() {
         val google = prefs.dictationEngine == DictationEngine.GOOGLE
         binding.packStatus.visibility = if (google) View.VISIBLE else View.GONE
 
-        val language = DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag())
-        val tag = LanguageTag.format(language)
-        binding.packStatus.text = getString(R.string.dictation_language_now, DictationLanguages.labelFor(language))
+        val tag = googleLanguage()
+        val languageLabel = languageName(prefs.whisperModel.language)
+        binding.packStatus.text = getString(R.string.dictation_language_now, languageLabel)
         SpeechPacks.check(this, tag) { status ->
             prefs.setOnDevicePackInstalled(tag, status == DictationLanguage.PackStatus.INSTALLED)
             refreshEngineRow()
             binding.packStatus.text = listOf(
-                getString(R.string.dictation_language_now, DictationLanguages.labelFor(language)),
+                getString(R.string.dictation_language_now, languageLabel),
                 getString(R.string.pack_status, DictationLanguage.describePack(status)),
             ).joinToString("\n")
             // Offer the download unless the pack is confirmed installed.

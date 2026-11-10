@@ -11,34 +11,37 @@ sealed interface ModelState {
     data object Ready : ModelState
 }
 
-/** Downloads in progress, shared across screens, so reopening Settings still shows them. */
+/**
+ * Downloads in progress, shared across screens, so reopening Settings still shows them. Tracked by file, so models that
+ * share one download (Cantonese and Mandarin) both show its progress, and cancelling either cancels it.
+ */
 object ModelDownloads {
-    private val progress = ConcurrentHashMap<WhisperModel, Int>()
-    private val cancelRequested = ConcurrentHashMap.newKeySet<WhisperModel>()
+    private val progress = ConcurrentHashMap<String, Int>()
+    private val cancelRequested = ConcurrentHashMap.newKeySet<String>()
 
     fun start(model: WhisperModel) {
-        cancelRequested.remove(model)
-        progress[model] = 0
+        cancelRequested.remove(model.fileName)
+        progress[model.fileName] = 0
     }
 
     /** Asks the download of [model] to stop. What's downloaded so far is kept, so Resume continues it. */
     fun cancel(model: WhisperModel) {
-        if (progress.containsKey(model)) cancelRequested.add(model)
+        if (progress.containsKey(model.fileName)) cancelRequested.add(model.fileName)
     }
 
-    fun isCancelled(model: WhisperModel): Boolean = model in cancelRequested
+    fun isCancelled(model: WhisperModel): Boolean = model.fileName in cancelRequested
 
     /** Records progress. Returns true if the whole-number percentage changed, so the screen only redraws then. */
-    fun update(model: WhisperModel, percent: Int): Boolean = progress.put(model, percent) != percent
+    fun update(model: WhisperModel, percent: Int): Boolean = progress.put(model.fileName, percent) != percent
 
     fun finish(model: WhisperModel) {
-        progress.remove(model)
-        cancelRequested.remove(model)
+        progress.remove(model.fileName)
+        cancelRequested.remove(model.fileName)
     }
 
-    fun percentOf(model: WhisperModel): Int? = progress[model]
+    fun percentOf(model: WhisperModel): Int? = progress[model.fileName]
 
-    fun isDownloading(model: WhisperModel): Boolean = progress.containsKey(model)
+    fun isDownloading(model: WhisperModel): Boolean = progress.containsKey(model.fileName)
 
     fun clear() {
         progress.clear()
