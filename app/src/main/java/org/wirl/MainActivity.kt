@@ -640,8 +640,12 @@ class MainActivity : AppCompatActivity() {
         // The button shows only when the microphone still needs allowing.
         binding.micButton.visibility = if (micAllowed) View.GONE else View.VISIBLE
         binding.micButton.text = getString(R.string.mic_allow_button)
-        binding.micState.text = getString(if (micAllowed) R.string.mic_state_allowed else R.string.mic_state_needed)
-        binding.micState.setTextColor(getColor(if (micAllowed) R.color.settings_success else R.color.settings_warning))
+        // The Microphone card is only for a problem: hidden once the microphone is allowed.
+        val micVisibility = if (micAllowed) View.GONE else View.VISIBLE
+        binding.cardDictation.root.visibility = micVisibility
+        binding.micCard.visibility = micVisibility
+        binding.micState.text = getString(R.string.mic_state_needed)
+        binding.micState.setTextColor(getColor(R.color.settings_warning))
 
         // The speech-pack controls only apply to Google's recognizer, so they show only when it's in use.
         val google = prefs.dictationEngine == DictationEngine.GOOGLE
