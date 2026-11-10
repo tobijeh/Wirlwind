@@ -38,9 +38,9 @@ class ComputerSyncHomeTest {
         PairedComputers.load(context)
     }
 
-    private fun computer(lastSyncAt: Long = 0, needsPairing: Boolean = false, lastError: String = "") = PairedComputer(
-        "0c1a3a0e-8a57-4b0e-9d63-0a2b1d2e3f40", "DESKTOP-ABC", SyncCrypto.newSecret(), 47913, listOf("192.168.1.2"),
-        lastSyncAt = lastSyncAt, needsPairing = needsPairing, lastError = lastError,
+    private fun computer(lastSyncAt: Long = 0, status: String = "") = PairedComputer(
+        "DESKTOP-ABC", "https://wirl-relay.wirl.workers.dev", SyncCrypto.newSecret(), "m".repeat(64),
+        lastSyncAt = lastSyncAt, status = status,
     )
 
     private fun withHome(check: (MainActivity) -> Unit) {
@@ -74,23 +74,23 @@ class ComputerSyncHomeTest {
     }
 
     @Test fun anUnreachableComputerIsAmber() {
-        paired(computer(lastSyncAt = 1, lastError = SyncProblem.DIFFERENT_NETWORK.id))
+        paired(computer(lastSyncAt = 1, status = SyncProblem.UNREACHABLE.id))
         withHome { activity ->
-            assertEquals("Can't reach DESKTOP-ABC", summary(activity).text.toString())
+            assertEquals("Can't reach the sync service", summary(activity).text.toString())
             assertEquals(activity.getColor(R.color.settings_warning), summary(activity).currentTextColor)
         }
     }
 
     @Test fun aComputerThatRefusedThePhoneNeedsPairingAgain() {
-        paired(computer(needsPairing = true))
+        paired(computer(status = SyncProblem.NEEDS_PAIRING.id))
         withHome { activity ->
-            assertEquals("DESKTOP-ABC needs pairing again", summary(activity).text.toString())
+            assertEquals("Pair again with DESKTOP-ABC", summary(activity).text.toString())
             assertEquals(activity.getColor(R.color.settings_warning), summary(activity).currentTextColor)
         }
     }
 
     @Test fun theComputerSyncScreenShowsACardPerComputer() {
-        paired(computer(needsPairing = true))
+        paired(computer(status = SyncProblem.NEEDS_PAIRING.id))
         ActivityScenario.launch(ComputerSyncActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 shadowOf(Looper.getMainLooper()).idle()

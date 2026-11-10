@@ -6,7 +6,6 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.ColorRes
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
@@ -29,15 +28,21 @@ import org.wirl.databinding.ItemPairedComputerBinding
  * [DictionarySyncEngine.syncAll] lock as the background worker, so the two never overlap.
  */
 object ForegroundSync {
-    fun start(owner: LifecycleOwner, context: Context, pair: SyncProtocol.PairingQr? = null) {
+    /**
+     * Syncs every paired computer, or only [only] (a [PairedComputer.key]: Sync now on one card, which also retries
+     * a computer marked "pair again"). With [pair], the scanned computer is saved first and synced right away.
+     */
+    fun start(owner: LifecycleOwner, context: Context, pair: SyncProtocol.PairingQr? = null, only: String? = null) {
         val app = context.applicationContext
         owner.lifecycleScope.launch(Dispatchers.IO) {
             runCatching {
-                if (pair != null) PairedComputers.pair(app, pair) else PairedComputers.load(app)
+                val target = if (pair != null) PairedComputers.pair(app, pair).key else only
+                if (pair == null) PairedComputers.load(app)
                 SyncScheduler.ensureScheduled(app)
-                // A sync already running (say, the background worker) will publish its result; don't queue another.
-                if (pair != null || !DictionarySyncEngine.running.value) {
-                    if (PairedComputers.current(app).any { !it.needsPairing }) DictionarySyncEngine.syncAll(app)
+                // A round already running (say, the background worker) publishes its result; don't queue another,
+                // unless the user asked for this computer specifically.
+                if (target != null || !DictionarySyncEngine.running.value) {
+                    if (PairedComputers.current(app).isNotEmpty()) DictionarySyncEngine.syncAll(app, only = target)
                 }
             }.onFailure { Log.w("WirlSync", "foreground sync failed", it) }
         }
@@ -53,12 +58,8 @@ class PairingFlow(private val activity: AppCompatActivity) {
     private val scanLauncher = activity.registerForActivityResult(ScanContract()) { result ->
         result.contents?.let { onScanned(it) }
     }
-    private val localNetworkLauncher = activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-        syncNow()
-    }
-
-    /** Syncs now, in the foreground. */
-    fun syncNow() = ForegroundSync.start(activity, activity)
+    /** Syncs now, in the foreground. [only] limits it to one computer. */
+    fun syncNow(only: String? = null) = ForegroundSync.start(activity, activity, only = only)
 
     fun startPairing() {
         scanLauncher.launch(
@@ -72,14 +73,38 @@ class PairingFlow(private val activity: AppCompatActivity) {
 
     /** Handles a scanned code. Public so tests can feed a code without the camera. */
     fun onScanned(text: String) {
-        val qr = SyncProtocol.parsePairingQr(text)
-        if (qr == null) {
-            say(activity.getString(R.string.pair_invalid_code))
-            return
+        when (val result = SyncProtocol.parsePairingQr(text)) {
+            SyncProtocol.QrResult.OldVersion -> say(activity.getString(R.string.pair_old_code), long = true)
+            SyncProtocol.QrResult.Invalid -> say(activity.getString(R.string.pair_invalid_code))
+            is SyncProtocol.QrResult.Valid -> {
+                Prefs(activity).syncRepairNotice = false
+                ForegroundSync.start(activity, activity, pair = result.qr)
+                say(activity.getString(R.string.paired_with, result.qr.name))
+            }
         }
-        ForegroundSync.start(activity, activity, pair = qr)
-        say(activity.getString(R.string.paired_with, qr.name))
-        if (LocalNetworkPermission.needsRequest(activity)) localNetworkLauncher.launch(LocalNetworkPermission.NAME)
+    }
+
+    /**
+     * Once after the upgrade from Wi-Fi sync, when old pairings were dropped: "Pair again with your computer's new
+     * code", with Pair now. [onPair] opens the scanner, or the Computer sync screen from Settings.
+     */
+    fun showRepairNoticeIfNeeded(onPair: () -> Unit = { startPairing() }) {
+        val app = activity.applicationContext
+        activity.lifecycleScope.launch(Dispatchers.IO) {
+            // Reading the pairings drops the old ones and sets the notice.
+            runCatching { PairedComputers.load(app) }
+            val prefs = Prefs(app)
+            if (!prefs.syncRepairNotice) return@launch
+            prefs.syncRepairNotice = false
+            launch(Dispatchers.Main) {
+                if (activity.isFinishing || activity.isDestroyed) return@launch
+                MaterialAlertDialogBuilder(activity)
+                    .setMessage(R.string.sync_repair_notice)
+                    .setPositiveButton(R.string.pair_now) { _, _ -> onPair() }
+                    .setNegativeButton(R.string.later, null)
+                    .show()
+            }
+        }
     }
 
     fun confirmUnpair(computer: PairedComputer) {
@@ -89,7 +114,7 @@ class PairingFlow(private val activity: AppCompatActivity) {
                 val app = activity.applicationContext
                 activity.lifecycleScope.launch(Dispatchers.IO) {
                     runCatching {
-                        PairedComputers.unpair(app, computer.deviceId)
+                        PairedComputers.unpair(app, computer.key)
                         SyncScheduler.ensureScheduled(app)
                     }
                 }
@@ -123,7 +148,7 @@ class PairingFlow(private val activity: AppCompatActivity) {
         for (computer in sorted(computers)) {
             val state = SyncStatus.of(computer, syncing)
             val row = ItemPairedComputerBinding.inflate(LayoutInflater.from(activity), container, false)
-            row.syncText.text = SyncStatusText.line(activity, computer, state, now)
+            row.syncText.text = SyncStatusText.line(activity, computer, state, now, withName = true)
             row.pairAgain.visibility = if (state == SyncState.NeedsPairing) View.VISIBLE else View.GONE
             row.pairAgain.setOnClickListener { startPairing() }
             row.unpair.setOnClickListener { confirmUnpair(computer) }
@@ -150,7 +175,10 @@ class PairingFlow(private val activity: AppCompatActivity) {
             card.computerSyncing.visibility = if (state == SyncState.Syncing) View.VISIBLE else View.GONE
             card.syncNow.visibility = if (state == SyncState.NeedsPairing) View.GONE else View.VISIBLE
             card.syncNow.isEnabled = !syncing
-            card.syncNow.setOnClickListener { syncNow() }
+            card.syncNow.setOnClickListener { syncNow(only = computer.key) }
+            val others = SyncStatus.otherPhones(computer, myPhoneId)
+            card.computerAlsoSynced.text = activity.getString(R.string.also_synced, others.joinToString(", "))
+            card.computerAlsoSynced.visibility = if (others.isEmpty()) View.GONE else View.VISIBLE
             card.pairAgain.visibility = if (state == SyncState.NeedsPairing) View.VISIBLE else View.GONE
             card.pairAgain.setOnClickListener { startPairing() }
             card.unpair.setOnClickListener { confirmUnpair(computer) }
@@ -158,7 +186,10 @@ class PairingFlow(private val activity: AppCompatActivity) {
         }
     }
 
+    private val myPhoneId: String by lazy { Prefs(activity).syncPhoneId }
+
     private fun sorted(computers: List<PairedComputer>) = computers.sortedBy { it.name.lowercase() }
 
-    private fun say(text: String) = Toast.makeText(activity, text, Toast.LENGTH_SHORT).show()
+    private fun say(text: String, long: Boolean = false) =
+        Toast.makeText(activity, text, if (long) Toast.LENGTH_LONG else Toast.LENGTH_SHORT).show()
 }

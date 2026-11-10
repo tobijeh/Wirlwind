@@ -2,68 +2,85 @@ package org.wirl
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertThrows
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
+import org.junit.Assert.fail
 
-/** Encryption (docs/sync-protocol.md §5). Plain JUnit: javax.crypto only. */
+/** Keys and encryption for the mailbox (docs/sync-protocol.md §3–§4). Plain JUnit: javax.crypto only. */
 class SyncCryptoTest {
-    private val secret = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=" // bytes 0x00..0x1f
-    private val phoneId = "0b7c6f7e-1d2a-4b5c-9d8e-7f6a5b4c3d2e"
+    private val secret = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
 
-    private fun hex(bytes: ByteArray) = bytes.joinToString("") { "%02x".format(it) }
+    private fun unhex(s: String) = s.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
 
-    @Test fun keyMatchesTheProtocolTestVector() {
-        assertEquals("f2b4a1a6ce55a07aea8ccb22e73d9ad6f36e4e177601c4e0d1be7ad47e6eb66c", hex(SyncCrypto.deriveKey(secret)))
+    @Test fun theProtocolTestVectorMatchesExactly() {
+        val keys = SyncCrypto.derive(secret)
+        assertEquals("edaba0f8f5a6b41660b29dfc43e0c1f9c3067ab5d6cef6c3564a014f7752ee28", keys.mailbox)
+        assertEquals("AJz6SLfpq2jeFQJFKtPqDMJjLGr4HmRTVsv4YRMp_Cw", keys.token)
+        assertEquals("81d430e62ca3afa96592b7a7c50f6213ccbde0fd21a6cebfa6b0d5038facb16c", SyncCrypto.tokenHash(keys.token))
+        assertArrayEquals(unhex("beccb5b399d59b7385c4d5d5df2090be773deaf000144a2b2caa2a567232e841"), keys.key)
+
+        val sealed = SyncCrypto.encryptWithNonce(keys, SyncCrypto.unb64("AAECAwQFBgcICQoL"), """{"entries":[],"devices":[]}""".toByteArray())
+        assertEquals("AAECAwQFBgcICQoL", sealed.nonce)
+        assertEquals("UcqqKN+j0S2YVtLI2StUerwpqF/KNKjI1Hzcac50dzPtEw5tYv5gpse67A==", sealed.ciphertext)
+        assertEquals("""{"entries":[],"devices":[]}""", String(SyncCrypto.decrypt(keys, sealed)))
     }
 
-    @Test fun ciphertextMatchesTheProtocolTestVector() {
-        val nonce = ByteArray(12) { it.toByte() }
-        val ct = SyncCrypto.encryptWithNonce(SyncCrypto.deriveKey(secret), phoneId, nonce, """{"entries":[]}""".toByteArray())
-        assertEquals("T4GGLLyKJaiy63rNMucjUgABVlyT/DGPB7LUjk1Z", ct)
-        assertEquals("AAECAwQFBgcICQoL", SyncCrypto.b64(nonce))
-    }
-
-    @Test fun roundTrip() {
-        val key = SyncCrypto.deriveKey(SyncCrypto.newSecret())
-        val plain = """{"entries":[{"term":"Sela"}]}""".toByteArray()
-        val sealed = SyncCrypto.encrypt(key, phoneId, plain)
-        assertEquals(12, SyncCrypto.unb64(sealed.nonce).size)
-        assertArrayEquals(plain, SyncCrypto.decrypt(key, phoneId, sealed.nonce, sealed.ciphertext))
-    }
-
-    @Test fun noncesAreNotReused() {
-        val key = SyncCrypto.deriveKey(secret)
-        val nonces = (1..50).map { SyncCrypto.encrypt(key, phoneId, ByteArray(1)).nonce }.toSet()
-        assertEquals(50, nonces.size)
-    }
-
-    @Test fun wrongSecretIsRejected() {
-        val sealed = SyncCrypto.encrypt(SyncCrypto.deriveKey(secret), phoneId, "hi".toByteArray())
-        assertThrows(SyncCrypto.AuthenticationException::class.java) {
-            SyncCrypto.decrypt(SyncCrypto.deriveKey(SyncCrypto.newSecret()), phoneId, sealed.nonce, sealed.ciphertext)
+    @Test fun theTokenIsUrlSafeWithoutPadding() {
+        repeat(20) {
+            val token = SyncCrypto.derive(SyncCrypto.newSecret()).token
+            assertEquals(43, token.length)
+            assertEquals(token, token.filter { it.isLetterOrDigit() || it == '-' || it == '_' })
         }
     }
 
-    @Test fun wrongPhoneIdIsRejected() {
-        val key = SyncCrypto.deriveKey(secret)
-        val sealed = SyncCrypto.encrypt(key, phoneId, "hi".toByteArray())
-        assertThrows(SyncCrypto.AuthenticationException::class.java) {
-            SyncCrypto.decrypt(key, "11111111-1111-4111-8111-111111111111", sealed.nonce, sealed.ciphertext)
-        }
+    @Test fun aRoundTripUsesAFreshNonceEachTime() {
+        val keys = SyncCrypto.derive(SyncCrypto.newSecret())
+        val a = SyncCrypto.encrypt(keys, "hello".toByteArray())
+        val b = SyncCrypto.encrypt(keys, "hello".toByteArray())
+        assertNotEquals(a.nonce, b.nonce)
+        assertEquals("hello", String(SyncCrypto.decrypt(keys, a)))
+        assertEquals("hello", String(SyncCrypto.decrypt(keys, b)))
     }
 
-    @Test fun tamperedCiphertextIsRejected() {
-        val key = SyncCrypto.deriveKey(secret)
-        val sealed = SyncCrypto.encrypt(key, phoneId, "hello".toByteArray())
+    @Test fun theWrongSecretIsRejected() {
+        val sealed = SyncCrypto.encrypt(SyncCrypto.derive(secret), "x".toByteArray())
+        expectAuthFailure { SyncCrypto.decrypt(SyncCrypto.derive(SyncCrypto.newSecret()), sealed) }
+    }
+
+    @Test fun anotherMailboxIdAsAadIsRejected() {
+        val keys = SyncCrypto.derive(secret)
+        val sealed = SyncCrypto.encrypt(keys, "x".toByteArray())
+        val sameKeyOtherMailbox = SyncCrypto.GroupKeys("0".repeat(64), keys.token, keys.key)
+        expectAuthFailure { SyncCrypto.decrypt(sameKeyOtherMailbox, sealed) }
+    }
+
+    @Test fun tamperingIsRejected() {
+        val keys = SyncCrypto.derive(secret)
+        val sealed = SyncCrypto.encrypt(keys, "a longer message".toByteArray())
         val bytes = SyncCrypto.unb64(sealed.ciphertext).also { it[0] = (it[0].toInt() xor 1).toByte() }
-        assertThrows(SyncCrypto.AuthenticationException::class.java) {
-            SyncCrypto.decrypt(key, phoneId, sealed.nonce, SyncCrypto.b64(bytes))
+        expectAuthFailure { SyncCrypto.decrypt(keys, SyncCrypto.Sealed(sealed.nonce, SyncCrypto.b64(bytes))) }
+        expectAuthFailure { SyncCrypto.decrypt(keys, SyncCrypto.Sealed("AAAA", sealed.ciphertext)) }
+        expectAuthFailure { SyncCrypto.decrypt(keys, SyncCrypto.Sealed(sealed.nonce, "not base64!")) }
+    }
+
+    @Test fun onlyA32ByteSecretIsAccepted() {
+        assertNull(SyncCrypto.secretBytes("c2hvcnQ="))
+        assertNull(SyncCrypto.secretBytes("not base64!"))
+        try {
+            SyncCrypto.derive("c2hvcnQ=")
+            fail("a short secret must be rejected")
+        } catch (e: SyncCrypto.BadSecretException) {
+            // expected
         }
     }
 
-    @Test fun garbageIsRejectedNotCrashed() {
-        assertThrows(SyncCrypto.AuthenticationException::class.java) {
-            SyncCrypto.decrypt(SyncCrypto.deriveKey(secret), phoneId, "not base64!", "AAAA")
+    private fun expectAuthFailure(block: () -> Unit) {
+        try {
+            block()
+            fail("expected AuthenticationException")
+        } catch (e: SyncCrypto.AuthenticationException) {
+            // expected
         }
     }
 }

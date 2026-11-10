@@ -26,7 +26,7 @@ import org.wirl.databinding.DialogEntryBinding
 
 /**
  * The personal dictionary: list, search, add, edit, swipe to delete (with undo), import/export, and pairing with
- * computers for Wi-Fi sync (docs/sync-protocol.md).
+ * computers for dictionary sync (docs/sync-protocol.md).
  */
 class DictionaryActivity : AppCompatActivity() {
     private lateinit var binding: ActivityDictionaryBinding
@@ -66,6 +66,7 @@ class DictionaryActivity : AppCompatActivity() {
             }
         }
         pairing.observe { computers, syncing -> pairing.renderRows(binding.syncStatus, computers, syncing) }
+        pairing.showRepairNoticeIfNeeded()
     }
 
     override fun onStart() {

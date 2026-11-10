@@ -44,6 +44,16 @@
             android:textColor="@color/settings_text_secondary"
             android:textSize="13sp" />
 
+        <!-- "Also synced: Pixel 7": the group's other phones, from the mailbox's device list. -->
+        <TextView
+            android:id="@+id/computerAlsoSynced"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="@color/settings_text_secondary"
+            android:textSize="13sp"
+            android:visibility="gone" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

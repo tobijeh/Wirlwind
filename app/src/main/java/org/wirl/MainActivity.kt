@@ -40,6 +40,7 @@ import kotlin.math.roundToInt
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var prefs: Prefs
+    private val pairing = PairingFlow(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +63,8 @@ class MainActivity : AppCompatActivity() {
 
         setupNavigation()
         observeComputerSync()
+        // Once after the upgrade from Wi-Fi sync: the old pairing was removed, so ask to pair again.
+        pairing.showRepairNoticeIfNeeded { startActivity(Intent(this, ComputerSyncActivity::class.java)) }
         binding.styleNotes.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) saveStyleNotes() }
         binding.apiKey.setOnFocusChangeListener { _, hasFocus -> if (!hasFocus) saveApiKey() }
         binding.apiKey.setOnEditorActionListener { _, action, _ ->

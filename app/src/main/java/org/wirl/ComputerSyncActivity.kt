@@ -20,6 +20,7 @@ class ComputerSyncActivity : AppCompatActivity() {
         binding.backComputerSync.setOnClickListener { finish() }
         binding.pairComputer.setOnClickListener { pairing.startPairing() }
         pairing.observe { computers, syncing -> render(computers, syncing) }
+        pairing.showRepairNoticeIfNeeded()
     }
 
     override fun onStart() {

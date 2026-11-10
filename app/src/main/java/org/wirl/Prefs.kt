@@ -160,15 +160,34 @@ class Prefs(context: Context) {
             .putString(KEY_DICTIONARY, DictionaryJson.encode(DictionarySync.migrate(value, System.currentTimeMillis())))
             .apply()
 
-    /** This phone's sync id, a UUID made once and kept (docs/sync-protocol.md §4). */
+    /** This phone's device id in the sync group's device list, a UUID made once and kept (docs/sync-protocol.md §4). */
     val syncPhoneId: String
         get() = plain.getString(KEY_SYNC_PHONE_ID, null)?.takeIf { DictionarySync.isUuid(it) }
             ?: DictionarySync.newId().also { plain.edit().putString(KEY_SYNC_PHONE_ID, it).apply() }
 
-    /** Paired computers, with their pairing secrets. Kept in the encrypted store. */
+    /**
+     * Paired computers (mailbox sync, protocol v2), with their group secrets. Kept in the encrypted store.
+     * Pairings from the Wi-Fi version (protocol v1, [KEY_PAIRED_COMPUTERS_V1]) can't sync any more: the first read
+     * drops them and sets [syncRepairNotice], so the user is told once to pair again.
+     */
     var pairedComputers: List<PairedComputer>
-        get() = PairedComputer.decodeList(runCatching { secure.getString(KEY_PAIRED_COMPUTERS, "[]") }.getOrNull())
+        get() {
+            dropV1Pairings()
+            return PairedComputer.decodeList(runCatching { secure.getString(KEY_PAIRED_COMPUTERS, "[]") }.getOrNull())
+        }
         set(value) = secure.edit().putString(KEY_PAIRED_COMPUTERS, PairedComputer.encodeList(value)).apply()
+
+    private fun dropV1Pairings() {
+        val old = runCatching { secure.getString(KEY_PAIRED_COMPUTERS_V1, null) }.getOrNull() ?: return
+        val hadAny = runCatching { org.json.JSONArray(old).length() > 0 }.getOrDefault(false)
+        runCatching { secure.edit().remove(KEY_PAIRED_COMPUTERS_V1).apply() }
+        if (hadAny) syncRepairNotice = true
+    }
+
+    /** Show "Pair again with your computer's new code" once, after Wi-Fi pairings were dropped. */
+    var syncRepairNotice: Boolean
+        get() = plain.getBoolean(KEY_SYNC_REPAIR_NOTICE, false)
+        set(value) = plain.edit().putBoolean(KEY_SYNC_REPAIR_NOTICE, value).apply()
 
     /** Saved bubble position, or null if the bubble has never been moved. */
     var bubblePosition: Pair<Int, Int>?
@@ -226,7 +245,12 @@ class Prefs(context: Context) {
         const val KEY_ENGINE_TEST_PASSED = "engine_test_passed"
         const val KEY_SETUP_SHOWN = "setup_shown"
         const val KEY_SYNC_PHONE_ID = "sync_phone_id"
-        const val KEY_PAIRED_COMPUTERS = "paired_computers"
+        /** Mailbox pairings (protocol v2). */
+        const val KEY_PAIRED_COMPUTERS = "paired_computers_v2"
+
+        /** Wi-Fi pairings (protocol v1), dropped on first read. */
+        const val KEY_PAIRED_COMPUTERS_V1 = "paired_computers"
+        const val KEY_SYNC_REPAIR_NOTICE = "sync_repair_notice"
 
         /** Settings reset by "Reset to defaults". The API key and the dictionary are kept. */
         val RESETTABLE_KEYS = listOf(
