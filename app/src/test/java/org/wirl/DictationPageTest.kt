@@ -94,6 +94,20 @@ class DictationPageTest {
         }
     }
 
+    @Test fun advancedShowsTheEngineInUseWithoutAnEngineSelector() {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                shadowOf(Looper.getMainLooper()).idle()
+                assertEquals("no engine selector any more", 0, activity.resources.getIdentifier("engineChoice", "id", context.packageName))
+                assertEquals("Speech recognition in use", activity.getString(R.string.advanced_engine_title))
+                val status = activity.findViewById<TextView>(R.id.engineStatus).text.toString()
+                assertTrue(status, status.startsWith("Using Google's recognizer as a backup, because the "))
+                assertTrue(isInside(activity.findViewById(R.id.engineStatus), R.id.advancedBody))
+                assertTrue(isInside(activity.findViewById(R.id.mobileDataSwitch), R.id.advancedBody))
+            }
+        }
+    }
+
     @Test fun setupCanOpenTheDictationPage() {
         val intent = Intent(context, MainActivity::class.java).putExtra(MainActivity.EXTRA_PAGE, MainActivity.PAGE_DICTATION)
         ActivityScenario.launch<MainActivity>(intent).use { scenario ->

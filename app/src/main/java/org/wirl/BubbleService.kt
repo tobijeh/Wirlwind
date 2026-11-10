@@ -349,7 +349,8 @@ class BubbleService : AccessibilityService() {
         val available = SpeechEngine.order(found, prefs.onDevicePackInstalled(dictationLanguageTag))
         val modelReady = WhisperApp.store(this).isReady(prefs.whisperModel.spec)
         val nativeLoads = ModelLibraries.loads(prefs.whisperModel)
-        val use = EngineChoice.use(prefs.dictationEngine, modelReady, nativeLoads)
+        // The chosen model on this phone, or Google's recognizer as the backup. Google is never chosen on its own.
+        val use = EngineChoice.use(DictationEngine.WHISPER, modelReady, nativeLoads)
         val chosen = use.engine
         var note = fallbackNote(use.reason)
         if (use.reason == FallbackReason.MODEL_MISSING && !prefs.modelOfferShown) {
@@ -498,7 +499,7 @@ class BubbleService : AccessibilityService() {
     /** Loads the Whisper model in the background, so the first dictation doesn't wait for it. */
     private fun preloadWhisper() {
         val model = prefs.whisperModel
-        if (prefs.dictationEngine != DictationEngine.WHISPER || !ModelLibraries.loads(model)) return
+        if (!ModelLibraries.loads(model)) return
         if (!WhisperApp.store(this).isReady(model.spec)) return
         val holder = modelHolderFor(model, prefs.whisperThreads)
         Thread({ holder.get() }, "wirl-model-preload").start()
