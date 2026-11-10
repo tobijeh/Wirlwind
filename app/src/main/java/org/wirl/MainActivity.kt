@@ -329,9 +329,23 @@ class MainActivity : AppCompatActivity() {
             },
         )
         row.select.setOnClickListener {
+            // Ticking turns the model on for quick switch. It never starts a download: that's only the Download button.
+            if (row.select.isChecked && !isModelReady(model)) {
+                refreshWhisper()
+                return@setOnClickListener
+            }
+            val choice = ModelCycle.toggle(prefs.activeModels, prefs.whisperModel, ::isModelReady, model, row.select.isChecked)
+            if (choice == null) {
+                Toast.makeText(this, R.string.quick_switch_keep_one, Toast.LENGTH_SHORT).show()
+            } else {
+                prefs.activeModels = choice.active
+                prefs.whisperModel = choice.current
+            }
+            refreshWhisper()
+        }
+        row.useNow.setOnClickListener {
+            prefs.activeModels = prefs.activeModels + model
             prefs.whisperModel = model
-            // Choosing a model that isn't downloaded starts its download, with progress shown on its card.
-            if (!WhisperApp.store(this).isReady(model.spec)) downloadModel(model)
             refreshWhisper()
         }
         row.download.setOnClickListener { downloadModel(model) }
@@ -376,9 +390,19 @@ class MainActivity : AppCompatActivity() {
     private fun refreshRow(row: ItemWhisperModelBinding, model: WhisperModel, selected: WhisperModel) {
         val store = WhisperApp.store(this)
         val state = ModelStatus.of(store, model)
-        row.select.isChecked = model == selected
+        val on = model in prefs.activeModels
+        row.select.isChecked = on
+        // Only a downloaded model can be ticked on. One that's already on can always be ticked off.
+        row.select.isEnabled = on || state == ModelState.Ready
+        row.useNow.visibility = if (state == ModelState.Ready && model != selected) View.VISIBLE else View.GONE
         row.status.text = when (state) {
-            ModelState.Ready -> getString(R.string.model_status_ready)
+            ModelState.Ready -> getString(
+                when {
+                    model == selected -> R.string.model_status_in_use
+                    on -> R.string.model_status_ready
+                    else -> R.string.model_status_off
+                },
+            )
             // An archive model is unpacked after the last byte arrives, which takes a little while.
             is ModelState.Downloading -> if (state.percent >= 100 && model.spec.isArchive) {
                 getString(R.string.model_status_unpacking)
@@ -418,6 +442,17 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    private fun isModelReady(model: WhisperModel): Boolean = WhisperApp.store(this).isReady(model.spec)
+
+    /**
+     * A finished download turns its model on for quick switch. If the model in use isn't on the phone (dictation is using
+     * Google's recognizer as the backup), the new one becomes the one in use.
+     */
+    private fun onModelDownloaded(model: WhisperModel) {
+        prefs.activeModels = prefs.activeModels + model
+        if (!isModelReady(prefs.whisperModel)) prefs.whisperModel = model
+    }
+
     private fun confirmDelete(model: WhisperModel) {
         MaterialAlertDialogBuilder(this)
             .setMessage(
@@ -429,6 +464,9 @@ class MainActivity : AppCompatActivity() {
             )
             .setPositiveButton(R.string.model_delete) { _, _ ->
                 WhisperApp.store(this).delete(model.spec)
+                // A deleted model leaves quick switch. The one in use stays chosen and uses Google's recognizer meanwhile.
+                val gone = setOf(model) + model.sharesFilesWith
+                prefs.activeModels = prefs.activeModels - (gone - prefs.whisperModel)
                 refreshWhisper()
             }
             .setNegativeButton(android.R.string.cancel, null)
@@ -458,7 +496,7 @@ class MainActivity : AppCompatActivity() {
             ModelDownloads.finish(model)
             runOnUiThread {
                 when (val error = result.exceptionOrNull()) {
-                    null -> Unit
+                    null -> onModelDownloaded(model)
                     is ModelDownloader.CancelledException ->
                         Toast.makeText(this, R.string.model_download_cancelled, Toast.LENGTH_SHORT).show()
                     else -> Toast.makeText(

@@ -23,6 +23,7 @@ The Desktop column is taken from `FEATURES.md` in Wirl-Desktop. Update both file
 | | Pause other media during dictation | 🟢 always on | 🟢 |
 | | Start and stop tones | 🟢 | 🟢 |
 | | Slide to cancel while recording | ✅ logic / 🟢 gesture | ➖ (Esc cancels) |
+| | Quick switch: tick several downloaded models, swipe the recording bubble up/down to switch (shows EN, EN+, 粵, 普); tapping a model never downloads it | ✅ logic / 🟢 gesture | ➖ |
 | **Models** | English · Fast (base.en q5_1), English · Accurate (small.en q5_1); Multilingual removed on Android | ✅ | ✅ (Multilingual still offered) |
 | | Cantonese (粵語): SenseVoice int8 via sherpa-onnx, language yue, use_itn on | ✅ download, settings / 🟢 on-device | ⬜ |
 | | Cantonese mode in cleanup (traditional characters, spoken Cantonese, English kept; `docs/cantonese.md`) | ✅ | ⬜ |

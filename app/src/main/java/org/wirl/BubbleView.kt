@@ -10,6 +10,7 @@ import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.ProgressBar
+import android.widget.TextView
 import androidx.annotation.DrawableRes
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
@@ -63,6 +64,18 @@ class BubbleView(context: Context) : FrameLayout(context) {
         visibility = View.GONE
     }
 
+    // The language label (EN, EN+, 粵, 普), shown for a moment after a quick switch, on a dark disc over the face.
+    internal val tag = TextView(context).apply {
+        gravity = Gravity.CENTER
+        setTextColor(ContextCompat.getColor(context, R.color.white))
+        typeface = android.graphics.Typeface.DEFAULT_BOLD
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(ColorUtils.setAlphaComponent(ContextCompat.getColor(context, R.color.ink), 200))
+        }
+        visibility = View.GONE
+    }
+
     var diameterPx: Int = 0
         private set
 
@@ -80,6 +93,7 @@ class BubbleView(context: Context) : FrameLayout(context) {
         addView(scrim)
         addView(check)
         addView(spinner)
+        addView(tag)
         setIcon(R.drawable.bubble_icon_swirl)
         setState(State.IDLE)
     }
@@ -97,6 +111,8 @@ class BubbleView(context: Context) : FrameLayout(context) {
         scrim.layoutParams = LayoutParams(px, px)
         check.layoutParams = LayoutParams((px * 0.5f).toInt(), (px * 0.5f).toInt(), Gravity.CENTER)
         spinner.layoutParams = LayoutParams((px * 0.54f).toInt(), (px * 0.54f).toInt(), Gravity.CENTER)
+        tag.layoutParams = LayoutParams(px, px)
+        tag.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, px * 0.36f)
         requestLayout()
     }
 
@@ -119,6 +135,16 @@ class BubbleView(context: Context) : FrameLayout(context) {
         spinner.visibility = if (state == State.BUSY) View.VISIBLE else View.GONE
         check.visibility = if (state == State.DONE) View.VISIBLE else View.GONE
         if (state == State.RECORDING) startPulse() else stopPulse()
+    }
+
+    /** Shows [text] (EN, EN+, 粵 or 普) over the face for about a second, then fades it out. */
+    fun flashTag(text: String) {
+        tag.animate().cancel()
+        tag.text = text
+        tag.contentDescription = text
+        tag.alpha = 1f
+        tag.visibility = View.VISIBLE
+        tag.animate().alpha(0f).setStartDelay(TAG_SHOW_MS).setDuration(250).withEndAction { tag.visibility = View.GONE }.start()
     }
 
     private fun startPulse() {
@@ -144,5 +170,10 @@ class BubbleView(context: Context) : FrameLayout(context) {
         ring.scaleX = 1f
         ring.scaleY = 1f
         ring.alpha = 1f
+    }
+
+    companion object {
+        /** How long the language label stays fully shown after a quick switch. */
+        const val TAG_SHOW_MS = 900L
     }
 }

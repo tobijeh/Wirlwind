@@ -429,6 +429,26 @@ class BubbleService : AccessibilityService() {
     private fun stageName(model: WhisperModel): String =
         if (model.engine == ModelEngine.SENSE_VOICE) "sensevoice" else "whisper"
 
+    private fun modelReady(model: WhisperModel): Boolean = WhisperApp.store(this).isReady(model.spec)
+
+    /** Whether the models turned on in Settings give a swipe up or down somewhere to go. */
+    private fun canQuickSwitch(): Boolean = ModelCycle.canSwitch(prefs.activeModels, prefs.whisperModel, ::modelReady)
+
+    /**
+     * A swipe up or down while recording: switches to the next or previous model turned on in Settings, shows its label
+     * (EN, EN+, 粵, 普) on the bubble, and starts recording again in that language. What was said so far is dropped, as
+     * with Cancel, so nothing is inserted from it.
+     */
+    private fun quickSwitch(step: Int) {
+        val next = ModelCycle.step(prefs.activeModels, prefs.whisperModel, ::modelReady, step)
+        if (next == prefs.whisperModel) return
+        circle.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+        discardDictation("switched to ${next.label} by swiping the bubble")
+        prefs.whisperModel = next
+        circle.flashTag(next.tag)
+        onTap()
+    }
+
     /** Starts a Whisper dictation. Returns false if the microphone can't be opened, so the caller can use Google's recognizer. */
     private fun startWhisper(key: FieldKey): Boolean {
         val model = prefs.whisperModel
@@ -1148,6 +1168,11 @@ class BubbleService : AccessibilityService() {
         slideDirection = SlideToCancel.directionFor(slideRestX + centreOffset, trackWidth)
         val track = slideTrack ?: buildSlideTrack().also { slideTrack = it }
         val left = if (slideDirection == SlideDirection.LEFT) slideRestX + centreOffset - trackWidth else slideRestX + centreOffset
+        track.contentDescription = if (canQuickSwitch()) {
+            "${getString(R.string.slide_cancel_desc)}. ${getString(R.string.quick_switch_desc)}"
+        } else {
+            getString(R.string.slide_cancel_desc)
+        }
         track.text = if (slideDirection == SlideDirection.LEFT) "‹  ${getString(R.string.slide_cancel)}" else "${getString(R.string.slide_cancel)}  ›"
         track.gravity = Gravity.CENTER_VERTICAL or if (slideDirection == SlideDirection.LEFT) Gravity.START else Gravity.END
         val knobSide = bubbleSizePx / 2 + dp(8)
@@ -1286,6 +1311,8 @@ class BubbleService : AccessibilityService() {
         private var longFired = false
         private var sliding = false
         private var sliderArmed = false
+        /** This touch switched the model (a swipe up or down while recording). The rest of the touch is ignored. */
+        private var switched = false
         private var velocity: VelocityTracker? = null
         private val longPress = Runnable {
             longFired = true
@@ -1312,6 +1339,7 @@ class BubbleService : AccessibilityService() {
                     longFired = false
                     sliding = false
                     sliderArmed = false
+                    switched = false
                     handler.postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
                     v.animate().scaleX(0.92f).scaleY(0.92f).setDuration(80).start()
                 }
@@ -1321,7 +1349,18 @@ class BubbleService : AccessibilityService() {
                     val dy = e.rawY - downY
                     if (!moved && hypot(dx, dy) > slop) moved = true
                     if (!SlideToCancel.repositionAllowed(recording = state == State.RECORDING)) {
-                        // Recording: the bubble holds still, except to slide along the cancel track.
+                        // Recording: the bubble holds still, except to slide along the cancel track. Up or down switches model.
+                        if (switched) return true
+                        if (!sliding && !longFired) {
+                            val step = QuickSwitch.stepFor(dx, dy, dp(QuickSwitch.SWIPE_DP).toFloat())
+                            if (step != 0 && canQuickSwitch()) {
+                                switched = true
+                                handler.removeCallbacks(longPress)
+                                hideLabel()
+                                quickSwitch(step)
+                                return true
+                            }
+                        }
                         if (!sliding && !longFired && abs(dx) > slop && abs(dx) > abs(dy) && slideShown) {
                             sliding = true
                             handler.removeCallbacks(longPress)
