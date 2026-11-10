@@ -21,7 +21,6 @@ import org.wirl.databinding.ActivityManualSetupBinding
 class SetupActivity : AppCompatActivity() {
     private lateinit var binding: ActivityManualSetupBinding
     private lateinit var prefs: Prefs
-    private var tester: EngineTester? = null
 
     private val micPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { refresh() }
 
@@ -51,18 +50,15 @@ class SetupActivity : AppCompatActivity() {
                 Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")),
             )
         }
-        binding.runTest.setOnClickListener { runTest() }
+        binding.openModels.setOnClickListener {
+            startActivity(Intent(this, MainActivity::class.java).putExtra(MainActivity.EXTRA_PAGE, MainActivity.PAGE_DICTATION))
+        }
         binding.openComputerSync.setOnClickListener { startActivity(Intent(this, ComputerSyncActivity::class.java)) }
     }
 
     override fun onResume() {
         super.onResume()
         refresh()
-    }
-
-    override fun onDestroy() {
-        tester?.cancel()
-        super.onDestroy()
     }
 
     private fun refresh() {
@@ -75,7 +71,8 @@ class SetupActivity : AppCompatActivity() {
         row(SetupChecklist.Item.ACCESSIBILITY, status, binding.accessStatus)
         row(SetupChecklist.Item.MICROPHONE, status, binding.micStatus)
         row(SetupChecklist.Item.BATTERY, status, binding.batteryStatus)
-        row(SetupChecklist.Item.DICTATION_TEST, status, binding.testStatus)
+        row(SetupChecklist.Item.SPEECH_MODEL, status, binding.testStatus)
+        refreshModel(status[SetupChecklist.Item.SPEECH_MODEL] == true)
         binding.batteryTip.text = getString(tipFor(Build.MANUFACTURER))
         refreshSync()
     }
@@ -110,7 +107,7 @@ class SetupActivity : AppCompatActivity() {
                     PackageManager.PERMISSION_GRANTED,
                 batteryUnrestricted = context.getSystemService(PowerManager::class.java)
                     .isIgnoringBatteryOptimizations(context.packageName),
-                dictationTestPassed = prefs.engineTestPassed,
+                speechModelReady = WhisperApp.store(context).isReady(prefs.whisperModel.spec),
             )
         }
 
@@ -141,7 +138,7 @@ class SetupActivity : AppCompatActivity() {
         SetupChecklist.Item.ACCESSIBILITY -> R.string.setup_accessibility
         SetupChecklist.Item.MICROPHONE -> R.string.setup_microphone
         SetupChecklist.Item.BATTERY -> R.string.setup_battery
-        SetupChecklist.Item.DICTATION_TEST -> R.string.setup_test
+        SetupChecklist.Item.SPEECH_MODEL -> R.string.setup_test
     }
 
     private fun tipFor(manufacturer: String): Int = when (BatteryTip.brandFor(manufacturer)) {
@@ -151,17 +148,10 @@ class SetupActivity : AppCompatActivity() {
         BatteryTip.Brand.OTHER -> R.string.battery_tip_other
     }
 
-    private fun runTest() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            binding.testResults.text = getString(R.string.test_needs_mic)
-            return
-        }
-        binding.testResults.text = getString(R.string.test_running)
-        val runner = tester ?: EngineTester(this) { lines ->
-            binding.testResults.text = lines.joinToString("\n")
-            refresh()
-        }.also { tester = it }
-        // Google's recognizer is tested in the chosen model's language.
-        runner.run(prefs.whisperModel.language.googleTag(java.util.Locale.getDefault().toLanguageTag()))
+    /** The speech model item: which model is chosen, and whether it's downloaded. */
+    private fun refreshModel(ready: Boolean) {
+        val name = prefs.whisperModel.label
+        binding.modelDetail.text = getString(if (ready) R.string.setup_model_ready else R.string.setup_model_missing, name)
+        binding.openModels.visibility = if (ready) View.GONE else View.VISIBLE
     }
 }

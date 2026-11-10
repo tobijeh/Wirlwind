@@ -13,17 +13,17 @@ class SetupChecklistTest {
             accessibilityOn = false,
             microphoneAllowed = true,
             batteryUnrestricted = false,
-            dictationTestPassed = true,
+            speechModelReady = true,
         )
         assertEquals(true, status[Item.API_KEY])
         assertEquals(false, status[Item.ACCESSIBILITY])
         assertEquals(true, status[Item.MICROPHONE])
         assertEquals(false, status[Item.BATTERY])
-        assertEquals(true, status[Item.DICTATION_TEST])
+        assertEquals(true, status[Item.SPEECH_MODEL])
     }
 
     @Test fun checklistIsNotCompleteUntilEveryItemIsDone() {
-        val almost = SetupChecklist.status(true, true, true, true, dictationTestPassed = false)
+        val almost = SetupChecklist.status(true, true, true, true, speechModelReady = false)
         assertFalse(SetupChecklist.allDone(almost))
     }
 

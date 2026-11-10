@@ -38,6 +38,12 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity() {
+    companion object {
+        /** Opens Settings on a page instead of Home. */
+        const val EXTRA_PAGE = "org.wirl.page"
+        const val PAGE_DICTATION = "dictation"
+    }
+
     private lateinit var binding: ActivityMainBinding
     private lateinit var prefs: Prefs
     private val pairing = PairingFlow(this)
@@ -189,7 +195,11 @@ class MainActivity : AppCompatActivity() {
      * once the version has been tapped seven times, or when the option is already on.
      */
     private fun refreshDeveloperOptions() {
-        binding.openDiagnostics.visibility = if (prefs.developerOptions) View.VISIBLE else View.GONE
+        val shown = if (prefs.developerOptions) View.VISIBLE else View.GONE
+        binding.openDiagnostics.visibility = shown
+        // Checking Google's recognizers is for troubleshooting, so it lives with Diagnostics.
+        binding.testDictation.visibility = shown
+        binding.testResults.visibility = shown
         binding.developerCard.visibility = if (prefs.developerOptions || versionTaps >= 7) View.VISIBLE else View.GONE
     }
 
@@ -199,6 +209,8 @@ class MainActivity : AppCompatActivity() {
     private fun setupNavigation() {
         val pages = listOf(binding.pageHome, binding.pageDictation, binding.pageCleanup, binding.pageBubble, binding.pageAbout)
         fun show(page: View) = pages.forEach { it.visibility = if (it === page) View.VISIBLE else View.GONE }
+        // Setup's "Speech model downloaded" button opens the Dictation page directly.
+        if (intent?.getStringExtra(EXTRA_PAGE) == PAGE_DICTATION) show(binding.pageDictation)
         binding.rowDictation.setOnClickListener { show(binding.pageDictation) }
         binding.rowCleanup.setOnClickListener { show(binding.pageCleanup) }
         binding.rowBubble.setOnClickListener { show(binding.pageBubble) }
@@ -628,6 +640,8 @@ class MainActivity : AppCompatActivity() {
         // The button shows only when the microphone still needs allowing.
         binding.micButton.visibility = if (micAllowed) View.GONE else View.VISIBLE
         binding.micButton.text = getString(R.string.mic_allow_button)
+        binding.micState.text = getString(if (micAllowed) R.string.mic_state_allowed else R.string.mic_state_needed)
+        binding.micState.setTextColor(getColor(if (micAllowed) R.color.settings_success else R.color.settings_warning))
 
         // The speech-pack controls only apply to Google's recognizer, so they show only when it's in use.
         val google = prefs.dictationEngine == DictationEngine.GOOGLE

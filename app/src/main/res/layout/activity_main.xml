@@ -35,12 +35,9 @@
         <com.google.android.material.card.MaterialCardView style="@style/Widget.Wirl.Settings.Card">
             <LinearLayout style="@style/Wirl_CardBody">
 
+                <TextView android:id="@+id/micState" android:layout_width="match_parent" android:layout_height="wrap_content" android:textSize="15sp" android:textColor="@color/settings_text"/>
+
                 <com.google.android.material.button.MaterialButton android:id="@+id/micButton" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:visibility="gone"/>
-
-                <com.google.android.material.button.MaterialButton android:id="@+id/testDictation" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/test_dictation"/>
-
-                <TextView android:id="@+id/testResults" style="@style/Wirl_Caption" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -166,6 +163,11 @@
                 <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/developerOptions" style="@style/Wirl_Row" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/developer_options_toggle"/>
 
                 <com.google.android.material.button.MaterialButton android:id="@+id/openDiagnostics" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/diagnostics_button"/>
+
+                <!-- Troubleshooting only: checks that Google's backup recognizers can open the microphone. -->
+                <com.google.android.material.button.MaterialButton android:id="@+id/testDictation" style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/test_dictation"/>
+
+                <TextView android:id="@+id/testResults" style="@style/Wirl_Caption" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/test_dictation_help"/>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

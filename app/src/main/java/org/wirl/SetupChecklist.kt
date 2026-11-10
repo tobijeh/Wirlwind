@@ -2,20 +2,21 @@ package org.wirl
 
 /** The first-run checklist. Each item is either done or not. */
 object SetupChecklist {
-    enum class Item { API_KEY, ACCESSIBILITY, MICROPHONE, BATTERY, DICTATION_TEST }
+    /** [SPEECH_MODEL]: the speech model chosen in Settings › Dictation is downloaded. */
+    enum class Item { API_KEY, ACCESSIBILITY, MICROPHONE, BATTERY, SPEECH_MODEL }
 
     fun status(
         apiKeySaved: Boolean,
         accessibilityOn: Boolean,
         microphoneAllowed: Boolean,
         batteryUnrestricted: Boolean,
-        dictationTestPassed: Boolean,
+        speechModelReady: Boolean,
     ): Map<Item, Boolean> = mapOf(
         Item.API_KEY to apiKeySaved,
         Item.ACCESSIBILITY to accessibilityOn,
         Item.MICROPHONE to microphoneAllowed,
         Item.BATTERY to batteryUnrestricted,
-        Item.DICTATION_TEST to dictationTestPassed,
+        Item.SPEECH_MODEL to speechModelReady,
     )
 
     fun allDone(status: Map<Item, Boolean>): Boolean = Item.entries.all { status[it] == true }
