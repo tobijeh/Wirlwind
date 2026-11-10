@@ -18,7 +18,7 @@ class CleanupPipeline(
     suspend fun clean(
         text: String,
         alternatives: List<String> = emptyList(),
-        cantonese: Boolean = false,
+        mode: CleanupMode = CleanupMode.STANDARD,
         onTiming: (ClaudeCallTiming) -> Unit = {},
     ): String = withContext(Dispatchers.IO) {
         val key = try {
@@ -28,23 +28,23 @@ class CleanupPipeline(
             throw CleanupException("Can't read your saved key. Paste it again in Wirl.")
         }
         if (key.isBlank()) throw CleanupException("Add your API key in Wirl")
-        val system = CleanupPrompt.build(styleNotes(), dictionary(), text, alternatives, cantonese)
+        val system = CleanupPrompt.build(styleNotes(), dictionary(), text, alternatives, mode)
         api.clean(key, system, text, onTiming)
     }
 }
 
 object ClaudeClient {
     /**
-     * Cleans [text]. Dictation passes its recognizer alternatives; hold-to-clean passes none. [cantonese] is set when the
-     * Cantonese model or Google's Cantonese recognizer produced the transcript.
+     * Cleans [text]. Dictation passes its recognizer alternatives; hold-to-clean passes none. [mode] is the dictation's
+     * language mode: Cantonese or Mandarin when that model, or Google's recognizer in that language, made the transcript.
      */
     suspend fun clean(
         context: Context,
         text: String,
         alternatives: List<String> = emptyList(),
-        cantonese: Boolean = false,
+        mode: CleanupMode = CleanupMode.STANDARD,
         onTiming: (ClaudeCallTiming) -> Unit = {},
-    ): String = pipeline(context).clean(text, alternatives, cantonese, onTiming)
+    ): String = pipeline(context).clean(text, alternatives, mode, onTiming)
 
     /** Opens the connection to Claude in the background, so the first dictation doesn't pay for the handshake. */
     fun warmUp() {

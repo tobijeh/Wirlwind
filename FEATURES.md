@@ -23,15 +23,16 @@ The Desktop column is taken from `FEATURES.md` in Wirl-Desktop. Update both file
 | | Pause other media during dictation | 🟢 always on | 🟢 |
 | | Start and stop tones | 🟢 | 🟢 |
 | | Slide to cancel while recording | ✅ logic / 🟢 gesture | ➖ (Esc cancels) |
-| **Models** | Fast (base.en q5_1), Accurate (small.en q5_1), Multilingual (base q5_1) | ✅ | ✅ |
+| **Models** | English · Fast (base.en q5_1), English · Accurate (small.en q5_1); Multilingual removed on Android | ✅ | ✅ (Multilingual still offered) |
 | | Cantonese (粵語): SenseVoice int8 via sherpa-onnx, language yue, use_itn on | ✅ download, settings / 🟢 on-device | ⬜ |
 | | Cantonese mode in cleanup (traditional characters, spoken Cantonese, English kept; `docs/cantonese.md`) | ✅ | ⬜ |
-| | Google fallback in Cantonese (Hong Kong), yue-Hant-HK | 🟢 | ➖ |
+| | Mandarin (普通话): same SenseVoice files, language zh, Mandarin mode in cleanup (simplified; `docs/mandarin.md`) | ✅ / 🟢 on-device | ⬜ |
+| | One model per language; Google's recognizer follows the model (en, yue-Hant-HK, zh-CN); no separate language picker | ✅ | ➖ |
 | | Cancel a model download (Resume continues it) | ✅ | ⬜ |
 | | Download from Hugging Face with resume and SHA-256 check | ✅ | ✅ |
 | | Downloads wait for Wi-Fi unless mobile data is allowed | ✅ | ➖ |
 | | Model kept loaded, freed after 10 min idle | ✅ | 🟢 kept loaded |
-| | Language picker | 🟢 | 🟢 |
+| | Language picker | ➖ (the model sets the language) | 🟢 |
 | **AI cleanup** | Claude Haiku 5.5, built-in prompt | ✅ adaptive thinking, low effort | ✅ thinking off |
 | | Personal style notes | ✅ | ✅ |
 | | Only plausibly matching dictionary entries sent | ✅ | ✅ |

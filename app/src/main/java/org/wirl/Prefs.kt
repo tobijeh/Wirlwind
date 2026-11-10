@@ -35,6 +35,17 @@ class Prefs(context: Context) {
             plain.edit().putString(KEY_DICTIONARY, DictionaryJson.encode(dictionary))
                 .putInt(KEY_SETTINGS_VERSION, 4).apply()
         }
+        if (plain.getInt(KEY_SETTINGS_VERSION, 1) < 5) {
+            // Version 5: the Multilingual model is gone. Its users move to English · Fast, and its file is deleted. The
+            // dictation language setting is no longer used: each model's language decides it.
+            val editor = plain.edit()
+            if (plain.getString(KEY_WHISPER_MODEL, null) == REMOVED_MULTILINGUAL) editor.putString(KEY_WHISPER_MODEL, WhisperModel.FAST.name)
+            editor.putInt(KEY_SETTINGS_VERSION, 5).apply()
+            runCatching {
+                java.io.File(app.filesDir, "whisper/$REMOVED_MULTILINGUAL_FILE").delete()
+                java.io.File(app.filesDir, "whisper/$REMOVED_MULTILINGUAL_FILE.part").delete()
+            }
+        }
     }
 
     /** Run the dictated text through the cleanup instructions. Off inserts exactly what was said. */
@@ -234,6 +245,9 @@ class Prefs(context: Context) {
         const val KEY_DICTATION_CLEANUP = "dictation_cleanup"
         const val KEY_DICTATION_ENGINE = "dictation_engine"
         const val KEY_WHISPER_MODEL = "whisper_model"
+        /** The removed Multilingual model's saved name and file (settings version 5). */
+        const val REMOVED_MULTILINGUAL = "MULTILINGUAL"
+        const val REMOVED_MULTILINGUAL_FILE = "ggml-base-q5_1.bin"
         const val KEY_ALLOW_MOBILE_DATA = "allow_mobile_data"
         const val KEY_DEVELOPER_OPTIONS = "developer_options"
         const val KEY_WHISPER_THREADS = "whisper_threads"

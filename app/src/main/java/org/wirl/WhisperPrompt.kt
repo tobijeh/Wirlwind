@@ -29,13 +29,6 @@ object WhisperPrompt {
     const val DEFAULT_THREADS = 4
     val THREAD_CHOICES = listOf(2, 3, 4, 5, 6, 8)
 
-    /**
-     * The language to ask Whisper for. The English models only do English. Multilingual uses the dictation language
-     * (for example "de" from "de-DE"), or detects it when there's none.
-     */
-    fun languageFor(model: WhisperModel, dictationTag: String): String {
-        if (model.engine == ModelEngine.SENSE_VOICE) return SenseVoice.LANGUAGE
-        if (!model.multilingual) return "en"
-        return dictationTag.substringBefore('-').lowercase().ifEmpty { "auto" }
-    }
+    /** The language the model is told: "en" for the English models, "yue" for Cantonese, "zh" for Mandarin. */
+    fun languageFor(model: WhisperModel): String = model.language.modelCode
 }

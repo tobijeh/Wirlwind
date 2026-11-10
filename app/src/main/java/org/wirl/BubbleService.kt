@@ -329,18 +329,13 @@ class BubbleService : AccessibilityService() {
     private var dictationLanguageTag = ""
 
     /**
-     * The language tag for recognizers: BCP-47 with a hyphen, e.g. "en-US". With the Cantonese model chosen, Google's
-     * recognizer (the fallback) uses Cantonese (Hong Kong).
+     * The language tag for Google's recognizer: BCP-47 with a hyphen, e.g. "en-US". It always follows the chosen model's
+     * language, so Google (the fallback, or chosen under Advanced) hears the same language the model would.
      */
-    private fun dictationLanguage(): String =
-        if (prefs.whisperModel == WhisperModel.CANTONESE) {
-            DictationLanguages.CANTONESE_HK
-        } else {
-            LanguageTag.format(DictationLanguage.resolve(prefs.dictationLanguage, Locale.getDefault().toLanguageTag()))
-        }
+    private fun dictationLanguage(): String = prefs.whisperModel.language.googleTag(Locale.getDefault().toLanguageTag())
 
-    /** Whether this dictation's transcript is Cantonese, so cleanup adds Cantonese mode. Set when dictation starts. */
-    private var dictationCantonese = false
+    /** This dictation's cleanup mode, from the chosen model's language. Set when dictation starts. */
+    private var dictationMode = CleanupMode.STANDARD
     private var busyRetries = 0
     private var attemptStart = 0L
     private val attemptTrail = mutableListOf<String>()
@@ -350,7 +345,7 @@ class BubbleService : AccessibilityService() {
         val key = node?.let { fieldKey(it) }
         val found = SpeechEngineAndroid.detect(this)
         dictationLanguageTag = dictationLanguage()
-        dictationCantonese = DictationLanguages.isCantonese(dictationLanguageTag)
+        dictationMode = prefs.whisperModel.language.cleanupMode
         val available = SpeechEngine.order(found, prefs.onDevicePackInstalled(dictationLanguageTag))
         val modelReady = WhisperApp.store(this).isReady(prefs.whisperModel.spec)
         val nativeLoads = ModelLibraries.loads(prefs.whisperModel)
@@ -437,7 +432,7 @@ class BubbleService : AccessibilityService() {
     private fun startWhisper(key: FieldKey): Boolean {
         val model = prefs.whisperModel
         val threads = prefs.whisperThreads
-        val language = WhisperPrompt.languageFor(model, dictationLanguageTag)
+        val language = WhisperPrompt.languageFor(model)
         // SenseVoice takes no prompt; dictionary terms reach it through Claude's cleanup instead.
         val prompt = if (model.engine == ModelEngine.SENSE_VOICE) {
             null
@@ -460,7 +455,7 @@ class BubbleService : AccessibilityService() {
         dictationDetails = if (model.engine == ModelEngine.SENSE_VOICE) {
             listOf(
                 "engine: sensevoice (sherpa-onnx), model: ${model.label} (${model.fileName.substringBefore(".tar")}), language: $language",
-                "threads: $threads, use_itn: ${SenseVoice.USE_ITN}, cleanup: Cantonese mode",
+                "threads: $threads, use_itn: ${SenseVoice.USE_ITN}, cleanup: ${model.language.cleanupMode.name.lowercase()} mode",
             ).joinToString("\n")
         } else {
             listOf(
@@ -483,7 +478,7 @@ class BubbleService : AccessibilityService() {
             load = {
                 val loaded = when (model.engine) {
                     ModelEngine.WHISPER -> WhisperTranscriber.load(store.fileFor(model.spec), threads)
-                    ModelEngine.SENSE_VOICE -> SenseVoiceTranscriber.load(store.dirFor(model.spec), threads)
+                    ModelEngine.SENSE_VOICE -> SenseVoiceTranscriber.load(store.dirFor(model.spec), threads, model.language.modelCode)
                 }
                 loaded ?: run {
                     // A file that won't load is damaged. Remove it, so later dictations use Google until it's downloaded again.
@@ -817,7 +812,7 @@ class BubbleService : AccessibilityService() {
             // Same cleanup as hold-to-clean, plus the recognizer's alternatives to resolve unclear words.
             val cleaned = if (aiEnabled) {
                 runCatching {
-                    ClaudeClient.clean(this@BubbleService, spoken, finish.alternatives, cantonese = dictationCantonese) { claude = it }
+                    ClaudeClient.clean(this@BubbleService, spoken, finish.alternatives, mode = dictationMode) { claude = it }
                 }
             } else {
                 null

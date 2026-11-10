@@ -1,0 +1,32 @@
+[
+  {
+    "id": "zh-english-mixed",
+    "input": "我们明天开会讨论下个 PROJECT 的 BUDGET",
+    "expected": "Simplified characters, standard Mandarin as spoken, English words kept in English in place (project, budget; normal casing is fine), full-width punctuation. Roughly: 我们明天开会讨论下个 project 的 budget。"
+  },
+  {
+    "id": "zh-fillers",
+    "input": "嗯 那个 我觉得 我觉得我们应该晚点再决定吧",
+    "expected": "Fillers 嗯 and 那个 removed, the repeated 我觉得 said once, the particle 吧 kept, simplified characters. Roughly: 我觉得我们应该晚点再决定吧。"
+  },
+  {
+    "id": "zh-no-cantonese",
+    "input": "他今天没空 说下个礼拜再聊",
+    "expected": "Kept as Mandarin in simplified characters, with no Cantonese words or characters (not 佢, 冇, 傾). Roughly: 他今天没空，说下个礼拜再聊。"
+  },
+  {
+    "id": "zh-self-correction",
+    "input": "我五点到 不对 六点到",
+    "expected": "Self-correction resolved: only six o'clock kept, the discarded five and 不对 removed, simplified characters. Roughly: 我六点到。"
+  },
+  {
+    "id": "zh-question",
+    "input": "你吃饭了吗",
+    "expected": "A question in simplified characters ending with a full-width question mark. Roughly: 你吃饭了吗？"
+  },
+  {
+    "id": "zh-traditional-input",
+    "input": "我們明天見",
+    "expected": "Converted to simplified characters. Roughly: 我们明天见。"
+  }
+]

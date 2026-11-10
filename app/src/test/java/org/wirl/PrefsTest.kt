@@ -66,6 +66,30 @@ class PrefsTest {
         assertNull(context.getSharedPreferences("wirl", Context.MODE_PRIVATE).getString(Prefs.KEY_PROMPT, null))
     }
 
+    @Test fun settingsVersionFiveMovesMultilingualToEnglishFastAndDeletesItsFile() {
+        val file = java.io.File(context.filesDir, "whisper/${Prefs.REMOVED_MULTILINGUAL_FILE}").apply {
+            parentFile?.mkdirs()
+            writeText("old model")
+        }
+        context.getSharedPreferences("wirl", Context.MODE_PRIVATE).edit()
+            .clear()
+            .putInt(Prefs.KEY_SETTINGS_VERSION, 4)
+            .putString(Prefs.KEY_WHISPER_MODEL, "MULTILINGUAL")
+            .commit()
+        assertEquals(WhisperModel.FAST, Prefs(context).whisperModel)
+        assertEquals("FAST", context.getSharedPreferences("wirl", Context.MODE_PRIVATE).getString(Prefs.KEY_WHISPER_MODEL, null))
+        assertFalse(file.exists())
+    }
+
+    @Test fun settingsVersionFiveKeepsOtherChoices() {
+        context.getSharedPreferences("wirl", Context.MODE_PRIVATE).edit()
+            .clear()
+            .putInt(Prefs.KEY_SETTINGS_VERSION, 4)
+            .putString(Prefs.KEY_WHISPER_MODEL, "ACCURATE")
+            .commit()
+        assertEquals(WhisperModel.ACCURATE, Prefs(context).whisperModel)
+    }
+
     @Test fun resetToDefaultsKeepsTheApiKeyAndDictionary() {
         Prefs(context).apply {
             bubbleSizeDp = 72

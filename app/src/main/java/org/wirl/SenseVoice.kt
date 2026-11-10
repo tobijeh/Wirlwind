@@ -7,19 +7,18 @@ import com.k2fsa.sherpa.onnx.OfflineSenseVoiceModelConfig
 import java.io.File
 
 /**
- * The Cantonese model: SenseVoice through sherpa-onnx. It works on finished audio, so it gets the same chunks Whisper does
+ * The Cantonese and Mandarin models: SenseVoice through sherpa-onnx, one set of files, told the language when it loads. It works on finished audio, so it gets the same chunks Whisper does
  * (cut at pauses by [PauseDetector], about 5 to 10 seconds each), one at a time, and [ChunkAssembler] joins the text in
  * spoken order. It runs in the app's process, like Whisper, through [ModelHolder].
  *
  * Settings, chosen by testing the model's own Cantonese recordings and Cantonese mixed with English:
- * - language "yue" rather than "auto": the same on mixed Cantonese and English (English words stay English, in place),
- *   and it can't misread a short Cantonese clip as Mandarin.
+ * - a fixed language ("yue" for Cantonese, "zh" for Mandarin) rather than "auto": the same on mixed Cantonese and
+ *   English (English words stay English, in place), and a short clip can't be read as the other language.
  * - use_itn on: the model's own number and punctuation formatting.
- * The model writes simplified characters without punctuation; Haiku's Cantonese mode ([CleanupPrompt.CANTONESE_MODE])
- * turns that into traditional characters with Hong Kong style punctuation.
+ * The model writes simplified characters without punctuation; Haiku's Cantonese or Mandarin mode in cleanup
+ * ([CleanupPrompt.CANTONESE_MODE], [CleanupPrompt.MANDARIN_MODE]) writes the finished text.
  */
 object SenseVoice {
-    const val LANGUAGE = "yue"
     const val USE_ITN = true
     const val SAMPLE_RATE = 16_000
 
@@ -52,12 +51,12 @@ class SenseVoiceTranscriber private constructor(private var recognizer: OfflineR
 
     companion object {
         /** Loads the model in [dir]. Returns null if it can't be loaded, which usually means the files are damaged. */
-        fun load(dir: File, threads: Int): SenseVoiceTranscriber? = runCatching {
+        fun load(dir: File, threads: Int, language: String): SenseVoiceTranscriber? = runCatching {
             val config = OfflineRecognizerConfig(
                 modelConfig = OfflineModelConfig(
                     senseVoice = OfflineSenseVoiceModelConfig(
                         model = File(dir, SenseVoice.MODEL_FILE).path,
-                        language = SenseVoice.LANGUAGE,
+                        language = language,
                         useInverseTextNormalization = SenseVoice.USE_ITN,
                     ),
                     tokens = File(dir, SenseVoice.TOKENS_FILE).path,
