@@ -91,7 +91,7 @@ class SetupActivity : AppCompatActivity() {
                 binding.syncSetupStatus.setCompoundDrawablesRelativeWithIntrinsicBounds(
                     if (paired) R.drawable.ic_done_setup else 0, 0, 0, 0,
                 )
-                binding.syncSetupStatus.setTextColor(getColor(R.color.ink))
+                binding.syncSetupStatus.setTextColor(getColor(R.color.settings_text))
                 binding.syncSetupDetail.text = SyncStatus.homePick(computers, DictionarySyncEngine.running.value)
                     ?.let { (computer, state) -> SyncStatusText.line(this, computer, state, System.currentTimeMillis()) }
                     ?: getString(R.string.setup_sync_desc)
@@ -133,7 +133,7 @@ class SetupActivity : AppCompatActivity() {
             0,
             0,
         )
-        view.setTextColor(getColor(R.color.ink))
+        view.setTextColor(getColor(R.color.settings_text))
     }
 
     private fun labelFor(item: SetupChecklist.Item): Int = when (item) {
