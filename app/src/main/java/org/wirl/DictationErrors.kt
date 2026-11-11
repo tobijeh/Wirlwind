@@ -112,6 +112,10 @@ object DiagnosticsLog {
     fun add(entries: List<DiagnosticEntry>, entry: DiagnosticEntry): List<DiagnosticEntry> =
         (entries + entry).takeLast(MAX_ENTRIES)
 
+    /** Adds [line] to the details of the entry made at [time], for things learned after it was saved. */
+    fun appendLine(entries: List<DiagnosticEntry>, time: Long, line: String): List<DiagnosticEntry> =
+        entries.map { e -> if (e.time == time) e.copy(details = if (e.details.isBlank()) line else e.details + "\n" + line) else e }
+
     /** Plain text for the Copy button: newest first. */
     fun copyText(entries: List<DiagnosticEntry>): String {
         if (entries.isEmpty()) return "No dictation attempts yet."

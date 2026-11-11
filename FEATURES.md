@@ -18,7 +18,8 @@ The Desktop column is taken from `FEATURES.md` in Wirl-Desktop. Update both file
 | | Dictionary terms as the Whisper initial prompt | ✅ | ✅ |
 | | Sound-tag and invented-phrase filtering | ✅ | ✅ |
 | | Silent discard (< 1 s, or no words) | ✅ | ✅ |
-| | Insert at the cursor via clipboard paste, clipboard restored | 🟢 | ✅ logic / 🟢 Windows |
+| | Insert at the cursor via clipboard paste, clipboard restored only if it still holds the dictation | ✅ logic / 🟢 | ✅ logic / 🟢 Windows |
+| | Paste check: settle, confirm the text appeared, paste once more, then set-text, then leave it on the clipboard | ✅ logic / 🟢 | ✅ logic / 🟢 Windows |
 | | Fallback when the field can't take text | 🟢 copies to clipboard | ✅ logic / 🟢 "Copied, press Ctrl+V" |
 | | Pause other media during dictation | 🟢 always on | 🟢 |
 | | Start and stop tones | 🟢 | 🟢 |

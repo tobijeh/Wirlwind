@@ -8,7 +8,10 @@ import android.os.Handler
 import android.os.Looper
 import android.view.accessibility.AccessibilityNodeInfo
 
-/** The system clipboard. Restores the user's clip a moment after pasting, so the target app has finished reading it. */
+/**
+ * The system clipboard. Restores the user's clip a moment after pasting, so the target app has finished reading it, and
+ * only while the clipboard still holds the dictation.
+ */
 class AndroidClipboard(context: Context) : ClipboardPort<ClipData> {
     private val manager = context.getSystemService(ClipboardManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
@@ -19,13 +22,19 @@ class AndroidClipboard(context: Context) : ClipboardPort<ClipData> {
         manager.setPrimaryClip(ClipData.newPlainText("Dictation", text))
     }
 
-    override fun restore(saved: ClipData?) {
+    override fun restoreIfStillOurs(saved: ClipData?, ours: String, done: (ClipboardRestore) -> Unit) {
         handler.postDelayed({
-            if (saved != null) {
-                manager.setPrimaryClip(saved)
-            } else if (Build.VERSION.SDK_INT >= 28) {
-                manager.clearPrimaryClip()
+            // Android 10+ may not let Wirl read the clipboard; then it can't tell, and puts the old clip back as before.
+            val now = runCatching { manager.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.text?.toString() }.getOrNull()
+            val decision = ClipboardRestore.decide(now, ours)
+            if (decision != ClipboardRestore.SKIPPED_CHANGED) {
+                if (saved != null) {
+                    manager.setPrimaryClip(saved)
+                } else if (Build.VERSION.SDK_INT >= 28) {
+                    manager.clearPrimaryClip()
+                }
             }
+            done(decision)
         }, RESTORE_DELAY_MS)
     }
 
@@ -39,6 +48,13 @@ class NodeField(private val node: AccessibilityNodeInfo) : FieldPort {
     override fun paste(): Boolean = node.performAction(AccessibilityNodeInfo.ACTION_PASTE)
 
     override fun setText(text: String, cursor: Int): Boolean = node.setFieldText(text, cursor)
+
+    /** Null when the node is gone (refresh fails) or the field has lost focus. */
+    override fun readText(): String? {
+        if (!runCatching { node.refresh() }.getOrDefault(false)) return null
+        if (!node.isFocused) return null
+        return node.text?.toString()
+    }
 }
 
 /** Replaces the whole field text and puts the cursor at [cursor]. */

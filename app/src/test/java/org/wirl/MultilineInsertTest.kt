@@ -16,6 +16,7 @@ class MultilineInsertTest {
             this.cursor = cursor
             return true
         }
+        override fun readText(): String = buffer
         var pasted = ""
     }
 
@@ -25,8 +26,8 @@ class MultilineInsertTest {
         override fun set(text: String) {
             contents = text
         }
-        override fun restore(saved: String?) {
-            contents = saved
+        override fun restoreIfStillOurs(saved: String?, ours: String, done: (ClipboardRestore) -> Unit) {
+            if (contents == ours) contents = saved
         }
     }
 
@@ -40,12 +41,12 @@ class MultilineInsertTest {
         val field = Field("", 0)
         val clip = Clip()
         val piece = TextInsertion.pieceFor(field.buffer, 0, 0, cleaned)
-        DictationPaste.insert(clip, object : FieldPort by field {
+        kotlinx.coroutines.runBlocking { DictationPaste.insert(clip, object : FieldPort by field {
             override fun paste(): Boolean {
                 field.pasted = piece
                 return field.paste()
             }
-        }, piece) { null }
+        }, piece, sleep = {}) { null } }
         assertEquals(cleaned, field.buffer)
         assertEquals("the field is not collapsed onto one line", 4, field.buffer.lines().size)
     }

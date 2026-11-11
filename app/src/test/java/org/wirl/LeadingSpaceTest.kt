@@ -15,6 +15,7 @@ class LeadingSpaceTest {
             this.cursor = cursor
             return true
         }
+        override fun readText(): String = buffer
         fun pasteAtCursor(piece: String) {
             buffer = buffer.substring(0, cursor) + piece + buffer.substring(cursor)
             cursor += piece.length
@@ -27,8 +28,8 @@ class LeadingSpaceTest {
         override fun set(text: String) {
             contents = text
         }
-        override fun restore(saved: String?) {
-            contents = saved
+        override fun restoreIfStillOurs(saved: String?, ours: String, done: (ClipboardRestore) -> Unit) {
+            if (contents == ours) contents = saved
         }
     }
 
@@ -51,13 +52,14 @@ class LeadingSpaceTest {
         val allowed = FieldState.mayAddLeadingSpace(reported, hint, contentDescription, showingHint, selectionStart, selectionEnd)
         val existing = FieldText.visible(reported, hint, showingHint, selectionStart, selectionEnd, contentDescription)
         val piece = TextInsertion.pieceFor(existing, selectionStart, selectionEnd, transcript, allowLeadingSpace = allowed)
-        DictationPaste.insert(Clip().also { it.set(piece) }, object : FieldPort {
+        kotlinx.coroutines.runBlocking { DictationPaste.insert(Clip().also { it.set(piece) }, object : FieldPort {
             override fun paste(): Boolean {
                 field.pasteAtCursor(piece)
                 return true
             }
             override fun setText(text: String, cursor: Int) = field.setText(text, cursor)
-        }, piece) { null }
+            override fun readText(): String = field.buffer
+        }, piece, sleep = {}) { null } }
         val after = field.buffer
         val corrected = LeadingWhitespaceGuard.correct(allowed, after)
         val guarded = corrected ?: after

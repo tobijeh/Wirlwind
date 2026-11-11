@@ -67,7 +67,9 @@ Wirl is a personal Android app (Kotlin, min SDK 26) that cleans up dictated text
 
 ## Insertion and field text
 
-- Dictated text is pasted at the cursor via the clipboard, and the user's clipboard is restored. Setting the whole field is only a fallback.
+- Dictated text is pasted at the cursor via the clipboard. Setting the whole field is only a fallback.
+- **Pastes are checked** (`DictationPaste.insert`, as on Wirl for Windows): after setting the clipboard it waits about 60 ms (`SETTLE_MS`) before `ACTION_PASTE`, then reads the field every 60 ms for about 1 s. Text changed: landed. Unchanged: paste once more and check again. Still unchanged: set-text (`TextInsertion.plan`), and if that fails the dictation stays on the clipboard with "Copied, paste it in". A field that can't be read (node gone, focus moved) is unchecked, as before, and is never pasted twice, so text can't be typed twice. The waits are coroutine `delay`s, never blocking the main thread. A field that refuses the paste goes straight to set-text.
+- **The user's clipboard** is put back 800 ms later only while the clipboard still holds the dictation (`ClipboardRestore`); something copied in between is left alone. When the clipboard can't be read, it's put back as before. It's never put back when the dictation didn't land. Diagnostics gets one "paste check:" line and one "clipboard:" line per dictation (the clipboard line is added to the entry when the restore runs). There's no "keep dictation on the clipboard" setting.
 - Placeholder text (hint or content description) is never treated as typed text (`FieldText`), and is never sent to Claude.
 - Dictation never adds a leading space to a field that was empty (blank, hint, content description, or cursor at 0), and a safety net removes any leading whitespace left in such a field after inserting (`LeadingWhitespaceGuard`).
 

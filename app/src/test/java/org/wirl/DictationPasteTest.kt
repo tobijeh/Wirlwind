@@ -1,6 +1,8 @@
 package org.wirl
 
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DictationPasteTest {
@@ -19,6 +21,8 @@ class DictationPasteTest {
             this.cursor = cursor
             return true
         }
+
+        override fun readText(): String = buffer
     }
 
     private class FakeClipboard(var contents: String?) : ClipboardPort<String> {
@@ -26,8 +30,14 @@ class DictationPasteTest {
         override fun set(text: String) {
             contents = text
         }
-        override fun restore(saved: String?) {
-            contents = saved
+        var restore: ClipboardRestore? = null
+
+        /** Runs at once rather than after a delay. */
+        override fun restoreIfStillOurs(saved: String?, ours: String, done: (ClipboardRestore) -> Unit) {
+            val decision = ClipboardRestore.decide(contents, ours)
+            if (decision != ClipboardRestore.SKIPPED_CHANGED) contents = saved
+            restore = decision
+            done(decision)
         }
     }
 
@@ -39,9 +49,9 @@ class DictationPasteTest {
         selectionStart: Int,
         selectionEnd: Int,
         transcript: String,
-    ): InsertMethod {
+    ): InsertMethod = runBlocking {
         val piece = TextInsertion.pieceFor(existing, selectionStart, selectionEnd, transcript)
-        return DictationPaste.insert(
+        DictationPaste.insert(
             clipboard,
             object : FieldPort {
                 override fun paste(): Boolean {
@@ -51,12 +61,138 @@ class DictationPasteTest {
                 }
 
                 override fun setText(text: String, cursor: Int) = field.setText(text, cursor)
+
+                override fun readText(): String = field.buffer
             },
             piece,
+            sleep = {},
         ) {
             val plan = TextInsertion.plan(existing, selectionStart, selectionEnd, transcript)
             plan.text to plan.cursor
+        }.method
+    }
+
+    /**
+     * A field for the paste check: [landsOn] says which paste attempts (1, 2, …) actually put text in. [readable] false
+     * means its text can't be read. [setTextWorks] false means set-text fails too.
+     */
+    private class CheckedField(
+        var text: String,
+        val landsOn: Set<Int>,
+        val readable: Boolean = true,
+        val setTextWorks: Boolean = true,
+        val clipboard: FakeClipboard,
+    ) : FieldPort {
+        var pastes = 0
+        var setTexts = 0
+
+        override fun paste(): Boolean {
+            pastes++
+            if (pastes in landsOn) text += clipboard.contents.orEmpty()
+            return true
         }
+
+        override fun setText(text: String, cursor: Int): Boolean {
+            setTexts++
+            if (setTextWorks) this.text = text
+            return setTextWorks
+        }
+
+        override fun readText(): String? = if (readable) text else null
+    }
+
+    private fun check(field: CheckedField, clipboard: FakeClipboard, piece: String = "Hi"): PasteResult = runBlocking {
+        var restore: ClipboardRestore? = null
+        DictationPaste.insert(clipboard, field, piece, onRestore = { restore = it }, sleep = {}) { field.text + piece to 0 }
+            .also { org.junit.Assert.assertNotNull("onRestore always says what happened to the clipboard", restore) }
+    }
+
+    @Test fun aPasteThatLandsIsSentOnce() {
+        val clipboard = FakeClipboard("mine")
+        val field = CheckedField("", landsOn = setOf(1), clipboard = clipboard)
+        val result = check(field, clipboard)
+        assertEquals(PasteResult(InsertMethod.PASTE, PasteCheck.LANDED), result)
+        assertEquals(1, field.pastes)
+        assertEquals("Hi", field.text)
+        assertEquals(ClipboardRestore.RESTORED, clipboard.restore)
+        assertEquals("mine", clipboard.contents)
+    }
+
+    @Test fun aMissedPasteIsSentOnceMore() {
+        val clipboard = FakeClipboard("mine")
+        val field = CheckedField("", landsOn = setOf(2), clipboard = clipboard)
+        val result = check(field, clipboard)
+        assertEquals(PasteResult(InsertMethod.PASTE, PasteCheck.LANDED_ON_RETRY), result)
+        assertEquals(2, field.pastes)
+        assertEquals("only once in the field", "Hi", field.text)
+        assertEquals(0, field.setTexts)
+    }
+
+    @Test fun aPasteThatNeverLandsFallsBackToSetText() {
+        val clipboard = FakeClipboard("mine")
+        val field = CheckedField("Hello ", landsOn = emptySet(), clipboard = clipboard)
+        val result = check(field, clipboard)
+        assertEquals(PasteResult(InsertMethod.SET_TEXT, PasteCheck.MISSED_SET_TEXT), result)
+        assertEquals("pasted twice, then set-text", 2, field.pastes)
+        assertEquals("Hello Hi", field.text)
+        assertEquals("it landed by set-text, so the clipboard is put back", "mine", clipboard.contents)
+    }
+
+    @Test fun whenSetTextFailsTooTheDictationStaysOnTheClipboard() {
+        val clipboard = FakeClipboard("mine")
+        val field = CheckedField("", landsOn = emptySet(), setTextWorks = false, clipboard = clipboard)
+        var restore: ClipboardRestore? = null
+        val result = runBlocking {
+            DictationPaste.insert(clipboard, field, "Hi", onRestore = { restore = it }, sleep = {}) { "Hi" to 2 }
+        }
+        assertEquals(PasteResult(InsertMethod.FAILED, PasteCheck.MISSED_CLIPBOARD), result)
+        assertEquals("not put back: the dictation stays for pasting by hand", "Hi", clipboard.contents)
+        assertEquals(ClipboardRestore.KEPT_NOT_LANDED, restore)
+        assertEquals(null, clipboard.restore)
+    }
+
+    @Test fun anUnreadableFieldIsNeverPastedTwice() {
+        val clipboard = FakeClipboard("mine")
+        val field = CheckedField("", landsOn = emptySet(), readable = false, clipboard = clipboard)
+        val result = check(field, clipboard)
+        assertEquals(PasteResult(InsertMethod.PASTE, PasteCheck.UNCHECKED), result)
+        assertEquals(1, field.pastes)
+        assertEquals(0, field.setTexts)
+    }
+
+    @Test fun theClipboardIsLeftAloneIfSomethingElseWasCopied() {
+        val clipboard = FakeClipboard("mine")
+        val field = object : FieldPort {
+            var text = ""
+            override fun paste(): Boolean {
+                text += clipboard.contents
+                // The user copies something else before the restore runs.
+                clipboard.contents = "copied later"
+                return true
+            }
+            override fun setText(text: String, cursor: Int) = true
+            override fun readText(): String = text
+        }
+        runBlocking { DictationPaste.insert(clipboard, field, "Hi", sleep = {}) { null } }
+        assertEquals("copied later", clipboard.contents)
+        assertEquals(ClipboardRestore.SKIPPED_CHANGED, clipboard.restore)
+    }
+
+    @Test fun anUnreadableClipboardIsPutBackAsBefore() {
+        assertEquals(ClipboardRestore.RESTORED_UNCHECKED, ClipboardRestore.decide(null, "Hi"))
+        assertEquals(ClipboardRestore.RESTORED, ClipboardRestore.decide("Hi", "Hi"))
+        assertEquals(ClipboardRestore.SKIPPED_CHANGED, ClipboardRestore.decide("other", "Hi"))
+    }
+
+    @Test fun theChecksWaitAboutASecondAndSettleFirst() {
+        val clipboard = FakeClipboard("mine")
+        val field = CheckedField("", landsOn = emptySet(), setTextWorks = false, clipboard = clipboard)
+        val sleeps = mutableListOf<Long>()
+        runBlocking { DictationPaste.insert(clipboard, field, "Hi", sleep = { sleeps += it }) { null } }
+        assertEquals("settles before pasting", DictationPaste.SETTLE_MS, sleeps.first())
+        val checks = sleeps.drop(1)
+        assertTrue("polled every ${DictationPaste.POLL_MS} ms", checks.all { it == DictationPaste.POLL_MS })
+        assertTrue("about a second of checks for each of the two pastes: ${checks.sum()}", checks.sum() in 2 * DictationPaste.CHECK_MS..2 * DictationPaste.CHECK_MS + 2 * DictationPaste.POLL_MS)
     }
 
     @Test fun dictationIntoAnEmptyWhatsAppStyleFieldInsertsOnlyTheDictatedText() {
@@ -122,22 +258,28 @@ class DictationPasteTest {
     }
 
     @Test fun setTextIsOnlyUsedWhenPasteFails() {
-        val field = FakeField(buffer = "", cursor = 0, reportedText = "")
         val clipboard = FakeClipboard("keep me")
         var fallbackUsed = false
 
-        val method = DictationPaste.insert(clipboard, object : FieldPort {
-            override fun paste(): Boolean = true
-            override fun setText(text: String, cursor: Int): Boolean {
+        val result = runBlocking {
+            DictationPaste.insert(clipboard, object : FieldPort {
+                var text = ""
+                override fun paste(): Boolean {
+                    text = "Hi"
+                    return true
+                }
+                override fun setText(text: String, cursor: Int): Boolean {
+                    fallbackUsed = true
+                    return true
+                }
+                override fun readText(): String = text
+            }, "Hi", sleep = {}) {
                 fallbackUsed = true
-                return true
+                "Hi" to 2
             }
-        }, "Hi") {
-            fallbackUsed = true
-            "Hi" to 2
         }
 
-        assertEquals(InsertMethod.PASTE, method)
+        assertEquals(InsertMethod.PASTE, result.method)
         assertEquals(false, fallbackUsed)
     }
 
