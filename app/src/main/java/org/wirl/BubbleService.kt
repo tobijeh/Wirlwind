@@ -974,6 +974,12 @@ class BubbleService : AccessibilityService() {
         prefs.diagnostics = DiagnosticsLog.add(prefs.diagnostics, entry)
     }
 
+    /** Adds a line to the Diagnostics entry made at [time], for something learned after it was saved. */
+    private fun appendDiagnostic(time: Long, line: String) {
+        val prefs = Prefs(this)
+        prefs.diagnostics = DiagnosticsLog.appendLine(prefs.diagnostics, time, line)
+    }
+
     /** Stops and destroys the current recognizer, if any. The next one is created by [useEngine]. */
     private fun releaseRecognizer() {
         handler.removeCallbacks(restoreRestartSound)
@@ -992,7 +998,7 @@ class BubbleService : AccessibilityService() {
      * Puts the dictated text in at the cursor by pasting, so the rest of the field is never rewritten. Only if pasting
      * fails is the whole field rewritten. If the field can't be edited, the text goes to the clipboard.
      */
-    private fun insertDictation(field: FieldKey?, text: String, transcript: String, cleaned: String?): Insertion {
+    private suspend fun insertDictation(field: FieldKey?, text: String, transcript: String, cleaned: String?): Insertion {
         val node = focusedEditable()
         val sameField = node != null && field != null &&
             node.packageName?.toString() == field.packageName &&
@@ -1023,10 +1029,22 @@ class BubbleService : AccessibilityService() {
         )
         // Read the field before pasting, so the diagnostics show what it held going in.
         val fieldBefore = fieldLines(node)
-        val method = DictationPaste.insert(AndroidClipboard(this), NodeField(node), piece) {
+        // The clipboard is put back after this attempt is logged, so its line is added to the entry then.
+        val entryTime = if (attemptStart == 0L) System.currentTimeMillis() else attemptStart
+        var clipboardLine: String? = null
+        val pasted = DictationPaste.insert(
+            AndroidClipboard(this),
+            NodeField(node),
+            piece,
+            onRestore = { restore ->
+                if (clipboardLine == null) clipboardLine = restore.line else appendDiagnostic(entryTime, restore.line)
+            },
+        ) {
             val plan = TextInsertion.plan(node.realText(), node.textSelectionStart, node.textSelectionEnd, text)
             plan.text to plan.cursor
         }
+        val method = pasted.method
+        // Didn't land anywhere: the dictation stays on the clipboard, for pasting by hand.
         if (method == InsertMethod.FAILED) copyToClipboard(text)
 
         // Safety net: wherever no leading space was allowed, remove any leading whitespace that got in anyway.
@@ -1042,7 +1060,10 @@ class BubbleService : AccessibilityService() {
         } else {
             "leading space added: no (${noLeadingSpaceReason(node, leadingSpaceAllowed)})"
         }
-        val report = stages(transcript, cleaned, piece, method.name, guard, leadingSpaceLine, fieldBefore, afterInsert)
+        val report = stages(transcript, cleaned, piece, method.name, guard, leadingSpaceLine, fieldBefore, afterInsert) +
+            "\n" + pasted.check.line + (clipboardLine?.let { "\n$it" } ?: "")
+        // Any clipboard line from now on arrives after the entry is saved, and is added to it.
+        clipboardLine = clipboardLine ?: ""
         return Insertion(method, report)
     }
 
