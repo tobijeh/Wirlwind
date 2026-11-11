@@ -390,6 +390,8 @@ class BubbleService : AccessibilityService() {
             return failWith(DictationError.from(e), null, e)
         }
         setState(State.RECORDING)
+        // With more than one language ticked, say which one this recording uses (EN, EN+, 粵 or 普).
+        QuickSwitch.startLabel(canQuickSwitch(), prefs.whisperModel)?.let { circle.flashTag(it) }
         val audio = getSystemService(AudioManager::class.java)
         pendingSoundLines = DictationSound.restoreLeftovers(AndroidStreamMuter(audio), prefs.mutedStreams)
         dictationSound = DictationSound(
@@ -455,7 +457,7 @@ class BubbleService : AccessibilityService() {
         circle.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
         discardDictation("switched to ${next.label} by swiping the bubble")
         prefs.whisperModel = next
-        circle.flashTag(next.tag)
+        // Recording starts again in the new model, and shows its label as it starts.
         onTap()
     }
 
@@ -1045,10 +1047,12 @@ class BubbleService : AccessibilityService() {
         // The clipboard is put back after this attempt is logged, so its line is added to the entry then.
         val entryTime = if (attemptStart == 0L) System.currentTimeMillis() else attemptStart
         var clipboardLine: String? = null
-        val pasted = DictationPaste.insert(
+        // Nothing typed (a placeholder counts as nothing): written straight in, without the clipboard.
+        val pasted = DictationPaste.insertIntoField(
             AndroidClipboard(this),
             NodeField(node),
             piece,
+            fieldEmpty = node.realText().isEmpty(),
             onRestore = { restore ->
                 if (clipboardLine == null) clipboardLine = restore.line else appendDiagnostic(entryTime, restore.line)
             },
@@ -1074,7 +1078,7 @@ class BubbleService : AccessibilityService() {
             "leading space added: no (${noLeadingSpaceReason(node, leadingSpaceAllowed)})"
         }
         val report = stages(transcript, cleaned, piece, method.name, guard, leadingSpaceLine, fieldBefore, afterInsert) +
-            "\n" + pasted.check.line + (clipboardLine?.let { "\n$it" } ?: "")
+            (pasted.note?.let { "\n$it" } ?: "") + "\n" + pasted.check.line + (clipboardLine?.let { "\n$it" } ?: "")
         // Any clipboard line from now on arrives after the entry is saved, and is added to it.
         clipboardLine = clipboardLine ?: ""
         return Insertion(method, report)

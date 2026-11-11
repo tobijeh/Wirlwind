@@ -284,6 +284,88 @@ class DictationPasteTest {
         assertEquals(false, fallbackUsed)
     }
 
+    /** A field for the direct write: [setTextLands] says whether set-text really changes it. */
+    private class DirectField(
+        var text: String,
+        val setTextWorks: Boolean = true,
+        val setTextLands: Boolean = true,
+        val readable: Boolean = true,
+        val clipboard: FakeClipboard,
+    ) : FieldPort {
+        var pastes = 0
+        var setTexts = 0
+
+        override fun paste(): Boolean {
+            pastes++
+            text += clipboard.contents.orEmpty()
+            return true
+        }
+
+        override fun setText(text: String, cursor: Int): Boolean {
+            setTexts++
+            if (setTextWorks && setTextLands) this.text = text
+            return setTextWorks
+        }
+
+        override fun readText(): String? = if (readable) text else null
+    }
+
+    private fun direct(field: DirectField, clipboard: FakeClipboard, empty: Boolean = true): Pair<PasteResult, ClipboardRestore?> = runBlocking {
+        var restore: ClipboardRestore? = null
+        val result = DictationPaste.insertIntoField(clipboard, field, "Hi there", empty, onRestore = { restore = it }, sleep = {}) {
+            "Hi there" to 8
+        }
+        result to restore
+    }
+
+    @Test fun anEmptyFieldIsWrittenStraightInWithoutTheClipboard() {
+        val clipboard = FakeClipboard("mine")
+        // WhatsApp reports its placeholder as the text; the field is still empty.
+        val field = DirectField("Message", clipboard = clipboard)
+        val (result, restore) = direct(field, clipboard)
+        assertEquals(PasteResult(InsertMethod.SET_TEXT, PasteCheck.DIRECT), result)
+        assertEquals("Hi there", field.text)
+        assertEquals("no paste, so no clipboard message", 0, field.pastes)
+        assertEquals("the clipboard is untouched", "mine", clipboard.contents)
+        assertEquals(ClipboardRestore.NOT_USED, restore)
+    }
+
+    @Test fun aWriteThatDoesntLandFallsBackToPasting() {
+        val clipboard = FakeClipboard("mine")
+        val field = DirectField("", setTextLands = false, clipboard = clipboard)
+        val (result, _) = direct(field, clipboard)
+        assertEquals(InsertMethod.PASTE, result.method)
+        assertEquals(PasteCheck.LANDED, result.check)
+        assertTrue(result.note!!.contains("didn't land, pasted instead"))
+        assertEquals("only once in the field", "Hi there", field.text)
+    }
+
+    @Test fun aFieldThatRefusesTheWriteIsPasted() {
+        val clipboard = FakeClipboard("mine")
+        val field = DirectField("", setTextWorks = false, clipboard = clipboard)
+        val (result, _) = direct(field, clipboard)
+        assertEquals(PasteResult(InsertMethod.PASTE, PasteCheck.LANDED, result.note), result)
+        assertEquals(1, field.pastes)
+    }
+
+    @Test fun anUnreadableFieldIsWrittenOnceAndNeverPasted() {
+        val clipboard = FakeClipboard("mine")
+        val field = DirectField("", readable = false, clipboard = clipboard)
+        val (result, _) = direct(field, clipboard)
+        assertEquals(PasteResult(InsertMethod.SET_TEXT, PasteCheck.DIRECT_UNCHECKED), result)
+        assertEquals(0, field.pastes)
+        assertEquals(1, field.setTexts)
+    }
+
+    @Test fun aFieldWithTextIsAlwaysPasted() {
+        val clipboard = FakeClipboard("mine")
+        val field = DirectField("Hello ", clipboard = clipboard)
+        val (result, _) = direct(field, clipboard, empty = false)
+        assertEquals(PasteResult(InsertMethod.PASTE, PasteCheck.LANDED), result)
+        assertEquals("never rewritten with set-text", 0, field.setTexts)
+        assertEquals("Hello Hi there", field.text)
+    }
+
     @Test fun pieceAddsSpacesOnlyWhereWordsWouldRunTogether() {
         assertEquals("Hi", TextInsertion.pieceFor("", 0, 0, " Hi "))
         assertEquals(" there", TextInsertion.pieceFor("Hello", 5, 5, "there"))

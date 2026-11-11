@@ -84,6 +84,12 @@ object QuickSwitch {
     /** The vertical movement must be this many times the sideways movement, so a slide to cancel never switches. */
     const val VERTICAL_RATIO = 1.5f
 
+    /**
+     * The label the bubble shows for about a second when recording starts (and after a swipe, which starts recording
+     * again): the model's tag when there's more than one model to switch between, otherwise nothing.
+     */
+    fun startLabel(canSwitch: Boolean, model: WhisperModel): String? = if (canSwitch) model.tag else null
+
     /** 1 for a swipe up (the next model), -1 for a swipe down (the previous one), or 0 when it isn't a swipe up or down yet. */
     fun stepFor(dxPx: Float, dyPx: Float, thresholdPx: Float): Int = when {
         kotlin.math.abs(dyPx) < thresholdPx || kotlin.math.abs(dyPx) <= kotlin.math.abs(dxPx) * VERTICAL_RATIO -> 0

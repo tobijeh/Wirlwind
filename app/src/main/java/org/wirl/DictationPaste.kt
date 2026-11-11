@@ -27,6 +27,8 @@ enum class InsertMethod { PASTE, SET_TEXT, FAILED }
 
 /** Whether the paste was seen to land, as one line for Diagnostics. */
 enum class PasteCheck(val line: String) {
+    DIRECT("paste check: written straight into the empty field, text appeared"),
+    DIRECT_UNCHECKED("paste check: written straight into the empty field, couldn't check this field"),
     LANDED("paste check: text appeared"),
     LANDED_ON_RETRY("paste check: first paste didn't land, second did"),
     MISSED_SET_TEXT("paste check: didn't land, used set-text"),
@@ -42,6 +44,7 @@ enum class ClipboardRestore(val line: String) {
     LEFT_UNREADABLE("clipboard: left as is, with the dictation on it (Android doesn't let Wirl read the clipboard, so it can't tell whether it's still the dictation)"),
     SKIPPED_CHANGED("clipboard: not put back, something else was copied after the paste"),
     KEPT_NOT_LANDED("clipboard: not put back, the dictation stays there because it didn't land"),
+    NOT_USED("clipboard: not used, so whatever was copied is untouched"),
     ;
 
     companion object {
@@ -61,7 +64,8 @@ enum class ClipboardRestore(val line: String) {
     }
 }
 
-data class PasteResult(val method: InsertMethod, val check: PasteCheck)
+/** [note] says when writing straight into the field was tried first and didn't land. */
+data class PasteResult(val method: InsertMethod, val check: PasteCheck, val note: String? = null)
 
 object DictationPaste {
     /** Wait after setting the clipboard, so the change has reached the system before the app reads it. */
@@ -72,6 +76,52 @@ object DictationPaste {
 
     /** How long to wait for a paste to show up before trying again. */
     const val CHECK_MS = 1000L
+
+    /**
+     * Puts the dictation into the field. An empty field (nothing typed; a placeholder counts as empty) gets the text
+     * written straight in with set-text, so the clipboard isn't touched and Android shows no "pasted from your
+     * clipboard" message. Then the field is read back: changed means it landed. Unreadable is unchecked and never
+     * tried again, so text can't be typed twice. Unchanged, or a field that refuses set-text, goes on to [insert].
+     *
+     * A field with text in it always goes to [insert]: set-text replaces the whole field, which could drop formatting
+     * or text the app doesn't report.
+     */
+    suspend fun <T> insertIntoField(
+        clipboard: ClipboardPort<T>,
+        field: FieldPort,
+        piece: String,
+        fieldEmpty: Boolean,
+        onRestore: (ClipboardRestore) -> Unit = {},
+        sleep: suspend (Long) -> Unit = { delay(it) },
+        plan: () -> Pair<String, Int>?,
+    ): PasteResult {
+        if (fieldEmpty) {
+            val target = plan()
+            if (target != null) {
+                val before = field.readText()
+                if (field.setText(target.first, target.second)) {
+                    if (before == null) {
+                        onRestore(ClipboardRestore.NOT_USED)
+                        return PasteResult(InsertMethod.SET_TEXT, PasteCheck.DIRECT_UNCHECKED)
+                    }
+                    when (waitForChange(field, before, sleep)) {
+                        Change.CHANGED -> {
+                            onRestore(ClipboardRestore.NOT_USED)
+                            return PasteResult(InsertMethod.SET_TEXT, PasteCheck.DIRECT)
+                        }
+                        Change.UNREADABLE -> {
+                            onRestore(ClipboardRestore.NOT_USED)
+                            return PasteResult(InsertMethod.SET_TEXT, PasteCheck.DIRECT_UNCHECKED)
+                        }
+                        Change.SAME -> Unit
+                    }
+                }
+            }
+            return insert(clipboard, field, piece, onRestore, sleep, plan)
+                .copy(note = "paste check: writing straight into the empty field didn't land, pasted instead")
+        }
+        return insert(clipboard, field, piece, onRestore, sleep, plan)
+    }
 
     /**
      * Inserts [piece] at the cursor by putting it on the clipboard and pasting, then checks it landed:

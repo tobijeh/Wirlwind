@@ -67,4 +67,10 @@ class ModelCycleTest {
         assertEquals("not far enough", 0, QuickSwitch.stepFor(0f, -60f, 80f))
         assertEquals("sideways is Slide to cancel", 0, QuickSwitch.stepFor(-120f, -100f, 80f))
     }
+
+    @Test fun recordingShowsTheLanguageOnlyWhenThereIsAChoice() {
+        assertEquals("粵", QuickSwitch.startLabel(canSwitch = true, model = CANTONESE))
+        assertEquals("EN+", QuickSwitch.startLabel(canSwitch = true, model = ACCURATE))
+        assertNull("one language: nothing to say", QuickSwitch.startLabel(canSwitch = false, model = FAST))
+    }
 }

@@ -20,11 +20,12 @@ The Desktop column is taken from `FEATURES.md` in Wirl-Desktop. Update both file
 | | Silent discard (< 1 s, or no words) | ✅ | ✅ |
 | | Insert at the cursor via clipboard paste, clipboard restored only if it still holds the dictation | ✅ logic / 🟢 | ✅ logic / 🟢 Windows |
 | | Paste check: settle, confirm the text appeared, paste once more, then set-text, then leave it on the clipboard | ✅ logic / 🟢 | ✅ logic / 🟢 Windows |
+| | Empty fields written straight in (no clipboard, no "pasted from clipboard" message), checked, paste as backup | ✅ logic / 🟢 | ➖ |
 | | Fallback when the field can't take text | 🟢 copies to clipboard | ✅ logic / 🟢 "Copied, press Ctrl+V" |
 | | Pause other media during dictation | 🟢 always on | 🟢 |
 | | Start and stop tones | 🟢 | 🟢 |
 | | Slide to cancel while recording | ✅ logic / 🟢 gesture | ➖ (Esc cancels) |
-| | Quick switch: tick several downloaded models, swipe the recording bubble up/down to switch (shows EN, EN+, 粵, 普); tapping a model never downloads it; a looping demo on the Dictation page shows the swipe | ✅ logic / 🟢 gesture | ➖ |
+| | Quick switch: tick several downloaded models, swipe the recording bubble up/down to switch (shows EN, EN+, 粵, 普); tapping a model never downloads it; a looping demo on the Dictation page shows the swipe; the label also shows when recording starts | ✅ logic / 🟢 gesture | ➖ |
 | **Models** | English · Fast (base.en q5_1), English · Accurate (small.en q5_1); Multilingual removed on Android | ✅ | ✅ (Multilingual still offered) |
 | | Cantonese (粵語): SenseVoice int8 via sherpa-onnx, language yue, use_itn on | ✅ download, settings / 🟢 on-device | ⬜ |
 | | Cantonese mode in cleanup (traditional characters, spoken Cantonese, English kept; `docs/cantonese.md`) | ✅ | ⬜ |
