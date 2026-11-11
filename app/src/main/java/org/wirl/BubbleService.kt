@@ -151,7 +151,8 @@ class BubbleService : AccessibilityService() {
         ownAudio.stop()
         endSound()
         whisper?.stop(System.currentTimeMillis()) {}
-        whisperModels?.unload()
+        whisperModels?.let { old -> runCatching { modelWork.execute { old.unload() } } }
+        modelWork.shutdown()
         scope.cancel()
         handler.removeCallbacksAndMessages(null)
         if (::prefs.isInitialized) prefs.plain.unregisterOnSharedPreferenceChangeListener(prefsListener)
@@ -238,7 +239,14 @@ class BubbleService : AccessibilityService() {
     /** The Whisper dictation in progress, if this one uses Whisper. */
     private var whisper: WhisperSession? = null
     private var whisperStopping = false
-    private var whisperModels: ModelHolder? = null
+    @Volatile private var whisperModels: ModelHolder? = null
+
+    /**
+     * Loads and frees speech models one at a time, off the main thread. Freeing a model waits for a load or transcription
+     * in progress (seconds for SenseVoice), so on the main thread a quick second swipe froze the screen. In order, only
+     * one model is in memory at a time.
+     */
+    private val modelWork = java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "wirl-model") }
     private var whisperModelKey: Pair<WhisperModel, Int>? = null
     /** Whisper's timing for the dictation in progress, set when its text is ready. */
     private var whisperTiming: WhisperTiming? = null
@@ -495,7 +503,7 @@ class BubbleService : AccessibilityService() {
     private fun modelHolderFor(model: WhisperModel, threads: Int): ModelHolder {
         val key = model to threads
         whisperModels?.takeIf { whisperModelKey == key }?.let { return it }
-        whisperModels?.unload()
+        whisperModels?.let { old -> runCatching { modelWork.execute { old.unload() } } }
         val store = WhisperApp.store(this)
         val holder = ModelHolder(
             load = {
@@ -511,7 +519,7 @@ class BubbleService : AccessibilityService() {
                 }
             },
             now = { System.currentTimeMillis() },
-            schedule = { delay, task -> handler.postDelayed(task, delay) },
+            schedule = { delay, task -> handler.postDelayed({ runCatching { modelWork.execute(task) } }, delay) },
         )
         whisperModels = holder
         whisperModelKey = key
@@ -524,7 +532,8 @@ class BubbleService : AccessibilityService() {
         if (!ModelLibraries.loads(model)) return
         if (!WhisperApp.store(this).isReady(model.spec)) return
         val holder = modelHolderFor(model, prefs.whisperThreads)
-        Thread({ holder.get() }, "wirl-model-preload").start()
+        // Skipped if the user has already swiped on to another model by the time its turn comes.
+        runCatching { modelWork.execute { if (whisperModels === holder) holder.get() } }
     }
 
     private fun stopDictation() {
