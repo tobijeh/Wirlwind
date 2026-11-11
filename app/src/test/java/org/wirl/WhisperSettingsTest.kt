@@ -33,9 +33,11 @@ class WhisperSettingsTest {
         assertFalse(prompt.contains("term200"))
     }
 
-    @Test fun theDefaultIsFourThreadsForThePerformanceCores() {
-        assertEquals(4, WhisperPrompt.DEFAULT_THREADS)
-        assertTrue(WhisperPrompt.THREAD_CHOICES.contains(4))
+    @Test fun itUsesFourThreadsForThePerformanceCores() {
+        assertEquals(4, WhisperPrompt.threadsFor(8))
+        assertEquals(4, WhisperPrompt.threadsFor(4))
+        assertEquals("one per core on a small phone", 2, WhisperPrompt.threadsFor(2))
+        assertEquals(1, WhisperPrompt.threadsFor(0))
     }
 
     @Test fun englishModelsAlwaysUseEnglish() {

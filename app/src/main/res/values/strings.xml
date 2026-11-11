@@ -141,8 +141,6 @@
     <string name="tile_needs_setup">Needs setup</string>
     <string name="developer_options_toggle">Developer options</string>
     <string name="diagnostics_button">Diagnostics</string>
-    <string name="whisper_threads_title">Whisper threads</string>
-    <string name="threads_label">%1$d threads</string>
     <string name="speech_engine_title">Speech engine</string>
     <string name="open_voice_settings">Open voice settings</string>
     <string name="diagnostics_title">Diagnostics</string>
