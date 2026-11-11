@@ -51,6 +51,10 @@ class Prefs(context: Context) {
             // the model on the phone.
             plain.edit().remove(KEY_DICTATION_ENGINE).putInt(KEY_SETTINGS_VERSION, 6).apply()
         }
+        if (plain.getInt(KEY_SETTINGS_VERSION, 1) < 7) {
+            // Version 7: the thread count is no longer a setting (it changed speed only). Forget any saved choice.
+            plain.edit().remove(KEY_WHISPER_THREADS).putInt(KEY_SETTINGS_VERSION, 7).apply()
+        }
     }
 
     /** Run the dictated text through the cleanup instructions. Off inserts exactly what was said. */
@@ -82,10 +86,9 @@ class Prefs(context: Context) {
         get() = plain.getBoolean(KEY_DEVELOPER_OPTIONS, false)
         set(value) = plain.edit().putBoolean(KEY_DEVELOPER_OPTIONS, value).apply()
 
-    /** Threads for Whisper transcription. Four matches the performance cores on most phones. */
-    var whisperThreads: Int
-        get() = plain.getInt(KEY_WHISPER_THREADS, WhisperPrompt.DEFAULT_THREADS).coerceIn(1, 8)
-        set(value) = plain.edit().putInt(KEY_WHISPER_THREADS, value.coerceIn(1, 8)).apply()
+    /** Threads for on-phone transcription: always four (fewer on a phone with fewer cores). Not a setting. */
+    val whisperThreads: Int
+        get() = WhisperPrompt.threadsFor(Runtime.getRuntime().availableProcessors())
 
     /** Whether model downloads may use mobile data. Off by default: downloads wait for Wi-Fi. */
     var allowMobileData: Boolean

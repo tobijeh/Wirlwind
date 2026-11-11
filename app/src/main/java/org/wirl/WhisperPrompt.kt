@@ -23,11 +23,14 @@ object WhisperPrompt {
     }
 
     /**
-     * Threads for transcription. Four is the number of performance cores on most phones. More than that reaches the
-     * efficiency cores, which slow the whole transcription down. Developer options can change it for testing.
+     * Threads for transcription, the same for every model. Four is the number of performance cores on most phones. More
+     * than that reaches the efficiency cores, which slow the whole transcription down. It changes speed only, never
+     * accuracy, so it isn't a setting.
      */
-    const val DEFAULT_THREADS = 4
-    val THREAD_CHOICES = listOf(2, 3, 4, 5, 6, 8)
+    const val MAX_THREADS = 4
+
+    /** Four threads, or one per core on a phone with fewer than four. */
+    fun threadsFor(cores: Int): Int = cores.coerceIn(1, MAX_THREADS)
 
     /** The language the model is told: "en" for the English models, "yue" for Cantonese, "zh" for Mandarin. */
     fun languageFor(model: WhisperModel): String = model.language.modelCode

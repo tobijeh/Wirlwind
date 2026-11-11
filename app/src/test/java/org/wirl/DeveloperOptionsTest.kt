@@ -82,12 +82,14 @@ class DeveloperOptionsTest {
         assertEquals("m24", entries.last().message)
     }
 
-    @Test fun theWhisperThreadCountDefaultsToFourAndIsKept() {
-        assertEquals(4, Prefs(context).whisperThreads)
-        Prefs(context).whisperThreads = 6
-        assertEquals(6, Prefs(context).whisperThreads)
-        Prefs(context).whisperThreads = 99
-        assertEquals("clamped to 8", 8, Prefs(context).whisperThreads)
-        Prefs(context).whisperThreads = 4
+    @Test fun theThreadCountIsNotASettingAnyMore() {
+        context.getSharedPreferences("wirl", Context.MODE_PRIVATE).edit()
+            .clear()
+            .putInt(Prefs.KEY_SETTINGS_VERSION, 6)
+            .putInt(Prefs.KEY_WHISPER_THREADS, 2)
+            .commit()
+        assertEquals("a saved 2 is forgotten", WhisperPrompt.threadsFor(Runtime.getRuntime().availableProcessors()), Prefs(context).whisperThreads)
+        assertFalse(context.getSharedPreferences("wirl", Context.MODE_PRIVATE).contains(Prefs.KEY_WHISPER_THREADS))
+        assertEquals("no threads menu", 0, context.resources.getIdentifier("threadsChoice", "id", context.packageName))
     }
 }
