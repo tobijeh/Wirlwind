@@ -24,10 +24,10 @@ class AndroidClipboard(context: Context) : ClipboardPort<ClipData> {
 
     override fun restoreIfStillOurs(saved: ClipData?, ours: String, done: (ClipboardRestore) -> Unit) {
         handler.postDelayed({
-            // Android 10+ may not let Wirl read the clipboard; then it can't tell, and puts the old clip back as before.
+            // Android 10+ may not let Wirl read the clipboard; then it's left alone rather than emptied.
             val now = runCatching { manager.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.text?.toString() }.getOrNull()
             val decision = ClipboardRestore.decide(now, ours)
-            if (decision != ClipboardRestore.SKIPPED_CHANGED) {
+            if (ClipboardRestore.putsBack(decision)) {
                 if (saved != null) {
                     manager.setPrimaryClip(saved)
                 } else if (Build.VERSION.SDK_INT >= 28) {
