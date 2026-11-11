@@ -1001,14 +1001,14 @@ class BubbleService : AccessibilityService() {
     private suspend fun insertDictation(field: FieldKey?, text: String, transcript: String, cleaned: String?): Insertion {
         val node = focusedEditable()
         val sameField = node != null && field != null &&
-            node.packageName?.toString() == field.packageName &&
-            node.viewIdResourceName == field.viewId
+            DictationPlacement.sameField(field, node.packageName?.toString(), node.viewIdResourceName)
         val placement = DictationPlacement.decide(node != null, sameField, node?.isEditable == true)
         if (placement == DictationPlacement.CLIPBOARD || node == null) {
             copyToClipboard(text)
+            val reason = DictationPlacement.clipboardReason(field, node != null, node?.packageName?.toString(), node?.viewIdResourceName)
             return Insertion(
                 InsertMethod.FAILED,
-                stages(transcript, cleaned, text, "clipboard (field unavailable)", "", "", fieldLines(node), null),
+                stages(transcript, cleaned, text, "clipboard (field unavailable: $reason)", "", "", fieldLines(node), null),
             )
         }
 

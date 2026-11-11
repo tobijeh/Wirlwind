@@ -35,7 +35,7 @@ class DictationPasteTest {
         /** Runs at once rather than after a delay. */
         override fun restoreIfStillOurs(saved: String?, ours: String, done: (ClipboardRestore) -> Unit) {
             val decision = ClipboardRestore.decide(contents, ours)
-            if (decision != ClipboardRestore.SKIPPED_CHANGED) contents = saved
+            if (ClipboardRestore.putsBack(decision)) contents = saved
             restore = decision
             done(decision)
         }
@@ -178,8 +178,9 @@ class DictationPasteTest {
         assertEquals(ClipboardRestore.SKIPPED_CHANGED, clipboard.restore)
     }
 
-    @Test fun anUnreadableClipboardIsPutBackAsBefore() {
-        assertEquals(ClipboardRestore.RESTORED_UNCHECKED, ClipboardRestore.decide(null, "Hi"))
+    @Test fun anUnreadableClipboardIsLeftAloneRatherThanEmptied() {
+        assertEquals(ClipboardRestore.LEFT_UNREADABLE, ClipboardRestore.decide(null, "Hi"))
+        assertEquals(false, ClipboardRestore.putsBack(ClipboardRestore.LEFT_UNREADABLE))
         assertEquals(ClipboardRestore.RESTORED, ClipboardRestore.decide("Hi", "Hi"))
         assertEquals(ClipboardRestore.SKIPPED_CHANGED, ClipboardRestore.decide("other", "Hi"))
     }

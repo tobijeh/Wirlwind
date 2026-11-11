@@ -39,18 +39,25 @@ enum class PasteCheck(val line: String) {
 /** What became of the user's own clipboard after a dictation, as one line for Diagnostics. */
 enum class ClipboardRestore(val line: String) {
     RESTORED("clipboard: put back what was there before"),
-    RESTORED_UNCHECKED("clipboard: put back what was there before (couldn't read it to check it was still the dictation)"),
+    LEFT_UNREADABLE("clipboard: left as is, with the dictation on it (Android doesn't let Wirl read the clipboard, so it can't tell whether it's still the dictation)"),
     SKIPPED_CHANGED("clipboard: not put back, something else was copied after the paste"),
     KEPT_NOT_LANDED("clipboard: not put back, the dictation stays there because it didn't land"),
     ;
 
     companion object {
-        /** Put the old clip back only while the clipboard still holds the dictation. [now] is null when it can't be read. */
+        /**
+         * Put the old clip back only while the clipboard is known to still hold the dictation. [now] is null when it can't
+         * be read (Android 10+ hides the clipboard from apps in the background). Then the old clip couldn't have been
+         * read either, so putting it "back" would only empty the clipboard: it's left alone, with the dictation on it.
+         */
         fun decide(now: String?, ours: String): ClipboardRestore = when (now) {
-            null -> RESTORED_UNCHECKED
+            null -> LEFT_UNREADABLE
             ours -> RESTORED
             else -> SKIPPED_CHANGED
         }
+
+        /** Whether [decision] means the old clip is put back. */
+        fun putsBack(decision: ClipboardRestore): Boolean = decision == RESTORED
     }
 }
 

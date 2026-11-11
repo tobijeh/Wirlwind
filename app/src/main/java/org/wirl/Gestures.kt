@@ -318,6 +318,21 @@ enum class DictationPlacement {
         /** Dictated text goes into the field it started in, if that field can still be edited. Otherwise the clipboard. */
         fun decide(fieldFound: Boolean, sameField: Boolean, editable: Boolean): DictationPlacement =
             if (fieldFound && sameField && editable) IN_FIELD else CLIPBOARD
+
+        /**
+         * Whether the focused field is the one dictation started in. Many fields (Compose apps, some search boxes) have
+         * no view id: the [FieldKey] stores that as "", so a missing id here counts as "" too.
+         */
+        fun sameField(start: FieldKey, packageName: String?, viewId: String?): Boolean =
+            start.packageName == packageName.orEmpty() && start.viewId == viewId.orEmpty()
+
+        /** Why the text went to the clipboard, for Diagnostics. */
+        fun clipboardReason(start: FieldKey?, fieldFound: Boolean, packageName: String?, viewId: String?): String = when {
+            !fieldFound -> "no editable field has focus"
+            start == null -> "no field when dictation started"
+            start.packageName != packageName.orEmpty() -> "a different app (${start.packageName} → ${packageName.orEmpty()})"
+            else -> "a different field (${start.viewId.ifEmpty { "no id" }} → ${viewId.orEmpty().ifEmpty { "no id" }})"
+        }
     }
 }
 
