@@ -38,6 +38,39 @@ object SpeechGate {
 
     private const val MAX_REMARK_WORDS = 12
 
+    /** How a chat reply to the speaker usually starts ("I can't…", "Sure, here's…"). A clean-up starts with the speaker's own words. */
+    private val CHAT_REPLY_START = Regex(
+        "^\\W*(?:i(?:'|’)(?:m|d|ll)\\b|i (?:am|would|will|can't|can’t|cannot|couldn't|couldn’t|could not|don't|don’t|do not|need)\\b|" +
+            "sorry|sure|certainly|of course|absolutely|happy to|unfortunately|" +
+            "here(?:'s|’s| is| are)|it (?:looks|seems|appears)|(?:could|can|would) you|please (?:paste|provide|share|send|include)|" +
+            "your (?:message|dictation|text|request)|the (?:dictation|transcript|text) (?:you|is|was|only|doesn't|does not))",
+        RegexOption.IGNORE_CASE,
+    )
+
+    private fun words(text: String): List<String> =
+        text.replace('’', '\'').split(Regex("[^\\p{L}\\p{N}']+"))
+            .map { it.trim('\'').lowercase() }
+            .filter { it.isNotEmpty() }
+
+    /**
+     * True when Claude answered the speaker instead of cleaning up what they said, which happens when the dictation is
+     * itself a request ("Rewrite this section. Here's what we have…" → "I can't rewrite it yet…"). A clean-up reuses
+     * mostly the speaker's own words; an answer brings in many new ones and usually starts like a chat reply. Not checked
+     * for Chinese (no spaces between words, and the cleanup changes the characters). Same rule as Wirl for Windows
+     * (`pipeline::is_reply_to_speaker`).
+     */
+    fun isReplyToSpeaker(heard: String, reply: String): Boolean {
+        val said = words(heard)
+        val back = words(reply)
+        val latin = heard.count { it in 'a'..'z' || it in 'A'..'Z' }
+        val letters = heard.count { it.isLetter() }
+        if (back.size < 6 || said.isEmpty() || latin * 2 < letters) return false
+        val saidSet = said.toSet()
+        val newShare = back.count { it !in saidSet }.toFloat() / back.size
+        val longer = back.size > said.size * 1.5f + 4f
+        return (CHAT_REPLY_START.containsMatchIn(reply.trim()) && newShare > 0.45f) || (longer && newShare > 0.65f)
+    }
+
     /**
      * The text to insert, or null when nothing should be inserted. A cleanup that replied with nothing, or with a remark
      * about the recording, inserts nothing. A cleanup that failed, or cleanup that is off, inserts the spoken words as they were.

@@ -28,6 +28,12 @@ class ProcessTextActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 val cleaned = ClaudeClient.clean(this@ProcessTextActivity, text)
+                if (SpeechGate.isReplyToSpeaker(text, cleaned)) {
+                    // Claude answered the text instead of cleaning it up: leave it as it is.
+                    toast(getString(R.string.answered_not_cleaned))
+                    finishCancelled()
+                    return@launch
+                }
                 if (readOnly) {
                     val clipboard = getSystemService(ClipboardManager::class.java)
                     clipboard.setPrimaryClip(ClipData.newPlainText("Cleaned text", cleaned))

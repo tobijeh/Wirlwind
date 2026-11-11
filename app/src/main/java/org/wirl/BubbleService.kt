@@ -300,6 +300,8 @@ class BubbleService : AccessibilityService() {
                         setState(State.IDLE)
                         toast(getString(R.string.no_speech_heard))
                     }
+                    // Claude answered the text instead of cleaning it up: leave the field as it is.
+                    SpeechGate.isReplyToSpeaker(original, cleaned) -> fail(getString(R.string.answered_not_cleaned))
                     target == null -> fail(getString(R.string.no_field))
                     target.realText() != original -> fail(getString(R.string.text_changed))
                     cleaned == original -> succeed()
@@ -868,6 +870,8 @@ class BubbleService : AccessibilityService() {
             val cleanupLine = when {
                 !aiEnabled -> "cleanup: off"
                 outcome is DictationOutcome.Cleaned -> "cleanup: ok"
+                outcome is DictationOutcome.Spoken ->
+                    "cleanup: Claude answered instead of cleaning up (it sounded like a request), so the spoken words were inserted. Reply: ${Visible.mark(cleaned?.getOrNull())}"
                 else -> "cleanup: failed (${(outcome as DictationOutcome.Raw).reason})"
             }
             val timing = DictationTiming(thermal = thermalNow(), whisper = whisperTiming, claude = claude, insertMs = insertMs, stopToInsertMs = stopToInsertMs())
