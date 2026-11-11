@@ -6,6 +6,9 @@ sealed interface DictationOutcome {
 
     data class Cleaned(override val text: String) : DictationOutcome
 
+    /** Claude answered the dictation instead of cleaning it up, so the spoken words are inserted (no message). */
+    data class Spoken(override val text: String) : DictationOutcome
+
     /** [reason] is set only when cleanup was on and failed. */
     data class Raw(override val text: String, val reason: String?) : DictationOutcome
 }
@@ -18,6 +21,7 @@ object DictationDecision {
     fun decide(raw: String, aiEnabled: Boolean, cleaned: Result<String>?): DictationOutcome {
         if (!aiEnabled || cleaned == null) return DictationOutcome.Raw(raw, reason = null)
         cleaned.onSuccess { text ->
+            if (text.isNotBlank() && SpeechGate.isReplyToSpeaker(raw, text)) return DictationOutcome.Spoken(raw)
             if (text.isNotBlank()) return DictationOutcome.Cleaned(text)
             return DictationOutcome.Raw(raw, reason = "empty response")
         }

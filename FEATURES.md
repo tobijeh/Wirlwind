@@ -40,6 +40,7 @@ The Desktop column is taken from `FEATURES.md` in Wirl-Desktop. Update both file
 | | Only plausibly matching dictionary entries sent | ✅ | ✅ |
 | | Keep-alive connection, warmed when recording starts | ✅ | 🟢 |
 | | Raw-text fallback with the reason | ✅ | ✅ |
+| | If Claude answers a dictation instead of cleaning it up (it sounded like a request), the spoken words are inserted; clean-up leaves the text as it was | ✅ | ✅ |
 | | Own API key in the OS secure store | 🟢 EncryptedSharedPreferences | 🟢 Windows Credential Manager |
 | | Cleanup quality set | ✅ 28 cases, runs in CI with a key | ✅ 26 cases, manual |
 | **Clean up existing text** | Hold the bubble to clean the field; hold again to undo | 🟢 | ➖ |
