@@ -67,4 +67,39 @@ class SpeechGateTest {
             assertFalse(cleaned, SpeechGate.isReplyToSpeaker(said, cleaned))
         }
     }
+
+    @Test fun aShortAnswerToASpokenQuestionIsCaught() {
+        // From the user's Diagnostics: the question was answered instead of typed.
+        assertTrue(SpeechGate.isReplyToSpeaker("What is the abbreviation for Italy?", "IT"))
+        assertTrue(SpeechGate.isReplyToSpeaker("What's the capital of France?", "Paris."))
+        assertTrue(SpeechGate.isReplyToSpeaker("Who wrote the play Hamlet?", "Shakespeare."))
+    }
+
+    @Test fun shortCleanupsAreNotMistakenForAnswers() {
+        // Self-correction, filler, commands and numbers keep the speaker's words.
+        assertFalse(SpeechGate.isReplyToSpeaker("Meet at three, no wait, four.", "Meet at four."))
+        assertFalse(SpeechGate.isReplyToSpeaker("Um so yeah I think so", "Yeah, I think so."))
+        assertFalse(SpeechGate.isReplyToSpeaker("three hundred and twenty five dollars", "$325"))
+        assertFalse(SpeechGate.isReplyToSpeaker("eggs milk bread make that a list", "- Eggs\n- Milk\n- Bread"))
+        assertFalse(SpeechGate.isReplyToSpeaker("I'll meat you at the bark", "I'll meet you at the park."))
+        // A dictionary spelling isn't a new word.
+        assertFalse(SpeechGate.isReplyToSpeaker("I love chat gee pee tee", "I love ChatGPT", listOf("ChatGPT")))
+        assertFalse("too few words said to judge", SpeechGate.isReplyToSpeaker("Sounds good", "Sounds good!"))
+    }
+
+    @Test fun shortCleanEnglishIsTypedAsHeard() {
+        assertTrue(SpeechGate.typesAsHeard("What is the abbreviation for Italy?", dictionaryHit = false))
+        assertTrue(SpeechGate.typesAsHeard("Sounds good, see you at six.", dictionaryHit = false))
+    }
+
+    @Test fun anythingCleanupWouldChangeStillGoesToCleanup() {
+        assertFalse("filler", SpeechGate.typesAsHeard("Um, see you at six.", dictionaryHit = false))
+        assertFalse("self-correction", SpeechGate.typesAsHeard("See you at six, no wait, seven.", dictionaryHit = false))
+        assertFalse("spoken command", SpeechGate.typesAsHeard("See you soon question mark", dictionaryHit = false))
+        assertFalse("new paragraph", SpeechGate.typesAsHeard("Thanks new paragraph Bye", dictionaryHit = false))
+        assertFalse("repeat", SpeechGate.typesAsHeard("I I think so.", dictionaryHit = false))
+        assertFalse("dictionary word", SpeechGate.typesAsHeard("Send it to Sela.", dictionaryHit = true))
+        assertFalse("too long", SpeechGate.typesAsHeard("One two three four five six seven eight nine ten eleven twelve thirteen.", dictionaryHit = false))
+        assertFalse("Chinese", SpeechGate.typesAsHeard("试下系咪真系得先", dictionaryHit = false))
+    }
 }

@@ -9,19 +9,27 @@ sealed interface DictationOutcome {
     /** Claude answered the dictation instead of cleaning it up, so the spoken words are inserted (no message). */
     data class Spoken(override val text: String) : DictationOutcome
 
+    /** Short and clean English, typed exactly as heard without cleanup ([SpeechGate.typesAsHeard]). */
+    data class AsHeard(override val text: String) : DictationOutcome
+
     /** [reason] is set only when cleanup was on and failed. */
     data class Raw(override val text: String, val reason: String?) : DictationOutcome
 }
 
 object DictationDecision {
     /**
-     * Cleanup is only skipped when the setting is off. A failed cleanup inserts the raw transcript and says why, so
-     * nothing said is lost and the user can tell it wasn't cleaned.
+     * The outcome once Claude has replied (short, clean dictations skip cleanup before this; see [SpeechGate.typesAsHeard]).
+     * A failed cleanup inserts the raw transcript and says why, so nothing said is lost and the user can tell it wasn't cleaned.
      */
-    fun decide(raw: String, aiEnabled: Boolean, cleaned: Result<String>?): DictationOutcome {
+    fun decide(
+        raw: String,
+        aiEnabled: Boolean,
+        cleaned: Result<String>?,
+        dictionaryTerms: List<String> = emptyList(),
+    ): DictationOutcome {
         if (!aiEnabled || cleaned == null) return DictationOutcome.Raw(raw, reason = null)
         cleaned.onSuccess { text ->
-            if (text.isNotBlank() && SpeechGate.isReplyToSpeaker(raw, text)) return DictationOutcome.Spoken(raw)
+            if (text.isNotBlank() && SpeechGate.isReplyToSpeaker(raw, text, dictionaryTerms)) return DictationOutcome.Spoken(raw)
             if (text.isNotBlank()) return DictationOutcome.Cleaned(text)
             return DictationOutcome.Raw(raw, reason = "empty response")
         }

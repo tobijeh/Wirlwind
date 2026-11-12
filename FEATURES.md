@@ -20,6 +20,7 @@ The Desktop column is taken from `FEATURES.md` in Wirl-Desktop. Update both file
 | | Silent discard (< 1 s, or no words) | ✅ | ✅ |
 | | Insert at the cursor via clipboard paste, clipboard restored only if it still holds the dictation | ✅ logic / 🟢 | ✅ logic / 🟢 Windows |
 | | Paste check: settle, confirm the text appeared, paste once more, then set-text, then leave it on the clipboard | ✅ logic / 🟢 | ✅ logic / 🟢 Windows |
+| | Short, clean English typed as heard (no cleanup); short answers to spoken questions caught | ✅ logic / 🟢 | ⏳ prompt ready |
 | | Empty fields written straight in (no clipboard, no "pasted from clipboard" message), checked, paste as backup | ✅ logic / 🟢 | ➖ |
 | | Fallback when the field can't take text | 🟢 copies to clipboard | ✅ logic / 🟢 "Copied, press Ctrl+V" |
 | | Pause other media during dictation | 🟢 always on | 🟢 |
