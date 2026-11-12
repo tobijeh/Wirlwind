@@ -59,16 +59,59 @@ object SpeechGate {
      * for Chinese (no spaces between words, and the cleanup changes the characters). Same rule as Wirl for Windows
      * (`pipeline::is_reply_to_speaker`).
      */
-    fun isReplyToSpeaker(heard: String, reply: String): Boolean {
+    fun isReplyToSpeaker(heard: String, reply: String, dictionaryTerms: List<String> = emptyList()): Boolean {
         val said = words(heard)
         val back = words(reply)
-        val latin = heard.count { it in 'a'..'z' || it in 'A'..'Z' }
-        val letters = heard.count { it.isLetter() }
-        if (back.size < 6 || said.isEmpty() || latin * 2 < letters) return false
-        val saidSet = said.toSet()
-        val newShare = back.count { it !in saidSet }.toFloat() / back.size
+        if (said.isEmpty() || back.isEmpty() || !mostlyLatin(heard)) return false
+        // Dictionary spellings and numbers written as digits are cleanup, not new words.
+        val saidSet = said.toSet() + dictionaryTerms.flatMap { words(it) }
+        val newShare = back.count { it !in saidSet && !it.all(Char::isDigit) }.toFloat() / back.size
+        // A short answer ("What is the abbreviation for Italy?" → "IT"): no longer than what was said, almost none of it said.
+        if (said.size >= SHORT_ANSWER_MIN_SAID && back.size <= said.size && newShare >= SHORT_ANSWER_NEW_SHARE) return true
+        if (back.size < 6) return false
         val longer = back.size > said.size * 1.5f + 4f
         return (CHAT_REPLY_START.containsMatchIn(reply.trim()) && newShare > 0.45f) || (longer && newShare > 0.65f)
+    }
+
+    /** Mostly Latin letters: English, maybe with a few other characters. Chinese isn't checked by these word rules. */
+    private fun mostlyLatin(text: String): Boolean {
+        val latin = text.count { it in 'a'..'z' || it in 'A'..'Z' }
+        val letters = text.count { it.isLetter() }
+        return letters > 0 && latin * 2 >= letters
+    }
+
+    /** A short answer must come back from at least this many words said. */
+    const val SHORT_ANSWER_MIN_SAID = 4
+
+    /** ...and at least this share of its words must be new. */
+    const val SHORT_ANSWER_NEW_SHARE = 0.8f
+
+    /** Up to this many words, a clean English dictation is typed as heard (see [typesAsHeard]). */
+    const val AS_HEARD_MAX_WORDS = 12
+
+    private val FILLERS = setOf("um", "umm", "uh", "uhh", "uhm", "erm", "er", "ah", "hmm", "mm", "mhm")
+
+    /** Self-corrections and spoken commands, which cleanup carries out. */
+    private val CLEANUP_CUES = Regex(
+        "\\b(?:i mean|no wait|wait|sorry|actually|or rather|scratch that|not that|delete that|undo that|new paragraph|" +
+            "new line|make (?:that|this|it) a list|put (?:that|this|it) in|question mark|exclamation (?:mark|point)|full stop|" +
+            "period|comma|colon|semicolon|all caps|bullet|in quotes|quote|unquote|dash|hyphen|open bracket|close bracket)\\b",
+        RegexOption.IGNORE_CASE,
+    )
+
+    /**
+     * True when a dictation is short and clean enough to type exactly as heard, without cleanup: English, at most
+     * [AS_HEARD_MAX_WORDS] words, no filler, no repeated word, no self-correction or spoken command, and no word a
+     * dictionary entry may correct ([dictionaryHit]). Cleanup adds little there and can answer a short question
+     * instead of typing it. Callers only use it for on-phone English transcripts, which come punctuated.
+     * Same rule as Wirl for Windows.
+     */
+    fun typesAsHeard(heard: String, dictionaryHit: Boolean): Boolean {
+        val said = words(heard)
+        if (said.isEmpty() || said.size > AS_HEARD_MAX_WORDS || !mostlyLatin(heard) || dictionaryHit) return false
+        if (said.any { it in FILLERS }) return false
+        if (said.zipWithNext().any { (a, b) -> a == b }) return false
+        return !CLEANUP_CUES.containsMatchIn(heard)
     }
 
     /**

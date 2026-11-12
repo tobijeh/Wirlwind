@@ -843,8 +843,13 @@ class BubbleService : AccessibilityService() {
             // Same pipeline as hold-to-clean. The text is inserted only after Claude has answered.
             val aiEnabled = prefs.dictationCleanup
             var claude: ClaudeCallTiming? = null
+            // Short, clean English from the on-phone model is typed as heard: cleanup adds little there, and can answer a
+            // short question instead of typing it. A word the dictionary may correct always goes through cleanup.
+            val dictionaryTerms = DictionaryMatcher.relevant(DictionaryRepository.get(this@BubbleService).entries.value, spoken).map { it.term }
+            val asHeard = aiEnabled && whisperTiming != null && dictationMode == CleanupMode.STANDARD &&
+                SpeechGate.typesAsHeard(spoken, dictionaryHit = dictionaryTerms.isNotEmpty())
             // Same cleanup as hold-to-clean, plus the recognizer's alternatives to resolve unclear words.
-            val cleaned = if (aiEnabled) {
+            val cleaned = if (aiEnabled && !asHeard) {
                 runCatching {
                     ClaudeClient.clean(this@BubbleService, spoken, finish.alternatives, mode = dictationMode) { claude = it }
                 }
@@ -865,7 +870,7 @@ class BubbleService : AccessibilityService() {
                 endQuietly()
                 return@launch
             }
-            val outcome = DictationDecision.decide(spoken, aiEnabled, cleaned)
+            val outcome = if (asHeard) DictationOutcome.AsHeard(spoken) else DictationDecision.decide(spoken, aiEnabled, cleaned, dictionaryTerms)
             val insertStart = System.nanoTime()
             val insertion = insertDictation(field, outcome.text, spoken, (outcome as? DictationOutcome.Cleaned)?.text)
             val insertMs = (System.nanoTime() - insertStart) / 1_000_000
@@ -881,6 +886,8 @@ class BubbleService : AccessibilityService() {
             val cleanupLine = when {
                 !aiEnabled -> "cleanup: off"
                 outcome is DictationOutcome.Cleaned -> "cleanup: ok"
+                outcome is DictationOutcome.AsHeard ->
+                    "cleanup: skipped, short and clean (${SpeechGate.AS_HEARD_MAX_WORDS} words or fewer, no filler, corrections, commands or dictionary words), typed as heard"
                 outcome is DictationOutcome.Spoken ->
                     "cleanup: Claude answered instead of cleaning up (it sounded like a request), so the spoken words were inserted. Reply: ${Visible.mark(cleaned?.getOrNull())}"
                 else -> "cleanup: failed (${(outcome as DictationOutcome.Raw).reason})"
